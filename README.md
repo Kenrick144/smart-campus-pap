@@ -1,36 +1,26 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Smart Campus
 
-## Getting Started
+Aplicação web responsiva para gestão escolar, assiduidade, QR Codes e equipamentos do campus.
 
-First, run the development server:
+## Executar
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra `http://localhost:3000`. A página inicial encaminha para o formulário de entrada.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Perfis e ecrãs
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+No ecrã de entrada, escolha um perfil de demonstração: Administrador, Professor, Aluno ou Funcionário. Introduza um email e uma palavra-passe não vazios para abrir esse espaço. Os perfis restringem a navegação entre áreas. A seleção de perfil no cabeçalho existe apenas para explorar as interfaces.
 
-## Learn More
+- **Administrador:** utilizadores, alunos, professores, turmas, disciplinas, presenças, horários, salas, computadores, QR Codes, relatórios, registos e configurações.
+- **Professor:** turmas, alunos, horários, marcação de presenças e relatórios.
+- **Aluno:** horário, leitura de QR, presenças pessoais e início de sessão num PC.
+- **Funcionário:** salas, horários e estado dos computadores.
+- **Estação de trabalho:** `/pc`; um professor ou funcionário pode gerar um código de seis dígitos em *Computadores*. O código expira ao fim de 15 minutos e liberta o equipamento quando a sessão termina.
 
-To learn more about Next.js, take a look at the following resources:
+Os dados de demonstração são guardados no `localStorage` do navegador: não são partilhados entre dispositivos nem constituem uma base de dados segura. Os emails e palavras-passe introduzidos não são autenticados nem guardados como credenciais. Esta versão **não está ligada ao Supabase** e não deve guardar dados pessoais reais. Antes de utilização institucional, é necessário configurar Supabase Auth, a base de dados relacional, políticas RLS por perfil e os segredos de ambiente; a seleção de perfil no cliente não substitui controlos de acesso no servidor.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Os códigos QR de exemplo são gerados na aplicação e podem ser lidos pela câmara do dispositivo. A leitura requer permissão do navegador e HTTPS (ou `localhost`); também é possível introduzir o código manualmente. A aplicação inclui um manifest e registo de service worker para instalação como PWA; este guarda apenas recursos estáticos e não torna os dados partilhados nem a aplicação totalmente disponível offline.
