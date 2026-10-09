@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { appendDemoLog, downloadCsv, readDemoRecords, readDemoValue, writeDemoRecords, writeDemoValue } from "./lib/demo-data";
+import { clearDemoSession, DemoRole, DemoSession, readDemoSession, writeDemoSession } from "./lib/session";
+import { readSupabaseRecords, writeSupabaseRecords } from "./lib/supabase-data";
+import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import { QrImage, QrScanner } from "./qr-tools";
 
-type Role = "Administrador" | "Professor" | "Aluno" | "Funcionário";
+type Role = DemoRole;
 type RecordItem = Record<string, string>;
-type DemoSession = { role: Role; name: string; email?: string };
 type TemporaryCode = { code: string; expiresAt: number };
 type CampusData = {
   students: RecordItem[];
@@ -187,8 +189,8 @@ export default function Workspace() {
     let active = true;
     queueMicrotask(() => {
       if (!active) return;
-      const session = readDemoValue<Partial<DemoSession>>("smartcampus_session", {});
-      if (!session.role || !roles.includes(session.role) || !session.name) {
+      const session = readDemoSession();
+      if (!session || !roles.includes(session.role) || !session.name) {
         if (pathname !== "/pc") {
           router.replace("/login");
           return;
@@ -202,7 +204,16 @@ export default function Workspace() {
         }
       }
 
-      setRecords(readDemoRecords(pathname, initialData[pathname] ?? []));
+      const fallbackRecords = readDemoRecords(pathname, initialData[pathname] ?? []);
+      if (isSupabaseConfigured && supabase) {
+        void readSupabaseRecords(pathname, fallbackRecords).then((loadedRecords) => {
+          if (!active) return;
+          setRecords(loadedRecords);
+        });
+      } else {
+        setRecords(fallbackRecords);
+      }
+
       setRecordsPath(pathname);
       setPcRecords(readDemoRecords("/computadores", initialData["/computadores"]));
       const storedCode = readDemoValue<TemporaryCode | null>("smartcampus_pc_access_code", null);
@@ -219,7 +230,14 @@ export default function Workspace() {
   }, [pathname, router]);
 
   useEffect(() => {
-    if (recordsPath === pathname) writeDemoRecords(pathname, records);
+    if (!recordsPath || recordsPath !== pathname) return;
+
+    if (isSupabaseConfigured && supabase) {
+      void writeSupabaseRecords(pathname, records);
+      return;
+    }
+
+    writeDemoRecords(pathname, records);
   }, [pathname, records, recordsPath]);
 
   const visibleNavigation = navigation.filter((item) => item.roles.includes(role));
@@ -231,10 +249,17 @@ export default function Workspace() {
     );
   }, [records, search, statusFilter]);
   function changeRole(nextRole: Role) {
-    setRole(nextRole);
     const demoName = nextRole === "Aluno" ? "João Silva" : nextRole === "Professor" ? "Maria Santos" : nextRole === "Funcionário" ? "Carlos Almeida" : "Alexandra Costa";
-    writeDemoValue("smartcampus_session", { role: nextRole, name: demoName });
+    const currentSession = readDemoSession() ?? { role, name: profileName, remember: true };
+    const nextSession: DemoSession = {
+      ...currentSession,
+      role: nextRole,
+      name: demoName,
+      email: currentSession.email ?? "",
+    };
+    setRole(nextRole);
     setProfileName(demoName);
+    writeDemoSession(nextSession);
     if (pathname !== "/pc" && !roleRoutes[nextRole].includes(pathname)) router.push(roleDestinations[nextRole]);
   }
 
@@ -384,7 +409,7 @@ export default function Workspace() {
   }
 
   function signOut() {
-    window.localStorage.removeItem("smartcampus_session");
+    clearDemoSession();
     router.push("/login");
   }
 
