@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { appendDemoLog, downloadCsv, readDemoRecords, readDemoValue, writeDemoRecords, writeDemoValue } from "./lib/demo-data";
-import { clearDemoSession, DemoRole, DemoSession, readDemoSession, writeDemoSession } from "./lib/session";
-import { readSupabaseRecords, writeSupabaseRecords } from "./lib/supabase-data";
-import { isSupabaseConfigured, supabase } from "./lib/supabase";
+import { downloadCsv, readDemoValue, writeDemoValue } from "./lib/demo-data";
+import { readSupabaseRecords, readLookupRecords, saveSupabaseRecord, deleteSupabaseRecord, updateSupabaseRecord } from "./lib/supabase-data";
+import { createClient } from "@/lib/supabase/client";
 import { QrImage, QrScanner } from "./qr-tools";
 
-type Role = DemoRole;
+type Role = "Aluno" | "Professor" | "Funcionário" | "Administrador Adjunto" | "Administrador";
 type RecordItem = Record<string, string>;
 type TemporaryCode = { code: string; expiresAt: number };
 type CampusData = {
@@ -24,20 +23,20 @@ type CampusData = {
 };
 
 const navigation = [
-  { label: "Painel principal", icon: "◫", href: "/dashboard", roles: ["Administrador", "Professor", "Funcionário"] },
-  { label: "Utilizadores", icon: "♙", href: "/utilizadores", roles: ["Administrador"] },
-  { label: "Alunos", icon: "◎", href: "/alunos", roles: ["Administrador", "Professor"] },
-  { label: "Professores", icon: "♧", href: "/professor", roles: ["Administrador"] },
-  { label: "Turmas", icon: "▤", href: "/turmas", roles: ["Administrador", "Professor"] },
-  { label: "Disciplinas", icon: "▧", href: "/disciplinas", roles: ["Administrador", "Professor"] },
-  { label: "Presenças", icon: "✓", href: "/presencas", roles: ["Administrador", "Professor"] },
-  { label: "Horários", icon: "◷", href: "/horarios", roles: ["Administrador", "Professor", "Aluno", "Funcionário"] },
-  { label: "Salas", icon: "⌂", href: "/salas", roles: ["Administrador", "Funcionário"] },
-  { label: "Computadores", icon: "▣", href: "/computadores", roles: ["Administrador", "Professor", "Funcionário"] },
-  { label: "Códigos QR", icon: "▦", href: "/qr-code", roles: ["Administrador", "Professor", "Aluno"] },
-  { label: "Relatórios", icon: "▥", href: "/relatorios", roles: ["Administrador", "Professor"] },
-  { label: "Registos de atividade", icon: "≡", href: "/logs", roles: ["Administrador"] },
-  { label: "Configurações", icon: "⚙", href: "/configuracoes", roles: ["Administrador"] },
+  { label: "Painel principal", icon: "◫", href: "/dashboard", roles: ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"] },
+  { label: "Utilizadores", icon: "♙", href: "/utilizadores", roles: ["Administrador", "Administrador Adjunto"] },
+  { label: "Alunos", icon: "◎", href: "/alunos", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
+  { label: "Professores", icon: "♧", href: "/professor", roles: ["Administrador", "Administrador Adjunto"] },
+  { label: "Turmas", icon: "▤", href: "/turmas", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
+  { label: "Disciplinas", icon: "▧", href: "/disciplinas", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
+  { label: "Presenças", icon: "✓", href: "/presencas", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno"] },
+  { label: "Horários", icon: "◷", href: "/horarios", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"] },
+  { label: "Salas", icon: "⌂", href: "/salas", roles: ["Administrador", "Administrador Adjunto", "Funcionário"] },
+  { label: "Computadores", icon: "▣", href: "/computadores", roles: ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"] },
+  { label: "Códigos QR", icon: "▦", href: "/qr-code", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno"] },
+  { label: "Relatórios", icon: "▥", href: "/relatorios", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
+  { label: "Registos de atividade", icon: "≡", href: "/logs", roles: ["Administrador", "Administrador Adjunto"] },
+  { label: "Configurações", icon: "⚙", href: "/configuracoes", roles: ["Administrador", "Administrador Adjunto"] },
 ];
 
 const pageNames: Record<string, string> = {
@@ -62,12 +61,13 @@ const pageNames: Record<string, string> = {
 
 const roleRoutes: Record<Role, string[]> = {
   Administrador: Object.keys(pageNames),
-  Professor: ["/dashboard", "/alunos", "/turmas", "/disciplinas", "/presencas", "/horarios", "/computadores", "/qr-code", "/relatorios"],
-  Aluno: ["/aluno", "/horarios", "/qr-code"],
-  Funcionário: ["/dashboard", "/funcionario", "/horarios", "/salas", "/computadores"],
+  "Administrador Adjunto": Object.keys(pageNames),
+  Professor: ["/dashboard", "/alunos", "/professor", "/turmas", "/disciplinas", "/presencas", "/horarios", "/salas", "/computadores", "/qr-code", "/relatorios", "/avaliacoes", "/notas", "/avisos", "/pc"],
+  Aluno: ["/aluno", "/horarios", "/qr-code", "/notas", "/avaliacoes", "/avisos", "/pc"],
+  "Funcionário": ["/dashboard", "/funcionario", "/horarios", "/salas", "/computadores", "/avisos", "/pc"],
 };
 
-const roles: Role[] = ["Administrador", "Professor", "Aluno", "Funcionário"];
+const roles: Role[] = ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"];
 
 const initialData: Record<string, RecordItem[]> = {
   "/utilizadores": [
@@ -131,36 +131,29 @@ const initialData: Record<string, RecordItem[]> = {
 };
 
 const formFields: Record<string, string[]> = {
-  "/utilizadores": ["nome", "email", "perfil", "palavra-passe", "estado"],
-  "/alunos": ["nome", "número", "turma", "data de nascimento", "email", "encarregado de educação", "contacto", "estado"],
-  "/professor": ["nome", "email", "contacto", "disciplina", "turmas", "estado"],
-  "/turmas": ["turma", "curso", "diretor de turma", "sala", "ano letivo", "alunos"],
-  "/disciplinas": ["disciplina", "código", "professor", "turmas", "carga horária", "estado"],
-  "/presencas": ["aluno", "turma", "disciplina", "data", "hora", "estado"],
-  "/horarios": ["dia", "hora de início", "hora de fim", "turma", "disciplina", "professor", "sala"],
-  "/salas": ["sala", "edifício", "capacidade", "equipamentos", "estado"],
-  "/computadores": ["computador", "sala", "estado"],
-  "/qr-code": ["código", "tipo", "destino", "estado"],
+  "/turmas": ["nome", "ano_letivo_id", "ano_escolar", "curso", "capacidade", "estado", "professor_coordenador_id"],
+  "/disciplinas": ["nome", "codigo", "departamento", "descricao", "estado"],
+  "/presencas": ["aluno_id", "horario_id", "data", "estado", "observacoes"],
+  "/horarios": ["turma_id", "disciplina_turma_id", "professor_id", "sala_id", "dia_semana", "hora_inicio", "hora_fim", "observacoes"],
+  "/salas": ["nome", "edificio", "piso", "capacidade", "tipo", "estado", "observacoes"],
+  "/computadores": ["sala_id", "tipo", "nome", "numero_inventario", "marca", "modelo", "numero_serie", "estado", "observacoes"],
 };
 
 const primaryActions: Record<string, string> = {
-  "/utilizadores": "Adicionar utilizador",
-  "/alunos": "Adicionar aluno",
-  "/professor": "Adicionar professor",
   "/turmas": "Criar turma",
   "/disciplinas": "Nova disciplina",
   "/presencas": "Registar presença",
   "/horarios": "Novo horário",
   "/salas": "Adicionar sala",
-  "/computadores": "Adicionar computador",
-  "/qr-code": "Criar código QR",
+  "/computadores": "Adicionar equipamento",
 };
 
 const roleDestinations: Record<Role, string> = {
   Administrador: "/dashboard",
+  "Administrador Adjunto": "/dashboard",
   Professor: "/dashboard",
   Aluno: "/aluno",
-  Funcionário: "/funcionario",
+  "Funcionário": "/funcionario",
 };
 
 export default function Workspace() {
