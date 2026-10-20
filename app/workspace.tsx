@@ -65,7 +65,7 @@ const roleRoutes: Record<Role, string[]> = {
   Administrador: Object.keys(pageNames),
   "Administrador Adjunto": Object.keys(pageNames),
   Professor: ["/dashboard", "/alunos", "/professor", "/turmas", "/disciplinas", "/presencas", "/horarios", "/salas", "/computadores", "/qr-code", "/relatorios", "/avaliacoes", "/notas", "/avisos", "/pc"],
-  Aluno: ["/aluno", "/horarios", "/qr-code", "/notas", "/avaliacoes", "/avisos", "/pc"],
+  Aluno: ["/aluno", "/horarios", "/presencas", "/qr-code", "/notas", "/avaliacoes", "/avisos", "/pc"],
   "Funcionário": ["/dashboard", "/funcionario", "/horarios", "/salas", "/computadores", "/avisos", "/pc"],
 };
 
