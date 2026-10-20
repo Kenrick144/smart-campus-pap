@@ -747,16 +747,93 @@ function FormInput({ field, initialValue }: { field: string; initialValue?: stri
   return <input {...common} placeholder={`Introduza ${field}`} />;
 }
 
-function StudentPage({ name, qrCode, setQrCode, onScan }: { name: string; qrCode: string; setQrCode: (value: string) => void; onScan: (value?: string) => void }) {
-  const attendance = readDemoRecords("/presencas", initialData["/presencas"]).filter((item) => item.aluno === name);
-  const available = readDemoRecords("/computadores", initialData["/computadores"]).filter((item) => item.estado === "Livre");
+function StudentPage({
+  name,
+  qrCode,
+  setQrCode,
+  onScan,
+  attendance,
+  computers,
+  timetable,
+}: {
+  name: string;
+  qrCode: string;
+  setQrCode: (value: string) => void;
+  onScan: (value?: string) => void;
+  attendance: RecordItem[];
+  computers: RecordItem[];
+  timetable: RecordItem[];
+}) {
+  const available = computers.filter((item) => item.estado === "Livre");
   const count = (state: string) => attendance.filter((item) => item.estado === state).length;
-  return <><PageHeading eyebrow="ESPAÇO DO ALUNO" title={`Olá, ${name.split(" ")[0]} 👋`} description="Tudo o que precisa para o seu dia no campus." /><section className="student-grid"><article className="surface student-qr"><div className="qr-visual" aria-hidden="true"><span>▦</span><i>✦</i></div><div className="eyebrow">ASSIDUIDADE</div><h2>Registe a sua presença</h2><p>Leia o código QR da sala ou introduza o código para confirmar a sua presença.</p><label className="input-label" htmlFor="qr-input">Código da sala</label><input id="qr-input" className="field-control" value={qrCode} onChange={(event) => setQrCode(event.target.value)} placeholder="Ex.: QR-S101" /><button className="button button-primary button-full" onClick={() => onScan()}>▦ Registar presença</button><QrScanner onDetected={onScan} /><small className="privacy-note">Os códigos QR ativos estão disponíveis na área de gestão.</small></article><div className="student-side"><article className="surface next-class"><div className="surface-heading"><div><h2>Próxima aula</h2><p>Consulte o seu horário semanal</p></div><Link href="/horarios" className="text-link">Ver horário ↗</Link></div><div className="next-class-main"><div className="time-badge">09:00<small>10:30</small></div><div><h3>Matemática</h3><p>Maria Santos · 12.º T1</p><p>⌂ Sala 101</p></div></div></article><article className="surface"><div className="surface-heading"><div><h2>Computadores disponíveis</h2><p>Disponibilidade no campus</p></div><Link href="/pc" className="text-link">Usar PC ↗</Link></div><div className="available-pcs">{available.slice(0, 3).map((computer) => <span key={computer.computador}><i className="legend-dot green-dot" />{computer.computador} · {computer.sala}<b>Disponível</b></span>)}{available.length === 0 && <span className="muted">Não existem computadores livres.</span>}</div></article><article className="surface student-records" id="student-records"><div className="surface-heading"><div><h2>As minhas presenças</h2><p>{attendance.length} registos associados à sua conta</p></div></div><div className="attendance-stats"><span><strong>{count("Presente")}</strong><small>Presentes</small></span><span><strong>{count("Atrasado")}</strong><small>Atrasados</small></span><span><strong>{count("Ausente")}</strong><small>Ausentes</small></span></div><div className="activity-list">{attendance.slice(0, 5).map((item, index) => <div className="activity-row" key={`${item.data}-${item.hora}-${index}`}><span className="activity-copy"><strong>{item.disciplina} · {item.turma}</strong><small>{item.data} · {item.sala}</small></span><span className={`pill ${statusTone(item.estado)}`}>{item.estado}</span></div>)}</div></article></div></section></>;
+  const nextLesson = timetable[0];
+
+  return <>
+    <PageHeading eyebrow="ESPAÇO DO ALUNO" title={"Olá, " + name.split(" ")[0] + " 👋"} description="Consulta os horários e as presenças associados à tua conta." />
+    <section className="student-grid">
+      <article className="surface student-qr">
+        <div className="qr-visual" aria-hidden="true"><span>▦</span><i>✦</i></div>
+        <div className="eyebrow">ASSIDUIDADE</div>
+        <h2>Regista a tua presença</h2>
+        <p>Lê o código QR da sala durante uma aula que esteja no teu horário.</p>
+        <label className="input-label" htmlFor="qr-input">Código da sala</label>
+        <input id="qr-input" className="field-control" value={qrCode} onChange={(event) => setQrCode(event.target.value)} placeholder="Ler ou introduzir o código da sala" />
+        <button className="button button-primary button-full" onClick={() => onScan()}>▦ Registar presença</button>
+        <QrScanner onDetected={onScan} />
+        <small className="privacy-note">A presença só é aceite para uma sala e horário válidos para a tua conta.</small>
+      </article>
+
+      <div className="student-side">
+        <article className="surface next-class">
+          <div className="surface-heading"><div><h2>Próxima aula</h2><p>Horário associado à tua conta</p></div><Link href="/horarios" className="text-link">Ver horário ↗</Link></div>
+          {nextLesson ? <div className="next-class-main"><div className="time-badge">{nextLesson.hora.split("–")[0].trim()}<small>{nextLesson.hora.split("–")[1]?.trim() ?? ""}</small></div><div><h3>{nextLesson.disciplina || "Aula"}</h3><p>{nextLesson.professor || "Professor não definido"} · {nextLesson.turma || "Turma"}</p><p>⌂ {nextLesson.sala || "Sala não definida"}</p></div></div> : <p className="muted">Ainda não há horários associados à tua conta.</p>}
+        </article>
+
+        <article className="surface">
+          <div className="surface-heading"><div><h2>Computadores operacionais</h2><p>Equipamentos operacionais registados no campus</p></div><Link href="/pc" className="text-link">Ver estação ↗</Link></div>
+          <div className="available-pcs">{available.slice(0, 3).map((computer) => <span key={computer.id ?? computer.computador}><i className="legend-dot green-dot" />{computer.computador} · {computer.sala}<b>Operacional</b></span>)}{available.length === 0 && <span className="muted">Não existem computadores operacionais disponíveis para consulta.</span>}</div>
+        </article>
+
+        <article className="surface student-records" id="student-records">
+          <div className="surface-heading"><div><h2>As minhas presenças</h2><p>{attendance.length} registos associados à tua conta</p></div></div>
+          <div className="attendance-stats"><span><strong>{count("Presente")}</strong><small>Presentes</small></span><span><strong>{count("Atrasado")}</strong><small>Atrasos</small></span><span><strong>{count("Ausente")}</strong><small>Faltas</small></span></div>
+          <div className="activity-list">{attendance.slice(0, 5).map((item, index) => <div className="activity-row" key={item.id ?? (item.data + "-" + index)}><span className="activity-copy"><strong>{item.disciplina} · {item.turma}</strong><small>{item.data} · {item.sala}</small></span><span className={"pill " + statusTone(item.estado)}>{item.estado}</span></div>)}</div>
+          {attendance.length === 0 && <p className="muted">Ainda não há presenças associadas à tua conta.</p>}
+        </article>
+      </div>
+    </section>
+  </>;
 }
 
-function StaffPage() {
-  return <><PageHeading eyebrow="OPERAÇÕES DO CAMPUS" title="Bom dia, Carlos 👋" description="Acompanhe salas, horários e equipamentos do campus." action={<Link className="button button-primary" href="/salas">⌂ Gerir salas</Link>} /><section className="stat-grid stat-grid-three"><article className="stat-card"><div className="stat-icon green">⌂</div><div className="stat-meta">Salas disponíveis</div><strong>18<span className="stat-suffix"> / 24</span></strong><small>6 salas ocupadas agora</small></article><article className="stat-card"><div className="stat-icon violet">▣</div><div className="stat-meta">Computadores livres</div><strong>35<span className="stat-suffix"> / 40</span></strong><small>3 em utilização · 1 manutenção</small></article><article className="stat-card"><div className="stat-icon amber">◷</div><div className="stat-meta">Próxima aula</div><strong>10:45</strong><small>Informática · Sala 202</small></article></section><section className="dashboard-grid staff-grid"><article className="surface"><div className="surface-heading"><div><h2>Estado dos computadores</h2><p>Monitorização por sala</p></div><Link className="text-link" href="/computadores">Ver todos ↗</Link></div><div className="mini-pc-list">{["PC-01|Sala 101|Livre","PC-02|Sala 101|Ocupado","PC-03|Sala 101|Livre","PC-04|Sala 202|Reservado","PC-05|Sala 202|Manutenção"].map((line) => { const [pc, room, state] = line.split("|"); return <div key={pc}><strong>{pc}</strong><span>{room}</span><b className={`pill ${statusTone(state)}`}>{state}</b></div>; })}</div></article><article className="surface"><div className="surface-heading"><div><h2>Salas em utilização</h2><p>Ocupação atual no campus</p></div><Link className="text-link" href="/salas">Gerir salas ↗</Link></div><div className="room-occupancy"><div><span className="room-label">Sala 101</span><strong>Matemática · 12.º T1</strong><span className="pill pill-amber">Em aula</span></div><div><span className="room-label">Sala 202</span><strong>Informática · 11.º T2</strong><span className="pill pill-amber">Em aula</span></div><div><span className="room-label">Sala 105</span><strong>Sem aulas agendadas</strong><span className="pill pill-green">Disponível</span></div></div></article></section></>;
+
+function StaffPage({ profileName, campusData }: { profileName: string; campusData: CampusData }) {
+  const activeRooms = campusData.rooms.filter((room) => room.estado === "Ativa");
+  const operationalComputers = campusData.computers.filter((computer) => computer.estado === "Livre");
+  const nextLesson = campusData.timetable[0];
+
+  return <>
+    <PageHeading eyebrow="OPERAÇÕES DO CAMPUS" title={"Olá, " + profileName.split(" ")[0]} description="Consulta as salas, os horários e os equipamentos visíveis para a tua função." action={<Link className="button button-primary" href="/salas">⌂ Consultar salas</Link>} />
+    <section className="stat-grid stat-grid-three">
+      <article className="stat-card"><div className="stat-icon green">⌂</div><div className="stat-meta">Salas ativas</div><strong>{activeRooms.length}<span className="stat-suffix"> / {campusData.rooms.length}</span></strong><small>Dados do inventário</small></article>
+      <article className="stat-card"><div className="stat-icon violet">▣</div><div className="stat-meta">Equipamentos operacionais</div><strong>{operationalComputers.length}<span className="stat-suffix"> / {campusData.computers.length}</span></strong><small>Estado do inventário</small></article>
+      <article className="stat-card"><div className="stat-icon amber">◷</div><div className="stat-meta">Horários visíveis</div><strong>{campusData.timetable.length}</strong><small>Registos associados</small></article>
+    </section>
+    <section className="dashboard-grid staff-grid">
+      <article className="surface"><div className="surface-heading"><div><h2>Estado dos equipamentos</h2><p>Equipamentos registados no campus</p></div><Link className="text-link" href="/computadores">Ver todos ↗</Link></div>
+        <div className="mini-pc-list">{campusData.computers.slice(0, 8).map((computer, index) => <div key={computer.id ?? index}><strong>{computer.computador}</strong><span>{computer.sala || "Sala não definida"}</span><b className={"pill " + statusTone(computer.estado)}>{computer.estado}</b></div>)}</div>
+        {campusData.computers.length === 0 && <p className="muted">Não existem equipamentos para apresentar.</p>}
+      </article>
+      <article className="surface"><div className="surface-heading"><div><h2>Salas ativas</h2><p>Inventário dos espaços disponíveis</p></div><Link className="text-link" href="/salas">Consultar salas ↗</Link></div>
+        <div className="room-occupancy">{activeRooms.slice(0, 6).map((room, index) => <div key={room.id ?? index}><span className="room-label">{room.sala}</span><strong>{room.tipo || "Sala" } · Capacidade {room.capacidade || "—"}</strong><span className="pill pill-green">Ativa</span></div>)}</div>
+        {activeRooms.length === 0 && <p className="muted">Não existem salas ativas para apresentar.</p>}
+      </article>
+      <article className="surface"><div className="surface-heading"><div><h2>Próxima aula no horário</h2><p>Horários visíveis para a tua conta</p></div><Link className="text-link" href="/horarios">Ver horários ↗</Link></div>
+        {nextLesson ? <div className="schedule-list"><Schedule time={nextLesson.hora} subject={nextLesson.disciplina} className={nextLesson.turma} room={nextLesson.sala} tone="blue" /></div> : <p className="muted">Não existem horários disponíveis para apresentar.</p>}
+      </article>
+    </section>
+  </>;
 }
+
 
 function PcPage({ code, setCode, onStart, onEnd, computers, activeComputer }: { code: string; setCode: (value: string) => void; onStart: () => void; onEnd: () => void; computers: RecordItem[]; activeComputer: string }) {
   const active = computers.find((computer) => computer.computador === activeComputer);
@@ -776,15 +853,14 @@ function dateIsInPeriod(value: string, period: string) {
   return date >= start && date < end;
 }
 
-function ReportsPage({ period, setPeriod, attendance, computers }: { period: string; setPeriod: (value: string) => void; attendance: RecordItem[]; computers: RecordItem[] }) {
+function ReportsPage({ period, setPeriod, attendance, computers, logs }: { period: string; setPeriod: (value: string) => void; attendance: RecordItem[]; computers: RecordItem[]; logs: RecordItem[] }) {
   const [selectedClass, setSelectedClass] = useState("Todas as turmas");
   const [reportType, setReportType] = useState("Resumo geral");
-  const logs = readDemoRecords("/logs", initialData["/logs"]);
   const reportAttendance = attendance.filter((item) =>
     dateIsInPeriod(item.data, period) && (selectedClass === "Todas as turmas" || item.turma === selectedClass),
   );
-  const periodLogs = logs.filter((item) => dateIsInPeriod(item.data.split(" ")[0], period));
-  const pcLogs = periodLogs.filter((item) => item.atividade.toLocaleLowerCase().includes("pc"));
+  const periodLogs = logs.filter((item) => dateIsInPeriod(item.data, period));
+  const pcLogs = periodLogs.filter((item) => item.atividade.toLocaleLowerCase().includes("pc") || item.atividade.toLocaleLowerCase().includes("equipamento"));
   const qrLogs = periodLogs.filter((item) => item.atividade.toLocaleLowerCase().includes("qr") || item.atividade.toLocaleLowerCase().includes("presença"));
   const classes = [...new Set(attendance.map((item) => item.turma).filter(Boolean))];
   const grouped = reportAttendance.reduce<Record<string, { present: number; total: number }>>((result, item) => {
@@ -795,8 +871,26 @@ function ReportsPage({ period, setPeriod, attendance, computers }: { period: str
     return result;
   }, {});
   const exportRows = reportType === "Presenças" ? reportAttendance : reportType === "Utilização de PCs" ? pcLogs : reportType === "Scans QR" ? qrLogs : periodLogs;
-  return <><PageHeading eyebrow="ANÁLISE E DESEMPENHO" title="Relatórios" description="Estatísticas calculadas a partir dos registos guardados neste navegador." action={<button className="button button-primary" onClick={() => downloadCsv("relatorio-smart-campus.csv", exportRows)}>↓ Exportar CSV</button>} /><section className="report-filters surface"><label>Período<select className="select-control" value={period} onChange={(event) => setPeriod(event.target.value)}><option>Esta semana</option><option>Este mês</option><option>Este período letivo</option></select></label><label>Turma<select className="select-control" value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)}><option>Todas as turmas</option>{classes.map((className) => <option key={className}>{className}</option>)}</select></label><label>Tipo de relatório<select className="select-control" value={reportType} onChange={(event) => setReportType(event.target.value)}><option>Resumo geral</option><option>Presenças</option><option>Utilização de PCs</option><option>Scans QR</option></select></label></section><section className="stat-grid stat-grid-three"><article className="stat-card"><div className="stat-icon violet">✓</div><div className="stat-meta">Presenças no período</div><strong>{reportAttendance.length}</strong><small>Presente, atrasado e ausente</small></article><article className="stat-card"><div className="stat-icon blue">▣</div><div className="stat-meta">Utilizações de PCs</div><strong>{pcLogs.length}</strong><small>{computers.length} computadores monitorizados</small></article><article className="stat-card"><div className="stat-icon amber">▦</div><div className="stat-meta">Leituras QR e presenças</div><strong>{qrLogs.length}</strong><small>Eventos registados no período</small></article></section><section className="surface lower-panel"><div className="surface-heading"><div><h2>Resumo de assiduidade por turma</h2><p>Dados agregados · {period.toLocaleLowerCase("pt-PT")}</p></div><button className="button button-secondary" onClick={() => downloadCsv("presencas-smart-campus.csv", reportAttendance)}>↓ Descarregar CSV</button></div>{Object.keys(grouped).length ? <div className="report-bars">{Object.entries(grouped).map(([name, value]) => { const percentage = Math.round((value.present / value.total) * 100); return <div key={name}><span>{name}</span><i><b style={{ width: `${percentage}%` }} /></i><strong>{percentage}%</strong></div>; })}</div> : <div className="empty-state"><strong>Sem dados para este período</strong><p>As presenças serão apresentadas aqui quando forem registadas.</p></div>}</section></>;
+
+  return <>
+    <PageHeading eyebrow="ANÁLISE E DESEMPENHO" title="Relatórios" description="Resumo calculado a partir dos registos existentes no Supabase." action={<button className="button button-primary" onClick={() => downloadCsv("relatorio-smart-campus.csv", exportRows)}>↓ Exportar CSV</button>} />
+    <section className="report-filters surface">
+      <label>Período<select className="select-control" value={period} onChange={(event) => setPeriod(event.target.value)}><option>Esta semana</option><option>Este mês</option><option>Este período letivo</option></select></label>
+      <label>Turma<select className="select-control" value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)}><option>Todas as turmas</option>{classes.map((className) => <option key={className}>{className}</option>)}</select></label>
+      <label>Tipo de relatório<select className="select-control" value={reportType} onChange={(event) => setReportType(event.target.value)}><option>Resumo geral</option><option>Presenças</option><option>Utilização de PCs</option><option>Scans QR</option></select></label>
+    </section>
+    <section className="stat-grid stat-grid-three">
+      <article className="stat-card"><div className="stat-icon violet">✓</div><div className="stat-meta">Presenças no período</div><strong>{reportAttendance.length}</strong><small>Registos de presenças</small></article>
+      <article className="stat-card"><div className="stat-icon blue">▣</div><div className="stat-meta">Equipamentos monitorizados</div><strong>{computers.length}</strong><small>Registos no inventário</small></article>
+      <article className="stat-card"><div className="stat-icon amber">▦</div><div className="stat-meta">Atividades no período</div><strong>{periodLogs.length}</strong><small>Registos de atividade reais</small></article>
+    </section>
+    <section className="surface lower-panel">
+      <div className="surface-heading"><div><h2>Resumo de assiduidade por turma</h2><p>Dados agregados · {period.toLocaleLowerCase("pt-PT")}</p></div><button className="button button-secondary" onClick={() => downloadCsv("presencas-smart-campus.csv", reportAttendance)}>↓ Descarregar CSV</button></div>
+      {Object.keys(grouped).length ? <div className="report-bars">{Object.entries(grouped).map(([name, value]) => { const percentage = Math.round((value.present / value.total) * 100); return <div key={name}><span>{name}</span><i><b style={{ width: percentage + "%" }} /></i><strong>{percentage}%</strong></div>; })}</div> : <div className="empty-state"><strong>Sem dados para este período</strong><p>As presenças serão apresentadas aqui quando forem registadas.</p></div>}
+    </section>
+  </>;
 }
+
 
 function SettingsPage() {
   const [saved, setSaved] = useState(false);
