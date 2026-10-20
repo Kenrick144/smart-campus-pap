@@ -924,8 +924,8 @@ function PcPage({ code, setCode, onStart, onEnd, computers, activeComputer }: { 
 }
 
 function dateIsInPeriod(value: string, period: string) {
-  const isoMatch = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(value);
-  const ptMatch = /^(\\d{2})\\/(\\d{2})\\/(\\d{4})$/.exec(value);
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  const ptMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
   let date: Date;
   if (isoMatch) {
     date = new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]));
