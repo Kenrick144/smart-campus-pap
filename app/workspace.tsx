@@ -513,45 +513,145 @@ function PageHeading({ eyebrow, title, description, action }: { eyebrow?: string
 }
 
 function Dashboard({ role, profileName, period, setPeriod, campusData }: { role: Role; profileName: string; period: string; setPeriod: (value: string) => void; campusData: CampusData }) {
-  const isAdmin = role === "Administrador";
+  const isAdmin = role === "Administrador" || role === "Administrador Adjunto";
   return <>
-    <PageHeading eyebrow="RESUMO DIÁRIO DO CAMPUS" title={`Bom dia, ${profileName.split(" ")[0]} 👋`} description={isAdmin ? "Aqui está o resumo do que está a acontecer no campus hoje." : role === "Professor" ? "Consulte as suas turmas, horários e presenças num só lugar." : "Veja o estado das salas e equipamentos do campus."} action={<button className="button button-secondary" onClick={() => window.print()}>↓ <span>Exportar resumo</span></button>} />
-    {isAdmin ? <AdminDashboard period={period} setPeriod={setPeriod} campusData={campusData} /> : role === "Professor" ? <TeacherDashboard /> : <StaffPage />}
+    <PageHeading eyebrow="RESUMO DIÁRIO DO CAMPUS" title={"Bom dia, " + profileName.split(" ")[0] + " 👋"} description={isAdmin ? "Aqui está o resumo do que está a acontecer no campus hoje." : role === "Professor" ? "Consulte as suas turmas, horários e presenças num só lugar." : role === "Aluno" ? "Consulte as suas aulas e presenças." : "Veja o estado das salas e equipamentos do campus."} action={<button className="button button-secondary" onClick={() => window.print()}>↓ <span>Exportar resumo</span></button>} />
+    {isAdmin ? <AdminDashboard period={period} setPeriod={setPeriod} campusData={campusData} /> : role === "Professor" ? <TeacherDashboard campusData={campusData} /> : role === "Aluno" ? <StudentDashboardSummary campusData={campusData} /> : <StaffPage profileName={profileName} campusData={campusData} />}
   </>;
 }
 
 function AdminDashboard({ period, setPeriod, campusData }: { period: string; setPeriod: (value: string) => void; campusData: CampusData }) {
   const freeComputers = campusData.computers.filter((computer) => computer.estado === "Livre").length;
   const computerCount = campusData.computers.length;
-  const pcCounts = ["Livre", "Ocupado", "Reservado", "Manutenção"].map((status) => ({
+  const pcCounts = ["Livre", "Manutenção", "Avariado", "Inativo"].map((status) => ({
     status,
     count: campusData.computers.filter((computer) => computer.estado === status).length,
-    tone: status === "Livre" ? "green" : status === "Ocupado" ? "red" : status === "Reservado" ? "amber" : "slate",
+    tone: status === "Livre" ? "green" : status === "Manutenção" ? "amber" : status === "Avariado" ? "red" : "slate",
   }));
   const stats = [
-    { label: "Alunos inscritos", value: String(campusData.students.filter((student) => student.estado !== "Inativo").length), change: "Registos ativos", icon: "◎", color: "violet" },
-    { label: "Professores", value: String(campusData.teachers.filter((teacher) => teacher.estado !== "Inativo").length), change: "Registos ativos", icon: "♧", color: "blue" },
-    { label: "Turmas ativas", value: String(campusData.classes.length), change: "Ano letivo 2026/27", icon: "▤", color: "amber" },
-    { label: "PCs disponíveis", value: String(freeComputers), change: `de ${computerCount} equipamentos`, icon: "▣", color: "green" },
+    { label: "Alunos inscritos", value: String(campusData.students.filter((student) => student.estado !== "Inativo").length), change: "Dados do Supabase", icon: "◎", color: "violet" },
+    { label: "Professores", value: String(campusData.teachers.filter((teacher) => teacher.estado !== "Inativo").length), change: "Dados do Supabase", icon: "♧", color: "blue" },
+    { label: "Turmas ativas", value: String(campusData.classes.filter((item) => item.estado !== "Inativa").length), change: "Dados do Supabase", icon: "▤", color: "amber" },
+    { label: "PCs operacionais", value: String(freeComputers), change: "de " + computerCount + " equipamentos", icon: "▣", color: "green" },
   ];
+
+  const weekActivities = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - (6 - index));
+    const key = date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+    const label = date.toLocaleDateString("pt-PT", { weekday: "short" }).replace(".", "");
+    const attendanceCount = campusData.attendance.filter((item) => item.data === key).length;
+    const dayLogs = campusData.logs.filter((item) => String(item.data).startsWith(key));
+    const pcCount = dayLogs.filter((item) => item.atividade.toLocaleLowerCase().includes("pc") || item.atividade.toLocaleLowerCase().includes("equipamento")).length;
+    const qrCount = dayLogs.filter((item) => item.atividade.toLocaleLowerCase().includes("qr") || item.atividade.toLocaleLowerCase().includes("presença")).length;
+    return { label, attendanceCount, pcCount, qrCount };
+  });
+  const maxActivity = Math.max(1, ...weekActivities.flatMap((item) => [item.attendanceCount, item.pcCount, item.qrCount]));
+
   return <>
-    <section className="stat-grid">{stats.map((stat) => <article className="stat-card" key={stat.label}><div className={`stat-icon ${stat.color}`}>{stat.icon}</div><div className="stat-meta">{stat.label}<span>↗</span></div><strong>{stat.value}</strong><small><i className="positive">↗</i> {stat.change}</small></article>)}</section>
+    <section className="stat-grid">{stats.map((stat) => <article className="stat-card" key={stat.label}><div className={"stat-icon " + stat.color}>{stat.icon}</div><div className="stat-meta">{stat.label}<span>↗</span></div><strong>{stat.value}</strong><small>{stat.change}</small></article>)}</section>
     <section className="dashboard-grid">
-      <article className="surface chart-card"><div className="surface-heading"><div><h2>Atividade do campus</h2><p>Presenças, utilização de PCs e scans QR</p></div><select className="select-control" value={period} onChange={(event) => setPeriod(event.target.value)}><option>Esta semana</option><option>Este mês</option><option>Este período letivo</option></select></div><div className="chart-legend"><span><i className="legend-dot violet-dot" />Presenças</span><span><i className="legend-dot green-dot" />Utilização de PCs</span><span><i className="legend-dot amber-dot" />Scans QR</span></div><div className="activity-chart"><div className="chart-y"><span>120</span><span>90</span><span>60</span><span>30</span><span>0</span></div><div className="chart-plot"><div className="chart-grid-lines"><i /><i /><i /><i /><i /></div><div className="chart-columns">{[["seg.",68,34,23],["ter.",79,44,29],["qua.",56,39,26],["qui.",90,58,33],["sex.",73,46,21],["sáb.",25,15,10],["dom.",12,8,6]].map(([day, a, b, c]) => <div className="chart-day" key={day}><div className="bar-group"><i className="bar bar-purple" style={{height:`${a}%`}} /><i className="bar bar-green" style={{height:`${b}%`}} /><i className="bar bar-amber" style={{height:`${c}%`}} /></div><small>{day}</small></div>)}</div></div></div></article>
-      <article className="surface pc-status-card"><div className="surface-heading"><div><h2>Estado dos computadores</h2><p>Estado dos registos locais</p></div><Link className="text-link" href="/computadores">Ver todos ↗</Link></div><div className="pc-summary"><div className="donut-chart" style={{ background: `conic-gradient(${pcCounts.map((item, index) => { const previous = pcCounts.slice(0, index).reduce((sum, part) => sum + part.count, 0); const next = previous + item.count; const color = item.tone === "green" ? "#35a66c" : item.tone === "red" ? "#e96b70" : item.tone === "amber" ? "#e8aa44" : "#8994a7"; return `${color} ${computerCount ? previous / computerCount * 360 : 0}deg ${computerCount ? next / computerCount * 360 : 360}deg`; }).join(",")})` }}><div><strong>{computerCount}</strong><small>equipamentos</small></div></div><div className="pc-legend">{pcCounts.map((item) => <StatusLine key={item.status} name={item.status} count={String(item.count)} color={item.tone} />)}</div></div><div className="pc-footnote"><span className="live-pulse" /> Estado dos registos deste navegador</div></article>
-      <article className="surface activity-card"><div className="surface-heading"><div><h2>Atividade recente</h2><p>Últimas ações registadas no sistema</p></div><Link className="text-link" href="/logs">Ver atividade ↗</Link></div><div className="activity-list">{campusData.logs.slice(0, 4).map((item, index) => <Activity key={`${item.data}-${index}`} icon={item.atividade.toLocaleLowerCase().includes("presença") ? "✓" : item.atividade.toLocaleLowerCase().includes("pc") ? "▣" : "▦"} tone={index === 0 ? "green" : "violet"} title={item.atividade} detail={`${item.utilizador} · ${item.destino}`} time={item.data.split(" ").at(-1) ?? item.data} />)}</div></article>
-      <article className="surface schedule-card"><div className="surface-heading"><div><h2>Próximas aulas</h2><p>Agenda do campus</p></div><Link className="text-link" href="/horarios">Ver horário ↗</Link></div><div className="schedule-list">{campusData.timetable.slice(0, 4).map((lesson, index) => <Schedule key={`${lesson.turma}-${lesson.hora}-${index}`} time={lesson.hora.split("–")[0].trim()} subject={lesson.disciplina} className={lesson.turma} room={lesson.sala} tone={index % 2 ? "blue" : "violet"} />)}</div></article>
+      <article className="surface chart-card">
+        <div className="surface-heading"><div><h2>Atividade do campus</h2><p>Presenças e ações guardadas no sistema</p></div><select className="select-control" value={period} onChange={(event) => setPeriod(event.target.value)}><option>Esta semana</option><option>Este mês</option><option>Este período letivo</option></select></div>
+        <div className="chart-legend"><span><i className="legend-dot violet-dot" />Presenças</span><span><i className="legend-dot green-dot" />Utilização de PCs</span><span><i className="legend-dot amber-dot" />Scans QR</span></div>
+        <div className="activity-chart"><div className="chart-y"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0</span></div><div className="chart-plot"><div className="chart-grid-lines"><i /><i /><i /><i /><i /></div>
+          <div className="chart-columns">{weekActivities.map((item) => <div className="chart-day" key={item.label}><div className="bar-group"><i className="bar bar-purple" style={{ height: (item.attendanceCount / maxActivity * 100) + "%" }} /><i className="bar bar-green" style={{ height: (item.pcCount / maxActivity * 100) + "%" }} /><i className="bar bar-amber" style={{ height: (item.qrCount / maxActivity * 100) + "%" }} /></div><small>{item.label}</small></div>)}</div>
+        </div></div>
+        {campusData.attendance.length === 0 && campusData.logs.length === 0 && <p className="muted">Ainda não existem atividades registadas para apresentar.</p>}
+      </article>
+      <article className="surface pc-status-card">
+        <div className="surface-heading"><div><h2>Estado dos equipamentos</h2><p>Inventário real do campus</p></div><Link className="text-link" href="/computadores">Ver todos ↗</Link></div>
+        <div className="pc-summary">
+          <div className="donut-chart" style={{ background: "conic-gradient(" + pcCounts.map((item, index) => {
+            const previous = pcCounts.slice(0, index).reduce((sum, part) => sum + part.count, 0);
+            const next = previous + item.count;
+            const color = item.tone === "green" ? "#35a66c" : item.tone === "red" ? "#e96b70" : item.tone === "amber" ? "#e8aa44" : "#8994a7";
+            const start = computerCount ? previous / computerCount * 360 : 0;
+            const finish = computerCount ? next / computerCount * 360 : 360;
+            return color + " " + start + "deg " + finish + "deg";
+          }).join(",") + ")" }}><div><strong>{computerCount}</strong><small>equipamentos</small></div></div>
+          <div className="pc-legend">{pcCounts.map((item) => <StatusLine key={item.status} name={item.status} count={String(item.count)} color={item.tone} />)}</div>
+        </div>
+        <div className="pc-footnote"><span className="live-pulse" /> Estado consultado no Supabase</div>
+      </article>
+      <article className="surface activity-card"><div className="surface-heading"><div><h2>Atividade recente</h2><p>Últimas ações registadas no sistema</p></div><Link className="text-link" href="/logs">Ver atividade ↗</Link></div>
+        <div className="activity-list">{campusData.logs.slice(0, 4).map((item, index) => <Activity key={item.id ?? (item.data + "-" + index)} icon={item.atividade.toLocaleLowerCase().includes("presença") ? "✓" : item.atividade.toLocaleLowerCase().includes("pc") ? "▣" : "▦"} tone={index === 0 ? "green" : "violet"} title={item.atividade} detail={(item.utilizador || "Sistema") + " · " + item.destino} time={new Date(item.data).toLocaleString("pt-PT")} />)}</div>
+        {campusData.logs.length === 0 && <p className="muted">Ainda não existem registos de atividade.</p>}
+      </article>
+      <article className="surface schedule-card"><div className="surface-heading"><div><h2>Próximas aulas</h2><p>Horários registados no campus</p></div><Link className="text-link" href="/horarios">Ver horário ↗</Link></div>
+        <div className="schedule-list">{campusData.timetable.slice(0, 4).map((lesson, index) => <Schedule key={lesson.id ?? (lesson.turma + "-" + lesson.hora + "-" + index)} time={lesson.hora.split("–")[0].trim()} subject={lesson.disciplina} className={lesson.turma} room={lesson.sala} tone={index % 2 ? "blue" : "violet"} />)}</div>
+        {campusData.timetable.length === 0 && <p className="muted">Não existem horários registados.</p>}
+      </article>
     </section>
   </>;
 }
 
-function StatusLine({ name, count, color }: { name: string; count: string; color: string }) { return <div className="status-line"><span><i className={`legend-dot ${color}-dot`} />{name}</span><strong>{count}</strong></div>; }
-function Activity({ icon, tone, title, detail, time }: { icon: string; tone: string; title: string; detail: string; time: string }) { return <div className="activity-row"><span className={`activity-icon ${tone}`}>{icon}</span><span className="activity-copy"><strong>{title}</strong><small>{detail}</small></span><time>{time}</time></div>; }
-function Schedule({ time, subject, className, room, tone }: { time: string; subject: string; className: string; room: string; tone: string }) { return <div className="schedule-row"><time>{time}</time><i className={`schedule-line ${tone}`} /><span><strong>{subject}</strong><small>{className} <b>·</b> {room}</small></span></div>; }
-
-function TeacherDashboard() {
-  return <><section className="stat-grid stat-grid-three"><article className="stat-card"><div className="stat-icon violet">▤</div><div className="stat-meta">As minhas turmas</div><strong>4</strong><small>64 alunos no total</small></article><article className="stat-card"><div className="stat-icon green">✓</div><div className="stat-meta">Presenças de hoje</div><strong>92%</strong><small>+4% face à semana passada</small></article><article className="stat-card"><div className="stat-icon amber">◷</div><div className="stat-meta">Aulas esta semana</div><strong>18</strong><small>Próxima aula às 10:45</small></article></section><section className="dashboard-grid teacher-grid"><article className="surface"><div className="surface-heading"><div><h2>As minhas turmas</h2><p>Turmas e disciplinas atribuídas</p></div><Link className="text-link" href="/turmas">Ver turmas ↗</Link></div><div className="class-cards"><div className="class-card violet-edge"><span>12.º T1</span><strong>Matemática</strong><small>24 alunos · Sala 101</small><div className="progress"><i style={{width:"86%"}} /></div><small>86% de presenças</small></div><div className="class-card blue-edge"><span>11.º T2</span><strong>Matemática</strong><small>21 alunos · Sala 202</small><div className="progress"><i style={{width:"91%"}} /></div><small>91% de presenças</small></div></div></article><article className="surface"><div className="surface-heading"><div><h2>Agenda de hoje</h2><p>As suas próximas aulas</p></div></div><div className="schedule-list"><Schedule time="09:00" subject="Matemática" className="12.º T1" room="Sala 101" tone="violet" /><Schedule time="10:45" subject="Matemática" className="11.º T2" room="Sala 202" tone="blue" /><Schedule time="14:00" subject="Apoio ao estudo" className="12.º T1" room="Sala 101" tone="amber" /></div></article><article className="surface attendance-card"><div className="surface-heading"><div><h2>Presenças · 12.º T1</h2><p>Aula de Matemática · hoje</p></div><Link className="text-link" href="/presencas">Marcar presenças ↗</Link></div><div className="attendance-stats"><span><strong>21</strong><small>Presentes</small></span><span><strong>2</strong><small>Atrasados</small></span><span><strong>1</strong><small>Ausentes</small></span></div><div className="mini-student-list"><span><i className="avatar avatar-green">JS</i>João Silva <b className="pill pill-green">Presente</b></span><span><i className="avatar avatar-blue">AP</i>Ana Pereira <b className="pill pill-amber">Atrasado</b></span><span><i className="avatar avatar-violet">PC</i>Pedro Costa <b className="pill pill-red">Ausente</b></span></div></article></section></>;
+function StatusLine({ name, count, color }: { name: string; count: string; color: string }) {
+  return <div className="status-line"><span><i className={"legend-dot " + color + "-dot"} />{name}</span><strong>{count}</strong></div>;
 }
+function Activity({ icon, tone, title, detail, time }: { icon: string; tone: string; title: string; detail: string; time: string }) {
+  return <div className="activity-row"><span className={"activity-icon " + tone}>{icon}</span><span className="activity-copy"><strong>{title}</strong><small>{detail}</small></span><time>{time}</time></div>;
+}
+function Schedule({ time, subject, className, room, tone }: { time: string; subject: string; className: string; room: string; tone: string }) {
+  return <div className="schedule-row"><time>{time}</time><i className={"schedule-line " + tone} /><span><strong>{subject || "Aula"}</strong><small>{className || "Turma não definida"} <b>·</b> {room || "Sala não definida"}</small></span></div>;
+}
+
+
+function TeacherDashboard({ campusData }: { campusData: CampusData }) {
+  const activeClasses = campusData.classes.filter((item) => item.estado !== "Inativa");
+  const today = new Date().toISOString().slice(0, 10);
+  const todayAttendance = campusData.attendance.filter((item) => item.data === today);
+  const present = todayAttendance.filter((item) => item.estado === "Presente" || item.estado === "Atrasado").length;
+  const presenceRate = todayAttendance.length ? Math.round((present / todayAttendance.length) * 100) : null;
+
+  return <>
+    <section className="stat-grid stat-grid-three">
+      <article className="stat-card"><div className="stat-icon violet">▤</div><div className="stat-meta">Turmas atribuídas</div><strong>{activeClasses.length}</strong><small>Dados das turmas acessíveis</small></article>
+      <article className="stat-card"><div className="stat-icon green">✓</div><div className="stat-meta">Presenças de hoje</div><strong>{presenceRate === null ? "—" : presenceRate + "%"}</strong><small>{todayAttendance.length} registos de hoje</small></article>
+      <article className="stat-card"><div className="stat-icon amber">◷</div><div className="stat-meta">Aulas no horário</div><strong>{campusData.timetable.length}</strong><small>Horários associados à conta</small></article>
+    </section>
+    <section className="dashboard-grid teacher-grid">
+      <article className="surface"><div className="surface-heading"><div><h2>As minhas turmas</h2><p>Turmas e disciplinas atribuídas</p></div><Link className="text-link" href="/turmas">Ver turmas ↗</Link></div>
+        <div className="class-cards">{activeClasses.slice(0, 4).map((item, index) => <div className={"class-card " + (index % 2 ? "blue-edge" : "violet-edge")} key={item.id ?? item.turma}><span>{item["ano escolar"] || item.turma}</span><strong>{item.turma}</strong><small>{item.curso || "Curso não definido"}</small></div>)}</div>
+        {activeClasses.length === 0 && <p className="muted">Ainda não existem turmas atribuídas à tua conta.</p>}
+      </article>
+      <article className="surface"><div className="surface-heading"><div><h2>Agenda</h2><p>Horários atribuídos</p></div><Link className="text-link" href="/horarios">Ver horário ↗</Link></div>
+        <div className="schedule-list">{campusData.timetable.slice(0, 5).map((item, index) => <Schedule key={item.id ?? index} time={item.hora} subject={item.disciplina} className={item.turma} room={item.sala} tone={index % 2 ? "blue" : "violet"} />)}</div>
+        {campusData.timetable.length === 0 && <p className="muted">Não existem horários atribuídos.</p>}
+      </article>
+      <article className="surface attendance-card"><div className="surface-heading"><div><h2>Presenças recentes</h2><p>Registos das tuas aulas</p></div><Link className="text-link" href="/presencas">Ver presenças ↗</Link></div>
+        <div className="activity-list">{campusData.attendance.slice(0, 5).map((item, index) => <div className="activity-row" key={item.id ?? index}><span className="activity-copy"><strong>{item.aluno} · {item.turma}</strong><small>{item.data} · {item.disciplina}</small></span><span className={"pill " + statusTone(item.estado)}>{item.estado}</span></div>)}</div>
+        {campusData.attendance.length === 0 && <p className="muted">Ainda não existem presenças para as turmas atribuídas.</p>}
+      </article>
+    </section>
+  </>;
+}
+
+function StudentDashboardSummary({ campusData }: { campusData: CampusData }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const todaysAttendance = campusData.attendance.filter((item) => item.data === today);
+  const available = campusData.computers.filter((item) => item.estado === "Livre").length;
+
+  return <>
+    <section className="stat-grid stat-grid-three">
+      <article className="stat-card"><div className="stat-icon violet">◷</div><div className="stat-meta">Horários disponíveis</div><strong>{campusData.timetable.length}</strong><small>Associados à tua conta</small></article>
+      <article className="stat-card"><div className="stat-icon green">✓</div><div className="stat-meta">Presenças hoje</div><strong>{todaysAttendance.length}</strong><small>Registos do dia</small></article>
+      <article className="stat-card"><div className="stat-icon amber">▣</div><div className="stat-meta">Equipamentos operacionais</div><strong>{available}</strong><small>Disponibilidade do campus</small></article>
+    </section>
+    <section className="dashboard-grid">
+      <article className="surface"><div className="surface-heading"><div><h2>Próximas aulas</h2><p>Horário associado à tua conta</p></div><Link className="text-link" href="/horarios">Ver horário ↗</Link></div>
+        <div className="schedule-list">{campusData.timetable.slice(0, 5).map((item, index) => <Schedule key={item.id ?? index} time={item.hora} subject={item.disciplina} className={item.turma} room={item.sala} tone={index % 2 ? "blue" : "violet"} />)}</div>
+        {campusData.timetable.length === 0 && <p className="muted">Ainda não tens horários associados à conta.</p>}
+      </article>
+      <article className="surface"><div className="surface-heading"><div><h2>As minhas presenças</h2><p>Últimos registos</p></div><Link className="text-link" href="/presencas">Ver presenças ↗</Link></div>
+        <div className="activity-list">{campusData.attendance.slice(0, 5).map((item, index) => <div className="activity-row" key={item.id ?? index}><span className="activity-copy"><strong>{item.disciplina} · {item.turma}</strong><small>{item.data} · {item.sala}</small></span><span className={"pill " + statusTone(item.estado)}>{item.estado}</span></div>)}</div>
+        {campusData.attendance.length === 0 && <p className="muted">Ainda não existem presenças associadas à tua conta.</p>}
+      </article>
+    </section>
+  </>;
+}
+
 
 function DataPage({
   pathname,
