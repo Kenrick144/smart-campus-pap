@@ -97,6 +97,9 @@ export async function updateSession(request: NextRequest) {
   const isAuthenticated = !claimsError && Boolean(userId);
 
   if (!isAuthenticated) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+    }
     if (isLogin || isRoot) return response;
     const login = request.nextUrl.clone();
     login.pathname = "/login";
@@ -111,12 +114,24 @@ export async function updateSession(request: NextRequest) {
     .maybeSingle();
 
   if (profileError || !profile || profile.status !== "Ativo" || !isRole(profile.role)) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Conta inativa ou perfil inválido." }, { status: 403 });
+    }
     const login = request.nextUrl.clone();
     login.pathname = "/login";
     login.search = "";
-    const redirect = NextResponse.redirect(login);
-    redirect.cookies.delete("sb-access-token");
-    return redirect;
+    return NextResponse.redirect(login);
+  }
+
+  if (pathname.startsWith("/api/")) {
+    if (
+      pathname.startsWith("/api/admin/users") &&
+      profile.role !== "Administrador" &&
+      profile.role !== "Administrador Adjunto"
+    ) {
+      return NextResponse.json({ error: "Não tens permissão para gerir utilizadores." }, { status: 403 });
+    }
+    return response;
   }
 
   if (isRoot || isLogin) {
@@ -131,14 +146,6 @@ export async function updateSession(request: NextRequest) {
     destination.pathname = roleHome[profile.role];
     destination.search = "";
     return NextResponse.redirect(destination);
-  }
-
-  if (
-    pathname.startsWith("/api/admin/users") &&
-    profile.role !== "Administrador" &&
-    profile.role !== "Administrador Adjunto"
-  ) {
-    return NextResponse.json({ error: "Não tens permissão para gerir utilizadores." }, { status: 403 });
   }
 
   return response;
