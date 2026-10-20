@@ -10,6 +10,7 @@ const allRoles: Role[] = ["Aluno", "Professor", "Funcionário", "Administrador A
 const adminRoles: Role[] = ["Administrador", "Administrador Adjunto"];
 
 const readableRoles: Record<string, Role[]> = {
+  "/anos-letivos": ["Administrador", "Administrador Adjunto"],
   "/alunos": ["Administrador", "Administrador Adjunto", "Professor", "Aluno"],
   "/professor": ["Administrador", "Administrador Adjunto", "Professor"],
   "/turmas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno"],
@@ -371,6 +372,14 @@ async function lookupRecords(resource: string, admin: ReturnType<typeof createAd
 }
 
 function payloadToRow(resource: string, input: Row): Row | null {
+  if (resource === "/anos-letivos") {
+    return {
+      nome: text(input, "nome").trim(),
+      data_inicio: text(input, "data_inicio").trim(),
+      data_fim: text(input, "data_fim").trim(),
+      ativo: text(input, "ativo").toLowerCase() === "true",
+    };
+  }
   if (resource === "/disciplinas") {
     return {
       nome: text(input, "nome", text(input, "disciplina")).trim(),
@@ -449,7 +458,7 @@ async function authorizeWrite(
   role: Role,
   recordId?: string
 ) {
-  if (resource === "/disciplinas" || resource === "/salas" || resource === "/turmas" ||
+  if (resource === "/anos-letivos" || resource === "/disciplinas" || resource === "/salas" || resource === "/turmas" ||
       resource === "/horarios" || resource === "/computadores") {
     return isAdmin(role);
   }
@@ -574,6 +583,7 @@ export async function GET(request: Request) {
     }
 
     const tableMap: Record<string, string> = {
+      "/anos-letivos": "anos_letivos",
       "/alunos": "alunos",
       "/professor": "professores",
       "/turmas": "turmas",
@@ -682,6 +692,7 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
     if (!allowed) return NextResponse.json({ error: "Não tens permissão para executar esta operação." }, { status: 403 });
 
     const tableMap: Record<string, string> = {
+      "/anos-letivos": "anos_letivos",
       "/turmas": "turmas",
       "/disciplinas": "disciplinas",
       "/salas": "salas",
