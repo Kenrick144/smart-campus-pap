@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A conta ainda não está associada a uma turma ativa." }, { status: 403 });
     }
 
-    const now = new Date();
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Lisbon" }));
     const isoDay = now.getDay() === 0 ? 7 : now.getDay();
     const currentTime = now.toTimeString().slice(0, 5);
     const today = [
@@ -103,7 +103,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, message: "A tua presença nesta aula já estava registada." });
     }
 
-    const late = currentTime > String(schedule.hora_inicio).slice(0, 5);
+    const startParts = String(schedule.hora_inicio).slice(0, 5).split(":").map(Number);
+    const currentParts = currentTime.split(":").map(Number);
+    const startMinutes = (startParts[0] ?? 0) * 60 + (startParts[1] ?? 0);
+    const currentMinutes = (currentParts[0] ?? 0) * 60 + (currentParts[1] ?? 0);
+    const late = currentMinutes > startMinutes + 10;
     const { error: insertError } = await admin.from("presencas").insert({
       aluno_id: user.id,
       horario_id: schedule.id,
