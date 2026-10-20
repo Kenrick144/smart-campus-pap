@@ -786,6 +786,10 @@ function FormInput({ resource, field, initialValue }: { resource: string; field:
     </select>;
   }
 
+  if (field === "ativo") {
+    return <select {...common}><option value="true">Ativo</option><option value="false">Inativo</option></select>;
+  }
+
   if (field === "dia_semana") {
     return <select {...common}>
       <option value="">Selecionar dia...</option>
@@ -920,15 +924,23 @@ function PcPage({ code, setCode, onStart, onEnd, computers, activeComputer }: { 
 }
 
 function dateIsInPeriod(value: string, period: string) {
-  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
-  if (!match) return true;
-  const date = new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+  const isoMatch = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(value);
+  const ptMatch = /^(\\d{2})\\/(\\d{2})\\/(\\d{4})$/.exec(value);
+  let date: Date;
+  if (isoMatch) {
+    date = new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]));
+  } else if (ptMatch) {
+    date = new Date(Number(ptMatch[3]), Number(ptMatch[2]) - 1, Number(ptMatch[1]));
+  } else {
+    return false;
+  }
+
   const today = new Date();
   if (period === "Este período letivo") return date.getFullYear() === today.getFullYear();
   if (period === "Este mês") return date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth();
   const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
-  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
-  return date >= start && date < end;
+  const finish = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
+  return date >= start && date < finish;
 }
 
 function ReportsPage({ period, setPeriod, attendance, computers, logs }: { period: string; setPeriod: (value: string) => void; attendance: RecordItem[]; computers: RecordItem[]; logs: RecordItem[] }) {
