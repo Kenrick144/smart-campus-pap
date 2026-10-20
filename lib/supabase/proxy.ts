@@ -16,7 +16,7 @@ const roleRoutes: Record<Role, string[]> = {
     "/avaliacoes", "/notas", "/aluno", "/funcionario", "/pc",
   ],
   "Administrador Adjunto": [
-    "/dashboard", "/utilizadores", "/alunos", "/professor", "/turmas",
+    "/dashboard", "/utilizadores", "/alunos", "/professor", "/turmas", "/anos-letivos",
     "/disciplinas", "/presencas", "/horarios", "/salas", "/computadores",
     "/qr-code", "/relatorios", "/logs", "/configuracoes", "/avisos",
     "/avaliacoes", "/notas", "/aluno", "/funcionario", "/pc",
