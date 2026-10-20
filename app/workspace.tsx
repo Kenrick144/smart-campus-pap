@@ -166,8 +166,11 @@ const roleDestinations: Record<Role, string> = {
 export default function Workspace() {
   const pathname = usePathname();
   const router = useRouter();
-  const [role, setRole] = useState<Role>("Administrador");
-  const [profileName, setProfileName] = useState("Alexandra Costa");
+  const supabase = useMemo(() => createClient(), []);
+
+  const [role, setRole] = useState<Role>("Aluno");
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
   const [records, setRecords] = useState<RecordItem[]>([]);
   const [recordsPath, setRecordsPath] = useState("");
   const [sessionReady, setSessionReady] = useState(false);
@@ -178,253 +181,250 @@ export default function Workspace() {
   const [notice, setNotice] = useState("");
   const [qrCode, setQrCode] = useState("");
   const [pcCode, setPcCode] = useState("");
-  const [temporaryCode, setTemporaryCode] = useState<TemporaryCode | null>(null);
-  const [temporaryCodeActive, setTemporaryCodeActive] = useState(false);
-  const [pcRecords, setPcRecords] = useState<RecordItem[]>(initialData["/computadores"]);
-  const [activeComputer, setActiveComputer] = useState("");
+  const [temporaryCode] = useState<TemporaryCode | null>(null);
+  const [temporaryCodeActive] = useState(false);
+  const [pcRecords, setPcRecords] = useState<RecordItem[]>([]);
+  const [activeComputer] = useState("");
   const [period, setPeriod] = useState("Esta semana");
+  const [campusData, setCampusData] = useState<CampusData>({
+    students: [],
+    teachers: [],
+    classes: [],
+    computers: [],
+    attendance: [],
+    rooms: [],
+    timetable: [],
+    logs: [],
+  });
+
   const title = pageNames[pathname] ?? "Painel principal";
+  const dataRoutes = [
+    "/alunos", "/professor", "/turmas", "/disciplinas", "/presencas",
+    "/horarios", "/salas", "/computadores", "/qr-code", "/logs",
+  ];
+
+  async function refreshWorkspaceData(currentRole: Role, route: string) {
+    const pathsByRole: Record<Role, string[]> = {
+      Administrador: dataRoutes,
+      "Administrador Adjunto": dataRoutes,
+      Professor: [
+        "/alunos", "/professor", "/turmas", "/disciplinas", "/presencas",
+        "/horarios", "/salas", "/computadores", "/qr-code",
+      ],
+      Aluno: ["/alunos", "/presencas", "/horarios", "/computadores", "/qr-code"],
+      "Funcionário": ["/horarios", "/salas", "/computadores"],
+    };
+
+    const allowed = new Set(pathsByRole[currentRole]);
+    const pathsToLoad = [...new Set([...pathsByRole[currentRole], ...(dataRoutes.includes(route) ? [route] : [])])];
+
+    const results = await Promise.all(
+      pathsToLoad.map(async (path) => [path, allowed.has(path) ? await readSupabaseRecords(path, []) : []] as const)
+    );
+    const byPath = new Map<string, RecordItem[]>(results);
+
+    const snapshot: CampusData = {
+      students: byPath.get("/alunos") ?? [],
+      teachers: byPath.get("/professor") ?? [],
+      classes: byPath.get("/turmas") ?? [],
+      computers: byPath.get("/computadores") ?? [],
+      attendance: byPath.get("/presencas") ?? [],
+      rooms: byPath.get("/salas") ?? [],
+      timetable: byPath.get("/horarios") ?? [],
+      logs: byPath.get("/logs") ?? [],
+    };
+
+    setCampusData(snapshot);
+    setPcRecords(snapshot.computers);
+    setRecords(dataRoutes.includes(route) ? (byPath.get(route) ?? []) : []);
+    setRecordsPath(route);
+  }
 
   useEffect(() => {
     let active = true;
-    queueMicrotask(() => {
-      if (!active) return;
-      const session = readDemoSession();
-      if (!session || !roles.includes(session.role) || !session.name) {
-        if (pathname !== "/pc") {
+
+    async function loadWorkspace() {
+      setSessionReady(false);
+      try {
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (authError || !authData.user) {
           router.replace("/login");
           return;
         }
-      } else {
-        setRole(session.role);
-        setProfileName(session.name);
-        if (pathname !== "/pc" && !roleRoutes[session.role].includes(pathname)) {
-          router.replace(roleDestinations[session.role]);
+
+        const { data: profile, error: profileError } = await supabase
+          .from("users")
+          .select("id, name, email, role, status")
+          .eq("id", authData.user.id)
+          .maybeSingle();
+
+        const knownRoles: Role[] = [
+          "Aluno",
+          "Professor",
+          "Funcionário",
+          "Administrador Adjunto",
+          "Administrador",
+        ];
+
+        if (
+          profileError ||
+          !profile ||
+          profile.status !== "Ativo" ||
+          !knownRoles.includes(profile.role as Role)
+        ) {
+          await supabase.auth.signOut();
+          router.replace("/login");
           return;
         }
+
+        const currentRole = profile.role as Role;
+        if (pathname !== "/pc" && !roleRoutes[currentRole].some(
+          (route) => pathname === route || pathname.startsWith(route + "/")
+        )) {
+          router.replace(roleDestinations[currentRole]);
+          return;
+        }
+
+        if (!active) return;
+        setRole(currentRole);
+        setProfileName(profile.name);
+        setProfileEmail(profile.email);
+
+        await refreshWorkspaceData(currentRole, pathname);
+
+        if (!active) return;
+        setSearch("");
+        setStatusFilter("Todos os estados");
+        setShowForm(false);
+        setEditingIndex(null);
+        setSessionReady(true);
+      } catch (error) {
+        console.error("Erro ao carregar o espaço de trabalho:", error);
+        if (active) {
+          setNotice(error instanceof Error ? error.message : "Não foi possível carregar os dados do campus.");
+          setSessionReady(true);
+          setRecordsPath(pathname);
+        }
       }
-
-      const fallbackRecords = readDemoRecords(pathname, initialData[pathname] ?? []);
-      if (isSupabaseConfigured && supabase) {
-        void readSupabaseRecords(pathname, fallbackRecords).then((loadedRecords) => {
-          if (!active) return;
-          setRecords(loadedRecords);
-        });
-      } else {
-        setRecords(fallbackRecords);
-      }
-
-      setRecordsPath(pathname);
-      setPcRecords(readDemoRecords("/computadores", initialData["/computadores"]));
-      const storedCode = readDemoValue<TemporaryCode | null>("smartcampus_pc_access_code", null);
-      setTemporaryCode(storedCode);
-      setTemporaryCodeActive(Boolean(storedCode && storedCode.expiresAt > Date.now()));
-      setActiveComputer(readDemoValue<string>("smartcampus_active_pc", ""));
-      setSearch("");
-      setStatusFilter("Todos os estados");
-      setShowForm(false);
-      setEditingIndex(null);
-      setSessionReady(true);
-    });
-    return () => { active = false; };
-  }, [pathname, router]);
-
-  useEffect(() => {
-    if (!recordsPath || recordsPath !== pathname) return;
-
-    if (isSupabaseConfigured && supabase) {
-      void writeSupabaseRecords(pathname, records);
-      return;
     }
 
-    writeDemoRecords(pathname, records);
-  }, [pathname, records, recordsPath]);
+    void loadWorkspace();
+    return () => { active = false; };
+  }, [pathname, router, supabase]);
 
   const visibleNavigation = navigation.filter((item) => item.roles.includes(role));
   const filteredRecords = useMemo(() => {
     const query = search.toLocaleLowerCase("pt-PT").trim();
     return records.filter((record) =>
       (statusFilter === "Todos os estados" || record.estado === statusFilter) &&
-      (!query || Object.values(record).some((value) => value.toLocaleLowerCase("pt-PT").includes(query))),
+      (!query || Object.entries(record).some(([key, value]) => key !== "id" && String(value).toLocaleLowerCase("pt-PT").includes(query))),
     );
   }, [records, search, statusFilter]);
-  function changeRole(nextRole: Role) {
-    const demoName = nextRole === "Aluno" ? "João Silva" : nextRole === "Professor" ? "Maria Santos" : nextRole === "Funcionário" ? "Carlos Almeida" : "Alexandra Costa";
-    const currentSession = readDemoSession() ?? { role, name: profileName, remember: true };
-    const nextSession: DemoSession = {
-      ...currentSession,
-      role: nextRole,
-      name: demoName,
-      email: currentSession.email ?? "",
-    };
-    setRole(nextRole);
-    setProfileName(demoName);
-    writeDemoSession(nextSession);
-    if (pathname !== "/pc" && !roleRoutes[nextRole].includes(pathname)) router.push(roleDestinations[nextRole]);
-  }
 
-  function saveRecord(event: FormEvent<HTMLFormElement>) {
+  async function saveRecord(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const item = Object.fromEntries(Array.from(form.entries()).map(([key, value]) => [key, String(value).trim()])) as RecordItem;
-    const duplicate = records.some((record, index) =>
-      index !== editingIndex &&
-      ((item.email && record.email?.toLocaleLowerCase() === item.email.toLocaleLowerCase()) ||
-        (item.número && record.número === item.número) ||
-        (item.computador && record.computador?.toLocaleLowerCase() === item.computador.toLocaleLowerCase()) ||
-        (item.código && record.código?.toLocaleLowerCase() === item.código.toLocaleLowerCase())),
-    );
-    if (duplicate) {
-      setNotice("Já existe um registo com esse email, número ou código.");
+    const item = Object.fromEntries(
+      Array.from(form.entries()).map(([key, value]) => [key, String(value).trim()])
+    ) as RecordItem;
+
+    const existing = editingIndex === null ? undefined : records[editingIndex];
+    if (editingIndex !== null && !existing?.id) {
+      setNotice("Não foi encontrado o identificador deste registo. Atualiza a página e tenta novamente.");
       return;
     }
 
-    const updated = editingIndex === null
-      ? [...records, item]
-      : records.map((record, index) => index === editingIndex ? item : record);
-    setRecords(updated);
-    appendDemoLog(editingIndex === null ? "Registo criado" : "Registo atualizado", profileName, `${title}: ${Object.values(item)[0] ?? "registo"}`);
-
-    if (pathname === "/utilizadores" && ["Aluno", "Aluna"].includes(item.perfil)) {
-      const students = readDemoRecords("/alunos", initialData["/alunos"]);
-      if (item.email && !students.some((student) => student.email === item.email)) {
-        writeDemoRecords("/alunos", [...students, { nome: item.nome, email: item.email, turma: "", número: "", estado: item.estado || "Ativo" }]);
-      }
+    const result = await saveSupabaseRecord(pathname, item, existing?.id);
+    if (!result.ok) {
+      setNotice(result.error ?? "Não foi possível guardar o registo.");
+      return;
     }
+
     setShowForm(false);
     setEditingIndex(null);
-    setNotice(editingIndex === null ? "Registo guardado com sucesso." : "Registo atualizado com sucesso.");
+    await refreshWorkspaceData(role, pathname);
+    setNotice(existing ? "Registo atualizado com sucesso." : "Registo criado com sucesso.");
   }
 
-  function deleteRecord(index: number) {
+  async function deleteRecord(index: number) {
     const item = records[index];
-    if (!item || !window.confirm(`Pretende eliminar o registo "${Object.values(item)[0]}"?`)) return;
-    setRecords((current) => current.filter((_, itemIndex) => itemIndex !== index));
-    appendDemoLog("Registo eliminado", profileName, `${title}: ${Object.values(item)[0] ?? "registo"}`);
+    if (!item?.id || !window.confirm("Pretende eliminar o registo \"" + (Object.values(item)[1] ?? Object.values(item)[0] ?? "registo") + "\"?")) return;
+
+    const result = await deleteSupabaseRecord(pathname, item.id);
+    if (!result.ok) {
+      setNotice(result.error ?? "Não foi possível eliminar o registo.");
+      return;
+    }
+
+    await refreshWorkspaceData(role, pathname);
     setNotice("Registo eliminado.");
   }
 
-  function updateAttendance(index: number, status: string) {
+  async function updateAttendance(index: number, status: string) {
     const item = records[index];
-    setRecords((current) => current.map((record, itemIndex) => itemIndex === index ? { ...record, estado: status } : record));
-    if (item) appendDemoLog("Presença atualizada", profileName, `${item.aluno}: ${status}`);
+    if (!item?.id) {
+      setNotice("O registo de presença não tem um identificador válido.");
+      return;
+    }
+
+    const result = await updateSupabaseRecord("/presencas", item.id, { ...item, estado: status });
+    if (!result.ok) {
+      setNotice(result.error ?? "Não foi possível atualizar a presença.");
+      return;
+    }
+
+    await refreshWorkspaceData(role, pathname);
+    setNotice("Presença atualizada.");
   }
 
-  function markPresence(scannedCode?: string) {
-    const submittedCode = (scannedCode ?? qrCode).trim();
-    if (!submittedCode) {
+  async function markPresence(scannedCode?: string) {
+    const code = (scannedCode ?? qrCode).trim();
+    if (!code) {
       setNotice("Introduza ou leia o código QR da sala.");
       return;
     }
-    const code = submittedCode.toLocaleUpperCase();
-    const qrCodes = readDemoRecords("/qr-code", initialData["/qr-code"]);
-    const qr = qrCodes.find((item) => item.código.toLocaleUpperCase() === code && item.estado === "Ativo");
-    if (!qr) {
-      setNotice("Código QR inválido ou inativo. Verifique o código e tente novamente.");
-      return;
-    }
-    if (qr.tipo !== "Sala") {
-      setNotice("Este código identifica um computador. Utilize o código da sala para marcar presença.");
-      return;
-    }
 
-    const now = new Date();
-    const date = now.toLocaleDateString("pt-PT");
-    const timetable = readDemoRecords("/horarios", initialData["/horarios"]);
-    const lesson = timetable.find((item) => item.sala === qr.destino);
-    const existing = readDemoRecords("/presencas", initialData["/presencas"]);
-    if (existing.some((item) => item.aluno === profileName && item.data === date && item.sala === qr.destino)) {
-      setNotice("A sua presença nesta sala já foi registada hoje.");
-      return;
+    try {
+      const response = await fetch("/api/attendance/qr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setNotice(result.error ?? "Não foi possível registar a presença.");
+        return;
+      }
+
+      setQrCode("");
+      await refreshWorkspaceData(role, pathname);
+      setNotice(result.message ?? "Presença registada.");
+    } catch {
+      setNotice("Não foi possível comunicar com o servidor para registar a presença.");
     }
-    const startTime = lesson?.hora.split("–")[0].trim() ?? "09:00";
-    const [startHour, startMinute] = startTime.split(":").map(Number);
-    const late = now.getHours() * 60 + now.getMinutes() > startHour * 60 + startMinute + 10;
-    const attendance = {
-      aluno: profileName,
-      turma: lesson?.turma ?? "12.º T1",
-      disciplina: lesson?.disciplina ?? "Aula",
-      sala: qr.destino,
-      data: date,
-      hora: now.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" }),
-      estado: late ? "Atrasado" : "Presente",
-    };
-    writeDemoRecords("/presencas", [attendance, ...existing]);
-    appendDemoLog("Presença registada", profileName, `${attendance.turma} · ${attendance.disciplina} · ${qr.destino}`);
-    setNotice(`Presença registada em ${qr.destino}.`);
-    setQrCode("");
   }
 
   function startComputer() {
-    if (!sessionReady || role !== "Aluno") {
-      setNotice("Inicie sessão com um perfil de aluno antes de utilizar um computador.");
-      return;
-    }
-    if (!pcCode.trim()) {
-      setNotice("Introduza o código temporário fornecido pelo professor.");
-      return;
-    }
-    const accessCode = readDemoValue<TemporaryCode | null>("smartcampus_pc_access_code", null);
-    if (!accessCode || accessCode.expiresAt < Date.now() || pcCode.trim() !== accessCode.code) {
-      setNotice("Código inválido ou expirado. Peça um novo código ao professor.");
-      return;
-    }
-    const available = pcRecords.find((computer) => computer.estado === "Livre");
-    if (!available) {
-      setNotice("Não existem computadores livres neste momento.");
-      return;
-    }
-    const updated = pcRecords.map((computer) => computer.computador === available.computador
-      ? { ...computer, estado: "Ocupado", utilizador: profileName, utilização: new Date().toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" }) }
-      : computer);
-    writeDemoRecords("/computadores", updated);
-    writeDemoValue("smartcampus_active_pc", available.computador);
-    setPcRecords(updated);
-    setActiveComputer(available.computador);
-    appendDemoLog("PC ocupado", profileName, `${available.computador} · ${available.sala}`);
-    setNotice(`${available.computador} está agora associado à sua sessão.`);
-    setPcCode("");
+    setNotice("A sessão de utilização de computadores ainda não está ligada a um registo de sessão no Supabase. Nenhum equipamento foi alterado.");
   }
 
   function endComputerSession() {
-    if (!activeComputer) return;
-    const updated = pcRecords.map((computer) => computer.computador === activeComputer
-      ? { ...computer, estado: "Livre", utilizador: "—", utilização: "—" }
-      : computer);
-    writeDemoRecords("/computadores", updated);
-    window.localStorage.removeItem("smartcampus_active_pc");
-    setPcRecords(updated);
-    setActiveComputer("");
-    appendDemoLog("Sessão de PC terminada", profileName, activeComputer);
-    setNotice(`${activeComputer} está novamente livre.`);
+    setNotice("A sessão de computador ainda não está ligada ao registo de utilização no Supabase.");
   }
 
   function generateTemporaryCode() {
-    const value = { code: String(Math.floor(100000 + Math.random() * 900000)), expiresAt: Date.now() + 15 * 60 * 1000 };
-    writeDemoValue("smartcampus_pc_access_code", value);
-    setTemporaryCode(value);
-    setTemporaryCodeActive(true);
-    window.setTimeout(() => setTemporaryCodeActive(false), 15 * 60 * 1000);
-    setNotice("Código temporário gerado. É válido durante 15 minutos.");
+    setNotice("Os códigos temporários ainda não têm uma tabela de sessões no Supabase. Nenhum código de demonstração foi criado.");
   }
 
-  function signOut() {
-    clearDemoSession();
-    router.push("/login");
+  async function signOut() {
+    await supabase.auth.signOut();
+    router.replace("/login");
+    router.refresh();
   }
 
-  if (!sessionReady || recordsPath !== pathname) return <main className="login-screen" aria-busy="true"><p>A carregar o espaço de trabalho...</p></main>;
-
-  const campusData: CampusData = {
-    students: readDemoRecords("/alunos", initialData["/alunos"]),
-    teachers: readDemoRecords("/professor", initialData["/professor"]),
-    classes: readDemoRecords("/turmas", initialData["/turmas"]),
-    computers: pcRecords,
-    attendance: readDemoRecords("/presencas", initialData["/presencas"]),
-    rooms: readDemoRecords("/salas", initialData["/salas"]),
-    timetable: readDemoRecords("/horarios", initialData["/horarios"]),
-    logs: readDemoRecords("/logs", initialData["/logs"]),
-  };
+  if (!sessionReady || recordsPath !== pathname) {
+    return <main className="login-screen" aria-busy="true"><p>A carregar o espaço de trabalho...</p></main>;
+  }
 
   return (
     <main className="workspace">
@@ -437,17 +437,19 @@ export default function Workspace() {
         <div className="nav-caption">ESPAÇO DE TRABALHO</div>
         <nav className="main-nav" aria-label="Navegação principal">
           {visibleNavigation.map((item) => (
-            <Link key={item.href} className={`nav-item ${pathname === item.href ? "selected" : ""}`} href={item.href} title={item.label}>
+            <Link key={item.href} className={"nav-item " + (pathname === item.href ? "selected" : "")} href={item.href} title={item.label}>
               <span className="nav-icon">{item.icon}</span>{item.label}
-              {item.href === "/presencas" && <span className="nav-count">3</span>}
             </Link>
           ))}
-          {role === "Aluno" && <Link className={`nav-item ${pathname === "/aluno" ? "selected" : ""}`} href="/aluno"><span className="nav-icon">◎</span>A minha área</Link>}
-          {role === "Funcionário" && <Link className={`nav-item ${pathname === "/funcionario" ? "selected" : ""}`} href="/funcionario"><span className="nav-icon">⌂</span>Área de serviço</Link>}
+          {role === "Aluno" && <Link className={"nav-item " + (pathname === "/aluno" ? "selected" : "")} href="/aluno"><span className="nav-icon">◎</span>A minha área</Link>}
+          {role === "Funcionário" && <Link className={"nav-item " + (pathname === "/funcionario" ? "selected" : "")} href="/funcionario"><span className="nav-icon">⌂</span>Área de serviço</Link>}
         </nav>
         <div className="sidebar-bottom">
           <Link className="help-card" href="/configuracoes"><span className="help-icon">?</span><span><strong>Precisa de ajuda?</strong><small>Consulte o guia do campus</small></span><span>↗</span></Link>
-          <button className="profile-card" onClick={signOut}><span className="avatar avatar-purple">{role === "Administrador" ? "AC" : role === "Professor" ? "MS" : role === "Aluno" ? "JS" : "CA"}</span><span className="profile-text"><strong>{profileName}</strong><small>{role}</small></span><span className="profile-menu">⋯</span></button>
+          <button className="profile-card" onClick={signOut}>
+            <span className="avatar avatar-purple">{profileName.split(" ").map((part) => part[0]).join("").slice(0,2).toUpperCase()}</span>
+            <span className="profile-text"><strong>{profileName}</strong><small>{role}</small></span><span className="profile-menu">↪ Sair</span>
+          </button>
         </div>
       </aside>
 
@@ -458,23 +460,23 @@ export default function Workspace() {
             <label className="top-search"><span>⌕</span><input aria-label="Pesquisar" placeholder="Pesquisar..." value={search} onChange={(event) => setSearch(event.target.value)} /><kbd>⌘ K</kbd></label>
             <button className="icon-button notifications" aria-label="Notificações">♧<i /></button>
             <span className="top-divider" />
-            <label className="role-picker"><span className="sr-only">Perfil de demonstração</span><select value={role} onChange={(event) => changeRole(event.target.value as Role)}>{roles.map((item) => <option key={item}>{item}</option>)}</select></label>
-            <span className="avatar avatar-purple top-avatar">{role === "Administrador" ? "AC" : role === "Professor" ? "MS" : role === "Aluno" ? "JS" : "CA"}</span>
+            <span className="profile-role-label">{profileName} · {role}</span>
+            <span className="avatar avatar-purple top-avatar">{profileEmail.charAt(0).toUpperCase()}</span>
           </div>
         </header>
 
         <div className="page-content">
-          {notice && <div className="notice" role="status"><span>✓</span>{notice}<button onClick={() => setNotice("")} aria-label="Fechar">×</button></div>}
+          {notice && <div className="notice" role="status"><span>ℹ</span>{notice}<button onClick={() => setNotice("")} aria-label="Fechar">×</button></div>}
           {pathname === "/dashboard" ? (
             <Dashboard role={role} profileName={profileName} period={period} setPeriod={setPeriod} campusData={campusData} />
           ) : pathname === "/aluno" ? (
-            <StudentPage name={profileName} qrCode={qrCode} setQrCode={setQrCode} onScan={markPresence} />
+            <StudentPage name={profileName} qrCode={qrCode} setQrCode={setQrCode} onScan={markPresence} attendance={campusData.attendance} computers={campusData.computers} timetable={campusData.timetable} />
           ) : pathname === "/funcionario" ? (
-            <StaffPage />
+            <StaffPage profileName={profileName} campusData={campusData} />
           ) : pathname === "/pc" ? (
             <PcPage code={pcCode} setCode={setPcCode} onStart={startComputer} onEnd={endComputerSession} computers={pcRecords} activeComputer={activeComputer} />
           ) : pathname === "/relatorios" ? (
-            <ReportsPage period={period} setPeriod={setPeriod} attendance={readDemoRecords("/presencas", initialData["/presencas"])} computers={pcRecords} />
+            <ReportsPage period={period} setPeriod={setPeriod} attendance={campusData.attendance} computers={pcRecords} logs={campusData.logs} />
           ) : pathname === "/configuracoes" ? (
             <SettingsPage />
           ) : (
