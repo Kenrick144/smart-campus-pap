@@ -489,8 +489,60 @@ export async function GET(request: Request) {
     const admin = createAdminClient();
 
     if (resource.startsWith("lookup:")) {
-      if (!isAdmin(role)) return NextResponse.json({ error: "Sem permissões para carregar opções de gestão." }, { status: 403 });
-      return NextResponse.json({ records: await lookupRecords(resource, admin) });
+      if (isAdmin(role)) {
+        return NextResponse.json({ records: await lookupRecords(resource, admin) });
+      }
+
+      if (role === "Professor" && resource === "lookup:alunos") {
+        const classIds = await classIdsForUser(admin, role, user.id);
+        if (!classIds.length) return NextResponse.json({ records: [] });
+
+        const { data: memberships, error: membershipError } = await admin
+          .from("alunos_turmas")
+          .select("aluno_id")
+          .in("turma_id", classIds)
+          .is("data_fim", null);
+        if (membershipError) {
+          return NextResponse.json({ error: "Não foi possível carregar os alunos das tuas turmas." }, { status: 500 });
+        }
+
+        const ids = unique(asRows(memberships).map((row) => text(row, "aluno_id")));
+        if (!ids.length) return NextResponse.json({ records: [] });
+
+        const [students, users] = await Promise.all([
+          admin.from("alunos").select("id, student_number").in("id", ids),
+          admin.from("users").select("id, name"),
+        ]);
+        if (students.error || users.error) {
+          return NextResponse.json({ error: "Não foi possível carregar os alunos das tuas turmas." }, { status: 500 });
+        }
+
+        const usersById = new Map(asRows(users.data).map((row) => [text(row, "id"), row]));
+        const records = asRows(students.data).map((row) => ({
+          id: text(row, "id"),
+          label: text(usersById.get(text(row, "id")), "name") + " · " + text(row, "student_number"),
+        }));
+        return NextResponse.json({ records });
+      }
+
+      if (role === "Professor" && resource === "lookup:horarios") {
+        const { data: schedules, error } = await admin
+          .from("horarios")
+          .select("id, turma_id, hora_inicio, hora_fim")
+          .eq("professor_id", user.id);
+        if (error) {
+          return NextResponse.json({ error: "Não foi possível carregar os teus horários." }, { status: 500 });
+        }
+        const classes = await readTable(admin, "turmas");
+        const classMap = new Map(classes.map((row) => [text(row, "id"), row]));
+        const records = asRows(schedules).map((row) => ({
+          id: text(row, "id"),
+          label: text(classMap.get(text(row, "turma_id")), "nome") + " · " + text(row, "hora_inicio") + "–" + text(row, "hora_fim"),
+        }));
+        return NextResponse.json({ records });
+      }
+
+      return NextResponse.json({ error: "Sem permissões para carregar estas opções." }, { status: 403 });
     }
 
     const permitted = readableRoles[resource];
