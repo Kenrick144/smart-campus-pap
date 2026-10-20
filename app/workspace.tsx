@@ -28,6 +28,7 @@ const navigation = [
   { label: "Alunos", icon: "◎", href: "/alunos", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
   { label: "Professores", icon: "♧", href: "/professor", roles: ["Administrador", "Administrador Adjunto"] },
   { label: "Turmas", icon: "▤", href: "/turmas", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
+  { label: "Anos letivos", icon: "▣", href: "/anos-letivos", roles: ["Administrador", "Administrador Adjunto"] },
   { label: "Disciplinas", icon: "▧", href: "/disciplinas", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
   { label: "Presenças", icon: "✓", href: "/presencas", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno"] },
   { label: "Horários", icon: "◷", href: "/horarios", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"] },
@@ -45,6 +46,7 @@ const pageNames: Record<string, string> = {
   "/alunos": "Alunos",
   "/professor": "Professores",
   "/turmas": "Turmas",
+  "/anos-letivos": "Anos letivos",
   "/disciplinas": "Disciplinas",
   "/presencas": "Presenças",
   "/horarios": "Horários",
@@ -131,6 +133,7 @@ const initialData: Record<string, RecordItem[]> = {
 };
 
 const formFields: Record<string, string[]> = {
+  "/anos-letivos": ["nome", "data_inicio", "data_fim", "ativo"],
   "/turmas": ["nome", "ano_letivo_id", "ano_escolar", "curso", "capacidade", "estado", "professor_coordenador_id"],
   "/disciplinas": ["nome", "codigo", "departamento", "descricao", "estado"],
   "/presencas": ["aluno_id", "horario_id", "data", "estado", "observacoes"],
@@ -140,6 +143,7 @@ const formFields: Record<string, string[]> = {
 };
 
 const primaryActions: Record<string, string> = {
+  "/anos-letivos": "Criar ano letivo",
   "/turmas": "Criar turma",
   "/disciplinas": "Nova disciplina",
   "/presencas": "Registar presença",
@@ -192,7 +196,7 @@ export default function Workspace() {
 
   const title = pageNames[pathname] ?? "Painel principal";
   const dataRoutes = [
-    "/alunos", "/professor", "/turmas", "/disciplinas", "/presencas",
+    "/alunos", "/professor", "/turmas", "/anos-letivos", "/disciplinas",
     "/horarios", "/salas", "/computadores", "/qr-code", "/logs",
   ];
 
