@@ -498,6 +498,7 @@ export default function Workspace() {
       </section>
 
       {showForm && <RecordModal
+        resource={pathname}
         title={editingIndex === null ? (primaryActions[pathname] ?? "Adicionar registo") : "Editar registo"}
         fields={(formFields[pathname] ?? ["nome", "descrição", "estado"]).filter((field) => editingIndex === null || field !== "palavra-passe")}
         initialValues={editingIndex === null ? undefined : records[editingIndex]}
@@ -693,16 +694,16 @@ function DataPage({
   setQrCode: (value: string) => void;
 }) {
   const isAttendance = pathname === "/presencas";
-  const canManage = role === "Administrador" || (role === "Professor" && pathname === "/presencas");
+  const canManage = role === "Administrador" || role === "Administrador Adjunto" || (role === "Professor" && pathname === "/presencas");
   const hasAction = Boolean(primaryActions[pathname]) && canManage;
-  const columns = records.length ? Object.keys(records[0]) : (formFields[pathname] ?? ["nome", "descrição"]).filter((field) => field !== "palavra-passe");
+  const columns = records.length ? Object.keys(records[0]).filter((column) => column !== "id" && !column.endsWith("_id") && !column.startsWith("__")) : (formFields[pathname] ?? ["nome", "descrição"]).filter((field) => field !== "palavra-passe" && !field.endsWith("_id"));
   const statuses = [...new Set(allRecords.map((record) => record.estado).filter(Boolean))];
   return <>
     <PageHeading eyebrow="GESTÃO DO CAMPUS" title={title} description={descriptionFor(pathname)} action={hasAction ? <button className="button button-primary" onClick={onAdd}><span>＋</span>{primaryActions[pathname]}</button> : undefined} />
     <div className="toolbar"><div className="result-count"><strong>{allRecords.length}</strong> registos <span>·</span> ano letivo 2026/2027</div><div className="toolbar-actions">{statuses.length > 0 && <select className="select-control" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filtrar por estado"><option>Todos os estados</option>{statuses.map((status) => <option key={status}>{status}</option>)}</select>}<button className="button button-secondary" onClick={() => downloadCsv(`${pathname.slice(1)}.csv`, allRecords)}>↓ Exportar CSV</button></div></div>
-    <section className="surface table-surface"><div className="table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}{isAttendance && <th>Presença</th>}{hasAction && <th>Ações</th>}</tr></thead><tbody>{records.map((record) => { const index = allRecords.indexOf(record); return <tr key={`${Object.values(record).join("-")}-${index}`}>{columns.map((column) => <td key={column}>{column === "código" && pathname === "/qr-code" ? <span className="qr-code-cell">{record[column]}<QrImage value={record[column]} /></span> : column === "estado" ? <span className={`pill ${statusTone(record[column])}`}>{record[column]}</span> : column === "email" ? <a className="email-link" href={`mailto:${record[column]}`}>{record[column]}</a> : column === "utilizador" && record[column] === "—" ? <span className="muted">Disponível</span> : record[column]}</td>)}{isAttendance && <td>{role === "Professor" || role === "Administrador" ? <select className="inline-select" aria-label={`Estado da presença de ${record.aluno}`} value={record.estado} onChange={(event) => onStatus(index, event.target.value)}><option>Presente</option><option>Atrasado</option><option>Ausente</option></select> : <span className={`pill ${statusTone(record.estado)}`}>{record.estado}</span>}</td>}{hasAction && <td><div className="row-actions"><button className="button button-secondary" onClick={() => onEdit(index)}>Editar</button><button className="button button-secondary" onClick={() => onDelete(index)}>Eliminar</button></div></td>}</tr>; })}</tbody></table>{records.length === 0 && <div className="empty-state"><span>⌕</span><strong>{search || statusFilter !== "Todos os estados" ? "Não encontrámos resultados" : "Ainda não existem registos"}</strong><p>{search || statusFilter !== "Todos os estados" ? "Altere os filtros e tente novamente." : "Adicione o primeiro registo para começar."}</p></div>}</div><div className="table-footer"><span>A mostrar <strong>{records.length}</strong> de <strong>{allRecords.length}</strong> registos</span><div><button disabled>← Anterior</button><button className="current-page">1</button><button disabled>Seguinte →</button></div></div></section>
-    {pathname === "/computadores" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Estado do parque informático</h2><p>Alterar o estado de um computador</p></div><Link className="text-link" href="/pc">Abrir interface do PC ↗</Link></div><div className="pc-state-grid">{["Livre", "Ocupado", "Reservado", "Manutenção"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => record.estado === state).length}</strong></span>)}</div><div className="code-generator"><div><strong>{temporaryCodeActive ? temporaryCode?.code : "Sem código ativo"}</strong><small> Código válido durante 15 minutos para a demonstração local</small></div><button className="button button-primary" onClick={onGenerateCode}>Gerar código temporário</button></div></section>}
-    {pathname === "/qr-code" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Leitura rápida</h2><p>Introduza ou leia um código de sala ativo para registar a presença do utilizador atual.</p></div></div><form className="scan-row" onSubmit={(event) => { event.preventDefault(); onScan(); }}><input className="field-control" value={qrCode} onChange={(event) => setQrCode(event.target.value)} placeholder="Ex.: QR-S101" aria-label="Código QR da sala" /><button className="button button-primary">▦ Ler código</button><QrScanner onDetected={onScan} /></form></section>}
+    <section className="surface table-surface"><div className="table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}{isAttendance && <th>Presença</th>}{hasAction && <th>Ações</th>}</tr></thead><tbody>{records.map((record) => { const index = allRecords.indexOf(record); return <tr key={`${Object.values(record).join("-")}-${index}`}>{columns.map((column) => <td key={column}>{column === "código" && pathname === "/qr-code" ? <span className="qr-code-cell">{record[column]}<QrImage value={record[column]} /></span> : column === "estado" ? <span className={`pill ${statusTone(record[column])}`}>{record[column]}</span> : column === "email" ? <a className="email-link" href={`mailto:${record[column]}`}>{record[column]}</a> : column === "utilizador" && record[column] === "—" ? <span className="muted">Disponível</span> : record[column]}</td>)}{isAttendance && <td>{role === "Professor" || role === "Administrador" || role === "Administrador Adjunto" ? <select className="inline-select" aria-label={`Estado da presença de ${record.aluno}`} value={record.estado} onChange={(event) => onStatus(index, event.target.value)}><option>Presente</option><option>Atrasado</option><option>Ausente</option><option>Falta justificada</option></select> : <span className={`pill ${statusTone(record.estado)}`}>{record.estado}</span>}</td>}{hasAction && <td><div className="row-actions"><button className="button button-secondary" onClick={() => onEdit(index)}>Editar</button>{!(role === "Professor" && pathname === "/presencas") && <button className="button button-secondary" onClick={() => onDelete(index)}>Eliminar</button>}</div></td>}</tr>; })}</tbody></table>{records.length === 0 && <div className="empty-state"><span>⌕</span><strong>{search || statusFilter !== "Todos os estados" ? "Não encontrámos resultados" : "Ainda não existem registos"}</strong><p>{search || statusFilter !== "Todos os estados" ? "Altere os filtros e tente novamente." : "Adicione o primeiro registo para começar."}</p></div>}</div><div className="table-footer"><span>A mostrar <strong>{records.length}</strong> de <strong>{allRecords.length}</strong> registos</span><div><button disabled>← Anterior</button><button className="current-page">1</button><button disabled>Seguinte →</button></div></div></section>
+    {pathname === "/computadores" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Estado do parque informático</h2><p>Alterar o estado de um computador</p></div><Link className="text-link" href="/pc">Abrir interface do PC ↗</Link></div><div className="pc-state-grid">{["Livre", "Manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => record.estado === state).length}</strong></span>)}</div><div className="code-generator"><div><strong>{temporaryCodeActive ? temporaryCode?.code : "Sem código ativo"}</strong><small>A geração de códigos temporários ainda não está ligada à base de dados.</small></div><button className="button button-primary" onClick={onGenerateCode}>Gerar código temporário</button></div></section>}
+    {pathname === "/qr-code" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Leitura rápida</h2><p>Introduza ou leia um código de sala ativo para registar a presença do utilizador atual.</p></div></div><form className="scan-row" onSubmit={(event) => { event.preventDefault(); onScan(); }}><input className="field-control" value={qrCode} onChange={(event) => setQrCode(event.target.value)} placeholder="Código do QR da sala" aria-label="Código QR da sala" /><button className="button button-primary">▦ Ler código</button><QrScanner onDetected={onScan} /></form></section>}
   </>;
 }
 
@@ -730,22 +731,95 @@ function statusTone(status: string) {
   return "pill-slate";
 }
 
-function RecordModal({ title, fields, initialValues, onClose, onSubmit }: { title: string; fields: string[]; initialValues?: RecordItem; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="modal-heading"><div><div className="eyebrow">SMART CAMPUS</div><h2 id="modal-title">{title}</h2></div><button type="button" className="icon-button close-button" onClick={onClose} aria-label="Fechar">×</button></div><p className="modal-description">Preencha os dados abaixo. Os campos assinalados são obrigatórios.</p><form onSubmit={onSubmit}><div className="form-grid">{fields.map((field) => <label className={field === "encarregado de educação" || field === "equipamentos" ? "form-wide" : ""} key={field}>{field}<FormInput field={field} initialValue={initialValues?.[field]} /></label>)}</div><div className="modal-footer"><button type="button" className="button button-secondary" onClick={onClose}>Cancelar</button><button type="submit" className="button button-primary">Guardar registo</button></div></form></section></div>;
+function RecordModal({ title, resource, fields, initialValues, onClose, onSubmit }: { title: string; resource: string; fields: string[]; initialValues?: RecordItem; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="modal-heading"><div><div className="eyebrow">SMART CAMPUS</div><h2 id="modal-title">{title}</h2></div><button type="button" className="icon-button close-button" onClick={onClose} aria-label="Fechar">×</button></div><p className="modal-description">Preencha os dados abaixo. Os campos assinalados são obrigatórios.</p><form onSubmit={onSubmit}><div className="form-grid">{fields.map((field) => <label className={field === "encarregado de educação" || field === "equipamentos" || field === "observacoes" ? "form-wide" : ""} key={field}>{field.replaceAll("_", " ")}<FormInput resource={resource} field={field} initialValue={initialValues?.[field]} /></label>)}</div><div className="modal-footer"><button type="button" className="button button-secondary" onClick={onClose}>Cancelar</button><button type="submit" className="button button-primary">Guardar registo</button></div></form></section></div>;
 }
 
-function FormInput({ field, initialValue }: { field: string; initialValue?: string }) {
-  const common = { className: "field-control", required: !["equipamentos", "encarregado de educação", "contacto", "palavra-passe"].includes(field), name: field, defaultValue: initialValue };
-  if (field === "palavra-passe") return <input {...common} type="password" minLength={8} autoComplete="new-password" placeholder="Mínimo de 8 caracteres" />;
-  if (field === "email") return <input {...common} type="email" placeholder="nome@escola.pt" />;
-  if (field.includes("data")) return <input {...common} type="date" />;
-  if (["hora", "hora de início", "hora de fim"].includes(field)) return <input {...common} type="time" />;
-  if (field === "estado" || field === "perfil" || field === "tipo") {
-    const options = field === "perfil" ? ["Aluno", "Professor", "Funcionário", "Administrador"] : field === "tipo" ? ["Sala", "Computador"] : field === "estado" ? ["Ativo", "Inativo", "Presente", "Ausente", "Atrasado", "Livre", "Ocupado", "Reservado", "Manutenção"] : [];
-    return <select {...common}><option value="">Selecione...</option>{options.map((option) => <option key={option}>{option}</option>)}</select>;
+
+function FormInput({ resource, field, initialValue }: { resource: string; field: string; initialValue?: string }) {
+  const lookupFields: Record<string, string> = {
+    ano_letivo_id: "anos_letivos",
+    professor_coordenador_id: "professores",
+    sala_id: "salas",
+    turma_id: "turmas",
+    disciplina_turma_id: "disciplinas_turmas",
+    professor_id: "professores",
+    aluno_id: "alunos",
+    horario_id: "horarios",
+  };
+  const lookupKey = lookupFields[field] ?? "";
+  const [options, setOptions] = useState<RecordItem[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    if (!lookupKey) {
+      setOptions([]);
+      return () => { active = false; };
+    }
+    void readLookupRecords(lookupKey).then((loaded) => {
+      if (active) setOptions(loaded);
+    });
+    return () => { active = false; };
+  }, [lookupKey]);
+
+  const optionalFields = [
+    "observacoes", "equipamentos", "encarregado de educação",
+    "contacto", "palavra-passe", "departamento", "piso",
+    "marca", "modelo", "numero_serie", "numero_inventario",
+    "descricao", "descrição",
+  ];
+  const common = {
+    className: "field-control",
+    required: !optionalFields.includes(field),
+    name: field,
+    defaultValue: initialValue ?? "",
+  };
+
+  if (lookupKey) {
+    return <select {...common}>
+      <option value="">Selecionar...</option>
+      {options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+    </select>;
   }
-  return <input {...common} placeholder={`Introduza ${field}`} />;
+
+  if (field === "dia_semana") {
+    return <select {...common}>
+      <option value="">Selecionar dia...</option>
+      {[
+        ["1", "Segunda-feira"], ["2", "Terça-feira"], ["3", "Quarta-feira"],
+        ["4", "Quinta-feira"], ["5", "Sexta-feira"], ["6", "Sábado"], ["7", "Domingo"],
+      ].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+    </select>;
+  }
+
+  if (field === "estado") {
+    const optionsByResource: Record<string, string[]> = {
+      "/turmas": ["Ativa", "Inativa"],
+      "/disciplinas": ["Ativa", "Inativa"],
+      "/salas": ["Ativa", "Inativa", "Em manutenção"],
+      "/presencas": ["Presente", "Atrasado", "Ausente", "Falta justificada"],
+      "/computadores": ["Livre", "Manutenção", "Avariado", "Inativo"],
+    };
+    const choices = optionsByResource[resource] ?? ["Ativo", "Inativo"];
+    return <select {...common}><option value="">Selecionar...</option>{choices.map((option) => <option key={option}>{option}</option>)}</select>;
+  }
+
+  if (field === "tipo") {
+    const choices = resource === "/salas"
+      ? ["Sala de aula", "Laboratório", "Sala de informática", "Sala de reuniões", "Outro"]
+      : ["Computador", "Projetor", "Monitor", "Impressora", "Quadro interativo", "Outro"];
+    return <select {...common}><option value="">Selecionar...</option>{choices.map((option) => <option key={option}>{option}</option>)}</select>;
+  }
+
+  if (field === "email") return <input {...common} type="email" placeholder="nome@escola.pt" />;
+  if (field.toLowerCase().includes("data")) return <input {...common} type="date" />;
+  if (["hora", "hora de início", "hora de fim", "hora_inicio", "hora_fim"].includes(field)) return <input {...common} type="time" />;
+  if (field === "capacidade" || field === "carga_horaria_semanal") return <input {...common} type="number" min={1} />;
+  if (field === "palavra-passe") return <input {...common} type="password" minLength={8} autoComplete="new-password" placeholder="Mínimo de 8 caracteres" />;
+  return <input {...common} placeholder={"Introduza " + field.replaceAll("_", " ")} />;
 }
+
+
 
 function StudentPage({
   name,
