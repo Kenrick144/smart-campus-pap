@@ -72,7 +72,7 @@ export async function GET() {
 
     const { data: currentProfile, error: profileError } = await supabase
       .from("users")
-      .select("role, status")
+      .select("name, email, role, status")
       .eq("id", currentUser.id)
       .maybeSingle();
 
@@ -98,6 +98,7 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       currentRole: currentProfile.role,
+      currentUser: { name: currentProfile.name, email: currentProfile.email },
       users: users ?? [],
     });
   } catch (error) {
