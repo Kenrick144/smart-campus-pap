@@ -969,12 +969,7 @@ function openForm() {
         )}
 
         {/* ESTATÍSTICAS */}
-        <div
-          className="user-stats"
-          style={{
-            gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-          }}
-        >
+        <div className="user-stats">
           <div className="user-stat">
             <span className="user-stat-icon">👥</span>
             <div>
@@ -1098,7 +1093,7 @@ function openForm() {
                       <tr
                         key={user.email}
                       >
-                        <td>
+                        <td data-label="Utilizador">
                           <div className="user-name">
                             <div className="table-avatar">
                               {user.name
@@ -1112,17 +1107,17 @@ function openForm() {
                           </div>
                         </td>
 
-                        <td>
-                          {user.email}
+                        <td data-label="Email">
+                          <span className="mobile-cell-value">{user.email}</span>
                         </td>
 
-                        <td>
+                        <td data-label="Função">
                           <span className="role">
                             {user.role}
                           </span>
                         </td>
 
-                        <td>
+                        <td data-label="Estado">
                           <span
                             className={`status ${user.status ===
                               "Ativo"
@@ -1135,7 +1130,7 @@ function openForm() {
                           </span>
                         </td>
 
-                        <td>
+                        <td data-label="Ações">
                           <div className="actions">
                             <button
                               type="button"
