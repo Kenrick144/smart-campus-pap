@@ -197,7 +197,7 @@ export default function Workspace() {
   const title = pageNames[pathname] ?? "Painel principal";
   const dataRoutes = [
     "/alunos", "/professor", "/turmas", "/anos-letivos", "/disciplinas",
-    "/horarios", "/salas", "/computadores", "/qr-code", "/logs",
+    "/presencas", "/horarios", "/salas", "/computadores", "/qr-code", "/logs",
   ];
 
   async function refreshWorkspaceData(currentRole: Role, route: string) {
