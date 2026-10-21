@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import { defaultPermissionsForRole } from "../lib/permissions";
+import { createClient } from "@/lib/supabase/client";
 
 type UserRole = "Aluno" | "Professor" | "Administrador" | "Administrador Adjunto"
   | "Funcionário";
@@ -85,71 +86,21 @@ const initialUsers: User[] = [
 ];
 
 const menuItems = [
-  {
-    label: "Dashboard",
-    icon: "🏠",
-    href: "/dashboard",
-  },
-  {
-    label: "Utilizadores",
-    icon: "👥",
-    href: "/utilizadores",
-  },
-  {
-    label: "Turmas",
-    icon: "📚",
-    href: "#",
-  },
-  {
-    label: "Alunos",
-    icon: "🎓",
-    href: "/alunos",
-  },
-  {
-    label: "Professores",
-    icon: "🧑‍🏫",
-    href: "/professor",
-  },
-  {
-    label: "Salas",
-    icon: "🏫",
-    href: "/salas",
-  },
-  {
-    label: "Horários",
-    icon: "🗓️",
-    href: "#",
-  },
-  {
-    label: "PCs",
-    icon: "💻",
-    href: "/computadores",
-  },
-  {
-    label: "Presenças",
-    icon: "✅",
-    href: "/presencas",
-  },
-  {
-    label: "QR Codes",
-    icon: "▦",
-    href: "/qr-code",
-  },
-  {
-    label: "Relatórios",
-    icon: "📊",
-    href: "/relatorios",
-  },
-  {
-    label: "Configurações",
-    icon: "⚙️",
-    href: "#",
-  },
-  {
-    label: "Logs",
-    icon: "📋",
-    href: "#",
-  },
+  { label: "Painel principal", icon: "◫", href: "/dashboard", roles: ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"] },
+  { label: "Utilizadores", icon: "♙", href: "/utilizadores", roles: ["Administrador", "Administrador Adjunto"] },
+  { label: "Alunos", icon: "◎", href: "/alunos", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
+  { label: "Professores", icon: "♧", href: "/professor", roles: ["Administrador", "Administrador Adjunto"] },
+  { label: "Turmas", icon: "▤", href: "/turmas", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
+  { label: "Anos letivos", icon: "▣", href: "/anos-letivos", roles: ["Administrador", "Administrador Adjunto"] },
+  { label: "Disciplinas", icon: "▧", href: "/disciplinas", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
+  { label: "Presenças", icon: "✓", href: "/presencas", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno"] },
+  { label: "Horários", icon: "◷", href: "/horarios", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"] },
+  { label: "Salas", icon: "⌂", href: "/salas", roles: ["Administrador", "Administrador Adjunto", "Funcionário"] },
+  { label: "Computadores", icon: "▣", href: "/computadores", roles: ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"] },
+  { label: "Códigos QR", icon: "▦", href: "/qr-code", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno"] },
+  { label: "Relatórios", icon: "▥", href: "/relatorios", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
+  { label: "Registos de atividade", icon: "≡", href: "/logs", roles: ["Administrador", "Administrador Adjunto"] },
+  { label: "Configurações", icon: "⚙", href: "/configuracoes", roles: ["Administrador", "Administrador Adjunto"] },
 ];
 
 export default function Utilizadores() {
@@ -597,120 +548,65 @@ function openForm() {
     Administrador: { icon: "👨‍💼", title: "Conta de gestão", description: "Acesso total" },
   };
 
+  async function signOut() {
+    try {
+      await createClient().auth.signOut();
+    } finally {
+      window.location.assign("/login");
+    }
+  }
+
   return (
-    <main className="dashboard">
-      {/* SIDEBAR */}
+    <main className="workspace users-workspace">
       <aside className="sidebar">
-        <div className="logo">
-          🎓
-
-          <span>
-            SMART
-            <br />
-            CAMPUS
-          </span>
+        <Link className="brand" href="/dashboard" aria-label="Smart Campus — painel principal">
+          <span className="brand-mark">S</span>
+          <span>smart<span className="brand-light">campus</span><small>GESTÃO ESCOLAR</small></span>
+        </Link>
+        <div className="school-switch">
+          <span className="school-avatar">I</span>
+          <span><strong>Escola Profissional</strong><small>Campus principal</small></span>
+          <span className="chevron">⌄</span>
         </div>
-
-        <div className="profile">
-          <div className="profile-avatar">
-            🧑‍💼
-          </div>
-
-          <div>
-            <h3>{currentRole}</h3>
-
-            <p>
-              {currentEmail || ""}
-            </p>
-
-            <span className="online">
-              ● Online
-            </span>
-          </div>
-        </div>
-
-        <nav className="menu">
-          {menuItems.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={`menu-item ${item.label === "Utilizadores"
-                ? "active"
-                : ""
-                }`}
-            >
-              <span>{item.icon}</span>
-
-              {item.label}
+        <div className="nav-caption">ESPAÇO DE TRABALHO</div>
+        <nav className="main-nav" aria-label="Navegação principal">
+          {menuItems.filter((item) => item.roles.includes(currentRole)).map((item) => (
+            <Link key={item.href} className={"nav-item " + (item.label === "Utilizadores" ? "selected" : "")} href={item.href} title={item.label}>
+              <span className="nav-icon">{item.icon}</span>{item.label}
             </Link>
           ))}
         </nav>
-
-        <div className="logout">
-          ↪ Sair
+        <div className="sidebar-bottom">
+          <Link className="help-card" href="/configuracoes">
+            <span className="help-icon">?</span><span><strong>Precisa de ajuda?</strong><small>Consulte o guia do campus</small></span><span>↗</span>
+          </Link>
+          <button type="button" className="profile-card" onClick={signOut} aria-label="Terminar sessão">
+            <span className="avatar avatar-purple">{currentName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase() || "SC"}</span>
+            <span className="profile-text"><strong>{currentName || currentEmail || currentRole}</strong><small>{currentRole}</small></span>
+            <span className="profile-menu">↪ Sair</span>
+          </button>
         </div>
       </aside>
 
-      {/* CONTEÚDO */}
-      <section className="content">
-        {/* HEADER */}
-        <header className="header">
-          <h1>Utilizadores</h1>
-
-          <div className="header-actions">
-            <div className="search">
-              <span>🔍</span>
-
-              <input
-                type="text"
-                placeholder="Pesquisar..."
-                value={search}
-                onChange={(event) =>
-                  setSearch(
-                    event.target.value
-                  )
-                }
-              />
-            </div>
-
-            <div className="notification">
-              🔔
-
-              <span>3</span>
-            </div>
-
-            <div className="admin">
-              🧑‍💼
-
-              <strong>{currentName || currentRole}</strong>
-
-              <span>⌄</span>
-            </div>
+      <section className="main-area">
+        <header className="topbar">
+          <div className="breadcrumb"><span>Smart Campus</span><span>/</span><strong>Utilizadores</strong></div>
+          <div className="topbar-actions">
+            <label className="top-search"><span>⌕</span><input aria-label="Pesquisar utilizadores" placeholder="Pesquisar utilizadores..." value={search} onChange={(event) => setSearch(event.target.value)} /><kbd>⌘ K</kbd></label>
+            <button className="icon-button notifications" type="button" aria-label="Notificações">♧<i /></button>
+            <span className="top-divider" />
+            <span className="profile-role-label">{currentName || currentRole} · {currentRole}</span>
+            <span className="avatar avatar-purple top-avatar">{(currentName || currentEmail || "S").charAt(0).toUpperCase()}</span>
           </div>
         </header>
 
-        {/* TÍTULO E BOTÃO */}
-        <div className="page-actions">
-          <div>
-            <h2>
-              Gestão de Utilizadores
-            </h2>
-
-            <p>
-              Gerir todas as contas e permissões do Smart Campus.
-            </p>
+        <div className="page-content">
+          {loadError && <div className="notice" role="alert"><span>!</span>{loadError}<button type="button" onClick={() => setLoadError("")} aria-label="Fechar aviso">×</button></div>}
+          <div className="page-heading">
+            <div><div className="eyebrow">GESTÃO DE ACESSOS</div><h1>Utilizadores</h1><p>Gerir todas as contas e permissões do Smart Campus.</p></div>
+            <button type="button" className="button button-primary" onClick={openForm}>＋ Adicionar utilizador</button>
           </div>
 
-          <button
-            type="button"
-            className="primary-button"
-            onClick={openForm}
-          >
-            + Adicionar utilizador
-          </button>
-        </div>
-
-        {/* MODAL */}
         {showForm && (
           <div className="user-modal-overlay">
             <div
@@ -740,7 +636,7 @@ function openForm() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr 1fr",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))",
                   gap: 0,
                   border: "1px solid #dbe3ef",
                   borderRadius: 10,
@@ -854,7 +750,7 @@ function openForm() {
                 {/* DADOS PESSOAIS */}
                 <section style={{ border: "1px solid #dde6f0", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
                   <div style={{ background: "#edf4ff", padding: "10px 14px", color: "#1d4ed8", fontWeight: 800, fontSize: 15 }}>👤 &nbsp;Dados pessoais</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12, padding: 14 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))", gap: 12, padding: 14 }}>
                     <div className="form-field"><label>Nome completo *</label><input value={name} onChange={e => setName(e.target.value)} autoFocus placeholder="Ex.: Ana Sofia Ribeiro" required /></div>
                     <div className="form-field"><label>Email *</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Ex.: ana.ribeiro@smartcampus.com" required /></div>
                     <div className="form-field"><label>Telefone</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Ex.: 912 345 678" /></div>
@@ -873,7 +769,7 @@ function openForm() {
                   <>
                     <section style={{ border: "1px solid #dde6f0", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
                       <div style={{ background: "#edf4ff", padding: "10px 14px", color: "#1d4ed8", fontWeight: 800, fontSize: 15 }}>🎓 &nbsp;Dados académicos</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12, padding: 14 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))", gap: 12, padding: 14 }}>
                         <div className="form-field"><label>Ano letivo *</label><input placeholder="2026/2027" value={schoolYear} onChange={e => setSchoolYear(e.target.value)} required /></div>
                         <div className="form-field"><label>Número de aluno *</label><input value={studentNumber} onChange={e => setStudentNumber(e.target.value)} required /></div>
                         <div className="form-field"><label>Curso *</label><input value={course} onChange={e => setCourse(e.target.value)} required /></div>
@@ -884,7 +780,7 @@ function openForm() {
 
                     <section style={{ border: "1px solid #dde6f0", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
                       <div style={{ background: "#edf4ff", padding: "10px 14px", color: "#1d4ed8", fontWeight: 800, fontSize: 15 }}>👨‍👩‍👦 &nbsp;Encarregado de Educação</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12, padding: 14 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))", gap: 12, padding: 14 }}>
                         <div className="form-field"><label>Nome completo *</label><input value={guardianName} onChange={e => setGuardianName(e.target.value)} required /></div>
                         <div className="form-field"><label>Grau de parentesco *</label><select value={guardianRelationship} onChange={e => setGuardianRelationship(e.target.value)} required><option value="">Selecionar</option><option>Pai</option><option>Mãe</option><option>Avô/Avó</option><option>Tutor legal</option><option>Outro</option></select></div>
                         <div className="form-field"><label>Telefone *</label><input type="tel" value={guardianPhone} onChange={e => setGuardianPhone(e.target.value)} required /></div>
@@ -903,7 +799,7 @@ function openForm() {
                 {role !== "Aluno" && (
                   <section style={{ border: "1px solid #dde6f0", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
                     <div style={{ background: "#edf4ff", padding: "10px 14px", color: "#1d4ed8", fontWeight: 800, fontSize: 15 }}>💼 &nbsp;Dados profissionais</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, padding: 14 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 185px), 1fr))", gap: 12, padding: 14 }}>
                       <div className="form-field"><label>{role === "Professor" ? "Número do professor" : role === "Funcionário" ? "Número do funcionário" : "Número do administrador"} *</label><input readOnly value={previewNumber} /></div>
                       <div className="form-field"><label>Departamento *</label><select value={department} onChange={e => setDepartment(e.target.value)} required><option value="">Selecionar departamento</option>{(role === "Funcionário" ? employeeDepartments : ["Matemática e Ciências", "Línguas", "Ciências Sociais e Humanas", "Informática e Tecnologias", "Artes", "Educação Física"]).map(item => <option key={item}>{item}</option>)}</select></div>
                       {role === "Funcionário" && <div className="form-field"><label>Cargo/Função *</label><select value={employeePosition} onChange={e => setEmployeePosition(e.target.value)} required><option value="">Selecionar cargo/função</option>{employeePositions.map(item => <option key={item}>{item}</option>)}</select></div>}
@@ -917,7 +813,7 @@ function openForm() {
                 {/* ACESSOS */}
                 <section style={{ border: "1px solid #dde6f0", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
                   <div style={{ background: "#edf4ff", padding: "10px 14px", color: "#1d4ed8", fontWeight: 800, fontSize: 15 }}>🔐 &nbsp;Dados de acesso</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, padding: 14 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 185px), 1fr))", gap: 12, padding: 14 }}>
                     <div className="form-field"><label>Nome de utilizador *</label><input value={username} onChange={e => setUsername(e.target.value)} placeholder="Ex.: ana.ribeiro" required /></div>
                     <div className="form-field"><label>Palavra-passe *</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" minLength={6} required /></div>
                     <div className="form-field"><label>Confirmar palavra-passe *</label><input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repita a palavra-passe" minLength={6} required /></div>
@@ -928,7 +824,7 @@ function openForm() {
                 {role === "Professor" && (
                   <section style={{ border: "1px solid #dde6f0", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
                     <div style={{ background: "#edf4ff", padding: "10px 14px", color: "#1d4ed8", fontWeight: 800, fontSize: 15 }}>🎓 &nbsp;Dados académicos</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, padding: 14 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 12, padding: 14 }}>
                       <div className="form-field"><label>Disciplinas que leciona</label><select defaultValue=""><option value="">Selecionar disciplinas</option><option>Matemática</option><option>Português</option><option>Informática</option><option>Inglês</option><option>Educação Física</option></select></div>
                       <div className="form-field"><label>Turmas atribuídas</label><select defaultValue=""><option value="">Selecionar turmas</option><option>10.º A</option><option>10.º B</option><option>11.º A</option><option>12.º A</option></select></div>
                     </div>
@@ -969,203 +865,72 @@ function openForm() {
         )}
 
         {/* ESTATÍSTICAS */}
-        <div className="user-stats">
-          <div className="user-stat">
-            <span className="user-stat-icon">👥</span>
+        <section className="stat-grid users-stat-grid" aria-label="Resumo de utilizadores">
+          <article className="stat-card"><div className="stat-icon violet">♙</div><div className="stat-meta">Total de utilizadores</div><strong>{users.length}</strong><small>Contas registadas</small></article>
+          <article className="stat-card"><div className="stat-icon blue">◎</div><div className="stat-meta">Alunos</div><strong>{totalStudents}</strong><small>Contas de aluno</small></article>
+          <article className="stat-card"><div className="stat-icon green">♧</div><div className="stat-meta">Professores</div><strong>{totalTeachers}</strong><small>Contas de professor</small></article>
+          <article className="stat-card"><div className="stat-icon amber">♙</div><div className="stat-meta">Funcionários</div><strong>{users.filter((user) => user.role === "Funcionário").length}</strong><small>Contas operacionais</small></article>
+          <article className="stat-card"><div className="stat-icon violet">◇</div><div className="stat-meta">Administradores adjuntos</div><strong>{users.filter((user) => user.role === "Administrador Adjunto").length}</strong><small>Contas de gestão</small></article>
+          <article className="stat-card"><div className="stat-icon blue">♧</div><div className="stat-meta">Administradores</div><strong>{totalAdministrators}</strong><small>Contas de administração</small></article>
+        </section>
+
+        {/* LISTA DE UTILIZADORES */}
+        <section className="surface table-surface users-table-surface" aria-labelledby="users-list-title">
+          <div className="surface-heading users-table-heading">
             <div>
-              <p>Total de utilizadores</p>
-              <strong>{users.length}</strong>
+              <h2 id="users-list-title">Lista de utilizadores</h2>
+              <p>{loadingUsers ? "A carregar contas do Smart Campus…" : "Contas e permissões registadas no Smart Campus."}</p>
             </div>
-          </div>
-
-          <div className="user-stat">
-            <span className="user-stat-icon">🎓</span>
-            <div>
-              <p>Alunos</p>
-              <strong>{totalStudents}</strong>
-            </div>
-          </div>
-
-          <div className="user-stat">
-            <span className="user-stat-icon">🧑‍🏫</span>
-            <div>
-              <p>Professores</p>
-              <strong>{totalTeachers}</strong>
-            </div>
-          </div>
-
-          <div className="user-stat">
-            <span className="user-stat-icon">👤</span>
-            <div>
-              <p>Funcionários</p>
-              <strong>{users.filter((user) => user.role === "Funcionário").length}</strong>
-            </div>
-          </div>
-
-          <div className="user-stat">
-            <span className="user-stat-icon">🛡️</span>
-            <div>
-              <p>Adjuntos</p>
-              <strong>{users.filter((user) => user.role === "Administrador Adjunto").length}</strong>
-            </div>
-          </div>
-
-          <div className="user-stat">
-            <span className="user-stat-icon">🧑‍💼</span>
-            <div>
-              <p>Administradores</p>
-              <strong>{totalAdministrators}</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* TABELA */}
-        <div className="users-panel">
-          <div className="users-panel-header">
-            <div>
-              <h2>
-                Lista de Utilizadores
-              </h2>
-
-              <p>
-                Todos os utilizadores
-                registados no Smart Campus.
-              </p>
-            </div>
-
             <select
-              className="filter"
+              className="select-control users-table-filter"
+              aria-label="Filtrar utilizadores por perfil"
               value={filterRole}
-              onChange={(event) =>
-                setFilterRole(
-                  event.target.value as "Todos" | UserRole
-                )
-              }
+              onChange={(event) => setFilterRole(event.target.value as "Todos" | UserRole)}
             >
-              <option value="Todos">
-                Todos
-              </option>
-
-              <option value="Aluno">
-                Alunos
-              </option>
-
-              <option value="Professor">
-                Professores
-              </option>
-
-              <option value="Funcionário">
-                Funcionários
-              </option>
-
-              <option value="Administrador Adjunto" disabled={currentRole === "Administrador Adjunto"}>
-                Administradores Adjuntos
-              </option>
-
-              <option value="Administrador" disabled={currentRole === "Administrador Adjunto"}>
-                Administradores
-              </option>
+              <option value="Todos">Todos os perfis</option>
+              <option value="Aluno">Alunos</option>
+              <option value="Professor">Professores</option>
+              <option value="Funcionário">Funcionários</option>
+              <option value="Administrador Adjunto" disabled={currentRole === "Administrador Adjunto"}>Administradores adjuntos</option>
+              <option value="Administrador" disabled={currentRole === "Administrador Adjunto"}>Administradores</option>
             </select>
           </div>
 
-          <div className="users-table-wrapper">
-            <table className="users-table">
+          <div className="table-wrap">
+            <table className="data-table user-data-table">
               <thead>
-                <tr>
-                  <th>
-                    Utilizador
-                  </th>
-
-                  <th>Email</th>
-
-                  <th>Função</th>
-
-                  <th>Estado</th>
-
-                  <th>Ações</th>
-                </tr>
+                <tr><th>Utilizador</th><th>Email</th><th>Função</th><th>Estado</th><th>Ações</th></tr>
               </thead>
-
               <tbody>
-                {filteredUsers.length > 0 ? (
-                  filteredUsers.map(
-                    (user) => (
-                      <tr
-                        key={user.email}
-                      >
-                        <td data-label="Utilizador">
-                          <div className="user-name">
-                            <div className="table-avatar">
-                              {user.name
-                                .charAt(0)
-                                .toUpperCase()}
-                            </div>
-
-                            <strong>
-                              {user.name}
-                            </strong>
-                          </div>
-                        </td>
-
-                        <td data-label="Email">
-                          <span className="mobile-cell-value">{user.email}</span>
-                        </td>
-
-                        <td data-label="Função">
-                          <span className="role">
-                            {user.role}
-                          </span>
-                        </td>
-
-                        <td data-label="Estado">
-                          <span
-                            className={`status ${user.status ===
-                              "Ativo"
-                              ? "status-active"
-                              : "status-inactive"
-                              }`}
-                          >
-                            ●{" "}
-                            {user.status}
-                          </span>
-                        </td>
-
-                        <td data-label="Ações">
-                          <div className="actions">
-                            <button
-                              type="button"
-                              title="Editar utilizador"
-                              onClick={() => editUser(user)}
-                            >
-                              ✏️
-                            </button>
-
-                            <button
-                              type="button"
-                              title="Mais opções"
-                            >
-                              ⋮
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  )
+                {loadingUsers ? (
+                  <tr><td colSpan={5} className="users-empty-cell">A carregar utilizadores…</td></tr>
+                ) : filteredUsers.length > 0 ? (
+                  filteredUsers.map((user) => (
+                    <tr key={user.email}>
+                      <td>
+                        <div className="user-name">
+                          <div className="table-avatar">{user.name.charAt(0).toUpperCase()}</div>
+                          <strong>{user.name}</strong>
+                        </div>
+                      </td>
+                      <td><span className="users-email">{user.email}</span></td>
+                      <td><span className="pill pill-slate">{user.role}</span></td>
+                      <td><span className={"pill " + (user.status === "Ativo" ? "pill-green" : "pill-slate")}>{user.status}</span></td>
+                      <td>
+                        <div className="row-actions">
+                          <button type="button" className="button button-secondary" title="Editar utilizador" onClick={() => editUser(user)}>Editar</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 ) : (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="empty-users"
-                    >
-                      Nenhum utilizador
-                      encontrado.
-                    </td>
-                  </tr>
+                  <tr><td colSpan={5} className="users-empty-cell">{loadError ? "Não foi possível carregar os utilizadores." : "Nenhum utilizador encontrado."}</td></tr>
                 )}
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
+      </div>
       </section>
     </main>
   );
