@@ -517,107 +517,49 @@ function openForm() {
 
         {showForm && (
           <div className="user-modal-overlay">
-            <div
-              className="user-modal"
-              style={{
-                width: "min(1100px, calc(100vw - 32px))",
-                maxHeight: "94vh",
-                overflowY: "auto",
-                padding: "22px 26px 18px",
-                borderRadius: 18,
-              }}
-            >
-              <div
-                className="user-form-header"
-                style={{ paddingBottom: 14, marginBottom: 12 }}
-              >
+            <div className="user-modal">
+              <div className="user-form-header">
                 <div>
                   <h2 style={{ marginBottom: 4 }}>
                     {editingUserEmail ? "Editar Utilizador" : "Adicionar Utilizador"}
                   </h2>
-                  <p>Preencha os dados do novo utilizador no Smart Campus.</p>
+                  <p>{editingUserId ? "Atualize os dados da conta e guarde as alterações." : "Preencha os dados para criar uma conta no Smart Campus."}</p>
                 </div>
                 <button type="button" className="close-button" onClick={closeForm} aria-label="Fechar">×</button>
               </div>
 
               {/* PASSOS */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))",
-                  gap: 0,
-                  border: "1px solid #dbe3ef",
-                  borderRadius: 10,
-                  marginBottom: 18,
-                  overflow: "hidden",
-                  background: "#fff",
-                }}
-              >
+              <div className="user-form-steps">
                 {[
                   ["1", "Tipo de utilizador", role],
                   ["2", "Preencher dados", "Complete o formulário"],
-                  ["3", "Guardar", "Adicionar ao sistema"],
+                  ["3", "Guardar", editingUserId ? "Guardar alterações" : "Adicionar ao sistema"],
                 ].map(([step, title, subtitle], index) => (
-                  <div
-                    key={step}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "14px 18px",
-                      borderRight: index < 2 ? "1px solid #e7edf5" : "none",
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: "50%",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flex: "0 0 auto",
-                        background: index === 0 ? "#2f55ff" : "#d9e0ec",
-                        color: index === 0 ? "#fff" : "#56657c",
-                        fontWeight: 800,
-                      }}
-                    >
+                  <div key={step} className={"user-form-step " + (index === 0 ? "is-current" : "")}>
+                    <span className="user-form-step-number">
                       {step}
                     </span>
-                    <div style={{ minWidth: 0 }}>
-                      <strong style={{ display: "block", color: "#0f172a", fontSize: 13 }}>{title}</strong>
-                      <span style={{ color: "#6b7a90", fontSize: 12 }}>{subtitle}</span>
+                    <div className="user-form-step-copy">
+                      <strong>{title}</strong>
+                      <span>{subtitle}</span>
                     </div>
                   </div>
                 ))}
               </div>
 
               {/* SELEÇÃO DE PERFIL */}
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  padding: "10px 12px",
-                  border: "1px solid #e3eaf3",
-                  borderRadius: 10,
-                  background: "#f8fbff",
-                  marginBottom: 16,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 24 }}>{roleMeta[role].icon}</span>
+              <div className="user-role-selector">
+                <div className="user-role-copy">
+                  <span className="user-role-emoji">{roleMeta[role].icon}</span>
                   <div>
-                    <strong style={{ display: "block", color: "#0f172a" }}>Perfil selecionado: {role}</strong>
-                    <span style={{ color: "#64748b", fontSize: 12 }}>{roleMeta[role].title} · {roleMeta[role].description}</span>
+                    <strong>Perfil selecionado: {role}</strong>
+                    <span>{roleMeta[role].title} · {roleMeta[role].description}</span>
                   </div>
                 </div>
                 <select
+                  className="user-role-select"
                   value={role}
                   onChange={(e) => setRole(e.target.value as UserRole)}
-                  style={{ minWidth: "min(210px, 100%)", height: 40, borderRadius: 8, border: "1px solid #cfd9e7", padding: "0 12px", background: "#fff", fontWeight: 600, color: "#17305f" }}
                   aria-label="Escolher tipo de utilizador"
                 >
                   {(Object.keys(roleMeta) as UserRole[]).map((itemRole) => (
@@ -626,40 +568,21 @@ function openForm() {
                 </select>
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  marginBottom: 16,
-                  padding: "2px 4px",
-                }}
-              >
-                <span
-                  style={{
-                    width: 54,
-                    height: 54,
-                    borderRadius: "50%",
-                    background: "#e7f8f0",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 28,
-                  }}
-                >
+              <div className="user-form-intro">
+                <span className="user-form-role-icon">
                   {roleMeta[role].icon}
                 </span>
                 <div>
-                  <h3 style={{ margin: 0, color: "#0b1e4b", fontSize: 24, lineHeight: 1.1 }}>Adicionar {role}</h3>
-                  <p style={{ margin: "5px 0 0", color: "#6c7d98", fontSize: 13 }}>Preencha os dados do novo {role.toLowerCase()}.</p>
+                  <h3>{editingUserId ? "Editar" : "Adicionar"} {role}</h3>
+                  <p>{editingUserId ? "Os campos abaixo refletem a informação guardada na conta." : "Os campos obrigatórios estão assinalados com *."}</p>
                 </div>
               </div>
 
               <form onSubmit={addUser}>
                 {/* DADOS PESSOAIS */}
-                <section style={{ border: "1px solid #dde6f0", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
-                  <div style={{ background: "#edf4ff", padding: "10px 14px", color: "#1d4ed8", fontWeight: 800, fontSize: 15 }}>👤 &nbsp;Dados pessoais</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))", gap: 12, padding: 14 }}>
+                <section className="user-form-section">
+                  <div className="user-form-section-heading">👤 &nbsp;Dados pessoais</div>
+                  <div className="user-form-grid">
                     <div className="form-field"><label>Nome completo *</label><input value={name} onChange={e => setName(e.target.value)} autoFocus placeholder="Ex.: Ana Sofia Ribeiro" required /></div>
                     <div className="form-field"><label>Email *</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Ex.: ana.ribeiro@smartcampus.com" required /></div>
                     <div className="form-field"><label>Telefone</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Ex.: 912 345 678" /></div>
@@ -669,16 +592,16 @@ function openForm() {
                     <div className="form-field"><label>Tipo de documento</label><select value={documentType} onChange={e => setDocumentType(e.target.value as User["documentType"])}><option>Cartão de Cidadão</option><option>Passaporte</option><option>Título de Residência</option></select></div>
                     <div className="form-field"><label>NISS</label><input value={niss} onChange={e => setNiss(e.target.value)} /></div>
                     <div className="form-field"><label>Número de Utente</label><input value={healthNumber} onChange={e => setHealthNumber(e.target.value)} /></div>
-                    <div className="form-field" style={{ gridColumn: "1 / -1" }}><label>Morada</label><input value={address} onChange={e => setAddress(e.target.value)} placeholder="Rua, número, código postal e localidade" /></div>
+                    <div className="form-field form-field-full"><label>Morada</label><input value={address} onChange={e => setAddress(e.target.value)} placeholder="Rua, número, código postal e localidade" /></div>
                   </div>
                 </section>
 
                 {/* DADOS ACADÉMICOS ALUNO */}
                 {role === "Aluno" && (
                   <>
-                    <section style={{ border: "1px solid #dde6f0", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
-                      <div style={{ background: "#edf4ff", padding: "10px 14px", color: "#1d4ed8", fontWeight: 800, fontSize: 15 }}>🎓 &nbsp;Dados académicos</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))", gap: 12, padding: 14 }}>
+                    <section className="user-form-section">
+                      <div className="user-form-section-heading">🎓 &nbsp;Dados académicos</div>
+                      <div className="user-form-grid">
                         <div className="form-field"><label>Ano letivo *</label><input placeholder="2026/2027" value={schoolYear} onChange={e => setSchoolYear(e.target.value)} required /></div>
                         <div className="form-field"><label>Número de aluno *</label><input value={studentNumber} onChange={e => setStudentNumber(e.target.value)} required /></div>
                         <div className="form-field"><label>Curso *</label><input value={course} onChange={e => setCourse(e.target.value)} required /></div>
@@ -687,9 +610,9 @@ function openForm() {
                       </div>
                     </section>
 
-                    <section style={{ border: "1px solid #dde6f0", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
-                      <div style={{ background: "#edf4ff", padding: "10px 14px", color: "#1d4ed8", fontWeight: 800, fontSize: 15 }}>👨‍👩‍👦 &nbsp;Encarregado de Educação</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))", gap: 12, padding: 14 }}>
+                    <section className="user-form-section">
+                      <div className="user-form-section-heading">👨‍👩‍👦 &nbsp;Encarregado de Educação</div>
+                      <div className="user-form-grid">
                         <div className="form-field"><label>Nome completo *</label><input value={guardianName} onChange={e => setGuardianName(e.target.value)} required /></div>
                         <div className="form-field"><label>Grau de parentesco *</label><select value={guardianRelationship} onChange={e => setGuardianRelationship(e.target.value)} required><option value="">Selecionar</option><option>Pai</option><option>Mãe</option><option>Avô/Avó</option><option>Tutor legal</option><option>Outro</option></select></div>
                         <div className="form-field"><label>Telefone *</label><input type="tel" value={guardianPhone} onChange={e => setGuardianPhone(e.target.value)} required /></div>
@@ -706,9 +629,9 @@ function openForm() {
 
                 {/* DADOS PROFISSIONAIS */}
                 {role !== "Aluno" && (
-                  <section style={{ border: "1px solid #dde6f0", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
-                    <div style={{ background: "#edf4ff", padding: "10px 14px", color: "#1d4ed8", fontWeight: 800, fontSize: 15 }}>💼 &nbsp;Dados profissionais</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 185px), 1fr))", gap: 12, padding: 14 }}>
+                  <section className="user-form-section">
+                    <div className="user-form-section-heading">💼 &nbsp;Dados profissionais</div>
+                    <div className="user-form-grid">
                       <div className="form-field"><label>{role === "Professor" ? "Número do professor" : role === "Funcionário" ? "Número do funcionário" : "Número do administrador"} *</label><input readOnly value={previewNumber} /></div>
                       <div className="form-field"><label>Departamento *</label><select value={department} onChange={e => setDepartment(e.target.value)} required><option value="">Selecionar departamento</option>{(role === "Funcionário" ? employeeDepartments : ["Matemática e Ciências", "Línguas", "Ciências Sociais e Humanas", "Informática e Tecnologias", "Artes", "Educação Física"]).map(item => <option key={item}>{item}</option>)}</select></div>
                       {role === "Funcionário" && <div className="form-field"><label>Cargo/Função *</label><select value={employeePosition} onChange={e => setEmployeePosition(e.target.value)} required><option value="">Selecionar cargo/função</option>{employeePositions.map(item => <option key={item}>{item}</option>)}</select></div>}
@@ -720,9 +643,9 @@ function openForm() {
                 )}
 
                 {/* ACESSOS */}
-                <section style={{ border: "1px solid #dde6f0", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
-                  <div style={{ background: "#edf4ff", padding: "10px 14px", color: "#1d4ed8", fontWeight: 800, fontSize: 15 }}>🔐 &nbsp;Dados de acesso</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 185px), 1fr))", gap: 12, padding: 14 }}>
+                <section className="user-form-section">
+                  <div className="user-form-section-heading">🔐 &nbsp;Dados de acesso</div>
+                  <div className="user-form-grid">
                     <div className="form-field"><label>Nome de utilizador{!editingUserId ? " *" : ""}</label><input value={username} onChange={e => setUsername(e.target.value)} placeholder="Ex.: ana.ribeiro" required={!editingUserId} /></div>
                     {!editingUserId && <div className="form-field"><label>Palavra-passe *</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" minLength={6} required /></div>}
                     {!editingUserId && <div className="form-field"><label>Confirmar palavra-passe *</label><input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repita a palavra-passe" minLength={6} required /></div>}
@@ -731,9 +654,9 @@ function openForm() {
                 </section>
 
                 {role === "Professor" && (
-                  <section style={{ border: "1px solid #dde6f0", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
-                    <div style={{ background: "#edf4ff", padding: "10px 14px", color: "#1d4ed8", fontWeight: 800, fontSize: 15 }}>🎓 &nbsp;Dados académicos</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 12, padding: 14 }}>
+                  <section className="user-form-section">
+                    <div className="user-form-section-heading">🎓 &nbsp;Dados académicos</div>
+                    <div className="user-form-grid">
                       <div className="form-field"><label>Disciplinas que leciona</label><select defaultValue=""><option value="">Selecionar disciplinas</option><option>Matemática</option><option>Português</option><option>Informática</option><option>Inglês</option><option>Educação Física</option></select></div>
                       <div className="form-field"><label>Turmas atribuídas</label><select defaultValue=""><option value="">Selecionar turmas</option><option>10.º A</option><option>10.º B</option><option>11.º A</option><option>12.º A</option></select></div>
                     </div>
@@ -744,25 +667,13 @@ function openForm() {
 
 
                 {role === "Administrador" && (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      padding: "12px 14px",
-                      border: "1px solid #dce5f4",
-                      borderRadius: 10,
-                      background: "#f8fbff",
-                      color: "#20427a",
-                      marginBottom: 10,
-                    }}
-                  >
-                    <span style={{ fontSize: 20 }}>🛡️</span>
-                    <div><strong>Acesso total ao sistema</strong><div style={{ fontSize: 12, color: "#607493", marginTop: 2 }}>O Administrador terá acesso total à gestão de utilizadores, áreas, configurações, relatórios e segurança.</div></div>
+                  <div className="user-admin-notice">
+                    <span>🛡️</span>
+                    <div><strong>Acesso total ao sistema</strong><p>O Administrador terá acesso à gestão de utilizadores, áreas, configurações, relatórios e segurança.</p></div>
                   </div>
                 )}
 
-                <div className="user-form-actions" style={{ paddingTop: 8 }}>
+                <div className="user-form-actions">
                   <button type="button" className="secondary-button" onClick={closeForm}>Cancelar</button>
                   <button type="submit" className="primary-button">
                     👤+ &nbsp;{editingUserEmail ? "Guardar alterações" : `Adicionar ${role.toLowerCase()}`}
