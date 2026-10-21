@@ -213,10 +213,6 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "O perfil ou o estado selecionado é inválido." }, { status: 400 });
     }
 
-    if (body.password && body.password.length < 6) {
-      return NextResponse.json({ error: "A nova palavra-passe deve ter pelo menos 6 caracteres." }, { status: 400 });
-    }
-
     if (
       currentProfile.role === "Administrador Adjunto" &&
       !["Aluno", "Professor", "Funcionário"].includes(cleanRole)
@@ -319,7 +315,6 @@ export async function PATCH(request: Request) {
       email_confirm: true,
       user_metadata: { ...oldUserMetadata, name: cleanName, role: cleanRole, ...(cleanUsername ? { username: cleanUsername } : {}) },
     };
-    if (body.password) authUpdate.password = body.password;
 
     const authUpdateResult = await admin.auth.admin.updateUserById(id, authUpdate);
     if (authUpdateResult.error) {
