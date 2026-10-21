@@ -118,7 +118,12 @@ async function subjectIdsForUser(
   return unique(asRows(data).map((row) => text(row, "disciplina_id")));
 }
 
-async function enrich(resource: string, rows: Row[], admin: ReturnType<typeof createAdminClient>): Promise<RecordItem[]> {
+async function enrich(
+  resource: string,
+  rows: Row[],
+  admin: ReturnType<typeof createAdminClient>,
+  role: Role
+): Promise<RecordItem[]> {
   if (!rows.length) return [];
 
   const users = await readTable(admin, "users");
@@ -136,9 +141,13 @@ async function enrich(resource: string, rows: Row[], admin: ReturnType<typeof cr
         "ano escolar": text(row, "school_year"),
         curso: text(row, "course"),
         "data de inscrição": text(row, "enrollment_date"),
-        "encarregado de educação": text(row, "guardian_name"),
-        "relação com encarregado": text(row, "guardian_relationship"),
-        "contacto do encarregado": text(row, "guardian_phone"),
+        ...(isAdmin(role)
+          ? {
+              "encarregado de educação": text(row, "guardian_name"),
+              "relação com encarregado": text(row, "guardian_relationship"),
+              "contacto do encarregado": text(row, "guardian_phone"),
+            }
+          : {}),
       };
     });
   }
@@ -646,7 +655,7 @@ export async function GET(request: Request) {
     if (resource === "/salas" && !isAdmin(role)) rows = rows.filter((row) => text(row, "estado") === "Ativa");
     if (resource === "/computadores" && !isAdmin(role)) rows = rows.filter((row) => text(row, "estado") !== "Inativo");
 
-    const records = await enrich(resource, rows, admin);
+    const records = await enrich(resource, rows, admin, role);
     return NextResponse.json({ records });
   } catch (error) {
     console.error("Erro ao consultar dados do campus:", error);
