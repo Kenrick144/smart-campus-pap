@@ -724,8 +724,8 @@ function openForm() {
                   <div style={{ background: "#edf4ff", padding: "10px 14px", color: "#1d4ed8", fontWeight: 800, fontSize: 15 }}>🔐 &nbsp;Dados de acesso</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 185px), 1fr))", gap: 12, padding: 14 }}>
                     <div className="form-field"><label>Nome de utilizador{!editingUserId ? " *" : ""}</label><input value={username} onChange={e => setUsername(e.target.value)} placeholder="Ex.: ana.ribeiro" required={!editingUserId} /></div>
-                    <div className="form-field"><label>{editingUserId ? "Nova palavra-passe (opcional)" : "Palavra-passe *"}</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={editingUserId ? "Deixa vazio para manter a atual" : "Mínimo 6 caracteres"} minLength={6} required={!editingUserId} /></div>
-                    <div className="form-field"><label>{editingUserId ? "Confirmar nova palavra-passe" : "Confirmar palavra-passe *"}</label><input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repita a palavra-passe" minLength={6} required={!editingUserId || Boolean(password)} /></div>
+                    {!editingUserId && <div className="form-field"><label>Palavra-passe *</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" minLength={6} required /></div>}
+                    {!editingUserId && <div className="form-field"><label>Confirmar palavra-passe *</label><input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repita a palavra-passe" minLength={6} required /></div>}
                     <div className="form-field"><label>Estado *</label><select value={status} onChange={e => setStatus(e.target.value as UserStatus)} required><option>Ativo</option><option>Inativo</option></select></div>
                   </div>
                 </section>
