@@ -688,6 +688,7 @@ function openForm() {
               <div
                 style={{
                   display: "flex",
+                  flexWrap: "wrap",
                   alignItems: "center",
                   justifyContent: "space-between",
                   gap: 12,
@@ -708,7 +709,7 @@ function openForm() {
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value as UserRole)}
-                  style={{ minWidth: 210, height: 40, borderRadius: 8, border: "1px solid #cfd9e7", padding: "0 12px", background: "#fff", fontWeight: 600, color: "#17305f" }}
+                  style={{ minWidth: "min(210px, 100%)", height: 40, borderRadius: 8, border: "1px solid #cfd9e7", padding: "0 12px", background: "#fff", fontWeight: 600, color: "#17305f" }}
                   aria-label="Escolher tipo de utilizador"
                 >
                   {(Object.keys(roleMeta) as UserRole[]).map((itemRole) => (
