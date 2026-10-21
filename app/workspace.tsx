@@ -71,67 +71,6 @@ const roleRoutes: Record<Role, string[]> = {
 
 const roles: Role[] = ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"];
 
-const initialData: Record<string, RecordItem[]> = {
-  "/utilizadores": [
-    { nome: "Maria Santos", email: "maria.santos@smartcampus.pt", perfil: "Professora", estado: "Ativo" },
-    { nome: "João Silva", email: "joao.silva@smartcampus.pt", perfil: "Aluno", estado: "Ativo" },
-    { nome: "Carlos Almeida", email: "carlos.almeida@smartcampus.pt", perfil: "Funcionário", estado: "Ativo" },
-    { nome: "Ana Pereira", email: "ana.pereira@smartcampus.pt", perfil: "Aluna", estado: "Ativo" },
-  ],
-  "/alunos": [
-    { nome: "João Silva", número: "2025001", turma: "12.º T1", email: "joao.silva@smartcampus.pt", estado: "Ativo" },
-    { nome: "Ana Pereira", número: "2025002", turma: "12.º T1", email: "ana.pereira@smartcampus.pt", estado: "Ativo" },
-    { nome: "Pedro Costa", número: "2025003", turma: "11.º T2", email: "pedro.costa@smartcampus.pt", estado: "Ativo" },
-  ],
-  "/professor": [
-    { nome: "Maria Santos", disciplina: "Matemática", turmas: "12.º T1, 11.º T2", email: "maria.santos@smartcampus.pt", estado: "Ativo" },
-    { nome: "Rita Fernandes", disciplina: "Português", turmas: "12.º T1", email: "rita.fernandes@smartcampus.pt", estado: "Ativo" },
-    { nome: "Carlos Mendes", disciplina: "Informática", turmas: "10.º T1, 11.º T2", email: "carlos.mendes@smartcampus.pt", estado: "Ativo" },
-  ],
-  "/turmas": [
-    { turma: "12.º T1", curso: "Gestão e Programação de Sistemas Informáticos", diretor: "Maria Santos", sala: "Sala 101", alunos: "24" },
-    { turma: "11.º T2", curso: "Multimédia", diretor: "Rita Fernandes", sala: "Sala 202", alunos: "21" },
-    { turma: "10.º T1", curso: "Informática", diretor: "Carlos Mendes", sala: "Sala 105", alunos: "23" },
-  ],
-  "/disciplinas": [
-    { disciplina: "Matemática", código: "MAT12", professor: "Maria Santos", turmas: "12.º T1, 11.º T2", estado: "Ativa" },
-    { disciplina: "Português", código: "POR12", professor: "Rita Fernandes", turmas: "12.º T1", estado: "Ativa" },
-    { disciplina: "Programação", código: "INF12", professor: "Carlos Mendes", turmas: "12.º T1", estado: "Ativa" },
-  ],
-  "/presencas": [
-    { aluno: "João Silva", turma: "12.º T1", disciplina: "Matemática", data: "08/10/2026", hora: "09:04", estado: "Presente" },
-    { aluno: "Ana Pereira", turma: "12.º T1", disciplina: "Matemática", data: "08/10/2026", hora: "09:06", estado: "Atrasado" },
-    { aluno: "Pedro Costa", turma: "11.º T2", disciplina: "Português", data: "08/10/2026", hora: "10:02", estado: "Ausente" },
-  ],
-  "/horarios": [
-    { dia: "Quarta-feira", hora: "09:00 – 10:30", turma: "12.º T1", disciplina: "Matemática", professor: "Maria Santos", sala: "Sala 101" },
-    { dia: "Quarta-feira", hora: "10:45 – 12:15", turma: "11.º T2", disciplina: "Informática", professor: "Carlos Mendes", sala: "Sala 202" },
-    { dia: "Quarta-feira", hora: "13:30 – 15:00", turma: "12.º T1", disciplina: "Português", professor: "Rita Fernandes", sala: "Sala 101" },
-  ],
-  "/salas": [
-    { sala: "Sala 101", edifício: "Bloco A", capacidade: "28", equipamentos: "24 computadores", estado: "Disponível" },
-    { sala: "Sala 202", edifício: "Bloco B", capacidade: "25", equipamentos: "Projetor", estado: "Ocupada" },
-    { sala: "Sala 105", edifício: "Bloco A", capacidade: "30", equipamentos: "Quadro interativo", estado: "Disponível" },
-  ],
-  "/computadores": [
-    { computador: "PC-01", sala: "Sala 101", utilizador: "—", utilização: "—", estado: "Livre" },
-    { computador: "PC-02", sala: "Sala 101", utilizador: "João Silva", utilização: "09:15", estado: "Ocupado" },
-    { computador: "PC-03", sala: "Sala 101", utilizador: "—", utilização: "—", estado: "Livre" },
-    { computador: "PC-04", sala: "Sala 202", utilizador: "—", utilização: "—", estado: "Reservado" },
-    { computador: "PC-05", sala: "Sala 202", utilizador: "—", utilização: "08:00", estado: "Manutenção" },
-  ],
-  "/qr-code": [
-    { código: "QR-S101", tipo: "Sala", destino: "Sala 101", criado: "01/09/2026", estado: "Ativo" },
-    { código: "QR-PC01", tipo: "Computador", destino: "PC-01", criado: "01/09/2026", estado: "Ativo" },
-    { código: "QR-S202", tipo: "Sala", destino: "Sala 202", criado: "03/09/2026", estado: "Ativo" },
-  ],
-  "/logs": [
-    { atividade: "Presença registada", utilizador: "João Silva", destino: "12.º T1 · Matemática", data: "Hoje, 09:04" },
-    { atividade: "Sessão iniciada", utilizador: "Maria Santos", destino: "Painel do professor", data: "Hoje, 08:55" },
-    { atividade: "PC ocupado", utilizador: "João Silva", destino: "PC-02 · Sala 101", data: "Hoje, 09:15" },
-  ],
-};
-
 const formFields: Record<string, string[]> = {
   "/anos-letivos": ["nome", "data_inicio", "data_fim", "ativo"],
   "/turmas": ["nome", "ano_letivo_id", "ano_escolar", "curso", "capacidade", "estado", "professor_coordenador_id"],
