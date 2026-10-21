@@ -716,6 +716,12 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
     }
 
     if (method === "POST") {
+      if (!row) {
+        return NextResponse.json(
+          { error: "Os dados enviados não são válidos para esta área." },
+          { status: 400 }
+        );
+      }
       const { data, error } = await admin.from(table).insert(row).select("*").single();
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });
       return NextResponse.json({ ok: true, record: data });
@@ -724,6 +730,12 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
     if (!recordId) return NextResponse.json({ error: "Falta o identificador do registo." }, { status: 400 });
 
     if (method === "PATCH") {
+      if (!row) {
+        return NextResponse.json(
+          { error: "Os dados enviados não são válidos para esta área." },
+          { status: 400 }
+        );
+      }
       const { data, error } = await admin.from(table).update(row).eq("id", recordId).select("*").maybeSingle();
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });
       if (!data) return NextResponse.json({ error: "Registo não encontrado." }, { status: 404 });
