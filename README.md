@@ -20,6 +20,12 @@ npm run dev
 
 Abre `http://localhost:3000`.
 
+## Deploy no Vercel
+
+Para gerar as páginas e executar a aplicação, o projeto Vercel precisa das variáveis públicas `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. No preview da branch `integracao-supabase-real`, estas variáveis devem estar configuradas no ambiente **Preview**, associadas a essa branch. Depois de alterar variáveis de ambiente, é necessário criar um novo deployment para que sejam aplicadas.
+
+As rotas de servidor que usam o cliente administrativo também precisam de `SUPABASE_SECRET_KEY`, guardada como variável de ambiente do servidor (por exemplo, nos ambientes Preview/Production adequados). Não usar a chave secreta no browser nem num prefixo `NEXT_PUBLIC_`. Nunca guardar os valores das chaves no repositório.
+
 ## Dados e segurança
 
 A aplicação usa Supabase Auth para iniciar/terminar sessão. O perfil é lido de `public.users`; não se infere o cargo a partir do email e não é permitido entrar com uma conta inativa. O servidor verifica de novo a identidade, o estado da conta e as permissões antes de ler ou alterar dados.
