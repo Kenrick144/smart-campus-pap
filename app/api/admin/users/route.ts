@@ -121,11 +121,11 @@ export async function POST(request: Request) {
 
     const { data: currentProfile, error: profileError } = await supabase
       .from("users")
-      .select("role")
+      .select("role, status")
       .eq("id", currentUser.id)
       .single();
 
-    if (profileError || !currentProfile) {
+    if (profileError || !currentProfile || currentProfile.status !== "Ativo") {
       return NextResponse.json(
         { error: "Não foi possível verificar as permissões do utilizador." },
         { status: 403 },
