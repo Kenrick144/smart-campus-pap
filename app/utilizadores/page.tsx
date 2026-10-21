@@ -13,6 +13,7 @@ type UserStatus = "Ativo" | "Inativo";
 const USERS_STORAGE_KEY = "smartcampus_users";
 
 type User = {
+  id?: string;
   name: string;
   email: string;
   role: UserRole;
@@ -153,6 +154,7 @@ export default function Utilizadores() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingUserEmail, setEditingUserEmail] = useState<string | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<UserRole>("Aluno");
@@ -209,13 +211,19 @@ export default function Utilizadores() {
   
 function openForm() {
   setEditingUserEmail(null);
+  setEditingUserId(null);
   resetForm();
   setShowForm(true);
 }
 
   function editUser(user: User) {
-    setEditingUserEmail(user.email);
+    if (!user.id) {
+      alert("Não foi possível identificar esta conta. Atualiza a lista e tenta novamente.");
+      return;
+    }
 
+    setEditingUserId(user.id);
+    setEditingUserEmail(user.email);
     setName(user.name);
     setEmail(user.email);
     setRole(user.role);
@@ -253,12 +261,15 @@ function openForm() {
     setProfessionalStatus(user.professionalStatus ?? "Ativo");
 
     setUsername(user.username ?? "");
-    setPassword(user.password ?? "");
-    setConfirmPassword(user.password ?? "");
-
+    setPassword("");
+    setConfirmPassword("");
     setShowForm(true);
   }
-  function closeForm() { setShowForm(false); }
+  function closeForm() {
+    setShowForm(false);
+    setEditingUserEmail(null);
+    setEditingUserId(null);
+  }
 
   function resetForm() {
     setName(""); setEmail(""); setRole("Aluno"); setStatus("Ativo");
@@ -278,152 +289,61 @@ function openForm() {
   }
 
   async function addUser(event: FormEvent<HTMLFormElement>) {
-  event.preventDefault();
+    event.preventDefault();
 
-  const cleanName = name.trim();
-  const cleanEmail = email.trim().toLowerCase();
-  const cleanUsername = username.trim();
+    const cleanName = name.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanUsername = username.trim();
+    const isEditing = Boolean(editingUserId);
 
-  if (!cleanName || !cleanEmail || !cleanUsername || !password) {
-    alert("Preenche os campos obrigatórios e os dados de acesso.");
-    return;
-  }
-
-  if (password !== confirmPassword) {
-    alert("A palavra-passe e a confirmação não coincidem.");
-    return;
-  }
-
-  if (
-    !editingUserEmail &&
-    users.some(
-      (u) => u.email.toLowerCase() === cleanEmail.toLowerCase()
-    )
-  ) {
-    alert("Já existe um utilizador com esse email.");
-    return;
-  }
-
-  if (
-    !editingUserEmail &&
-    users.some(
-      (u) => u.username?.toLowerCase() === cleanUsername.toLowerCase()
-    )
-  ) {
-    alert("Já existe um utilizador com esse nome de utilizador.");
-    return;
-  }
-
-  if (editingUserEmail) {
-    alert("A edição será ligada ao Supabase no próximo passo.");
-    return;
-  }
-
-  const professionalNumber =
-    role === "Professor"
-      ? generateNumber("PROF-", users, "professionalNumber")
-      : undefined;
-
-  const employeeNumber =
-    role === "Funcionário"
-      ? generateNumber("FUNC-", users, "employeeNumber")
-      : undefined;
-
-  const administratorNumber =
-    role === "Administrador" || role === "Administrador Adjunto"
-      ? generateNumber("ADM-", users, "administratorNumber")
-      : undefined;
-
-  try {
-    const response = await fetch("/api/admin/users", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: cleanName,
-        email: cleanEmail,
-        password,
-        role,
-        status,
-
-        birthDate: birthDate || undefined,
-        phone: phone || undefined,
-        nif: nif || undefined,
-        documentType,
-        documentNumber: documentNumber || undefined,
-        niss: niss || undefined,
-        healthNumber: healthNumber || undefined,
-        address: address || undefined,
-
-        schoolYear:
-          role === "Aluno" ? schoolYear || undefined : undefined,
-        studentNumber:
-          role === "Aluno" ? studentNumber || undefined : undefined,
-        course:
-          role === "Aluno" ? course || undefined : undefined,
-        enrollmentDate:
-          role === "Aluno" ? enrollmentDate || undefined : undefined,
-
-        guardianName:
-          role === "Aluno" ? guardianName || undefined : undefined,
-        guardianRelationship:
-          role === "Aluno"
-            ? guardianRelationship || undefined
-            : undefined,
-        guardianPhone:
-          role === "Aluno" ? guardianPhone || undefined : undefined,
-        guardianEmail:
-          role === "Aluno" ? guardianEmail || undefined : undefined,
-        guardianNif:
-          role === "Aluno" ? guardianNif || undefined : undefined,
-        guardianDocumentType:
-          role === "Aluno" ? guardianDocumentType : undefined,
-        guardianDocumentNumber:
-          role === "Aluno"
-            ? guardianDocumentNumber || undefined
-            : undefined,
-        guardianAddress:
-          role === "Aluno" ? guardianAddress || undefined : undefined,
-        guardianAlternativePhone:
-          role === "Aluno"
-            ? guardianAlternativePhone || undefined
-            : undefined,
-
-        professionalNumber,
-        employeeNumber,
-        administratorNumber,
-
-        department:
-          role !== "Aluno" ? department || undefined : undefined,
-        employeePosition:
-          role === "Funcionário"
-            ? employeePosition || undefined
-            : undefined,
-        hiringDate:
-          role !== "Aluno" ? hiringDate || undefined : undefined,
-        contractType:
-          role !== "Aluno" ? contractType || undefined : undefined,
-        professionalStatus:
-          role !== "Aluno" ? professionalStatus : undefined,
-
-        username: cleanUsername,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      alert(result.error || "Não foi possível criar o utilizador.");
+    if (!cleanName || !cleanEmail || (!isEditing && !cleanUsername) || (!isEditing && !password)) {
+      alert("Preenche o nome, email e os dados de acesso obrigatórios.");
       return;
     }
 
-    const createdUser: User = {
+    if ((!isEditing || password) && password !== confirmPassword) {
+      alert("A palavra-passe e a confirmação não coincidem.");
+      return;
+    }
+
+    if (
+      !isEditing &&
+      users.some((user) => user.email.toLowerCase() === cleanEmail)
+    ) {
+      alert("Já existe um utilizador com esse email.");
+      return;
+    }
+
+    if (
+      !isEditing &&
+      users.some((user) => user.username?.toLowerCase() === cleanUsername.toLowerCase())
+    ) {
+      alert("Já existe um utilizador com esse nome de utilizador.");
+      return;
+    }
+
+    const professionalNumber =
+      role === "Professor"
+        ? (isEditing
+            ? users.find((user) => user.id === editingUserId)?.professionalNumber
+              ?? generateNumber("PROF-", users, "professionalNumber")
+            : generateNumber("PROF-", users, "professionalNumber"))
+        : undefined;
+    const employeeNumber =
+      role === "Funcionário"
+        ? (isEditing
+            ? users.find((user) => user.id === editingUserId)?.employeeNumber
+              ?? generateNumber("FUNC-", users, "employeeNumber")
+            : generateNumber("FUNC-", users, "employeeNumber"))
+        : undefined;
+
+    const payload = {
+      ...(isEditing ? { id: editingUserId } : {}),
       name: cleanName,
       email: cleanEmail,
+      ...(password ? { password } : {}),
       role,
       status,
-
       birthDate: birthDate || undefined,
       phone: phone || undefined,
       nif: nif || undefined,
@@ -432,74 +352,62 @@ function openForm() {
       niss: niss || undefined,
       healthNumber: healthNumber || undefined,
       address: address || undefined,
-
-      schoolYear:
-        role === "Aluno" ? schoolYear || undefined : undefined,
-      studentNumber:
-        role === "Aluno" ? studentNumber || undefined : undefined,
-      course:
-        role === "Aluno" ? course || undefined : undefined,
-      className:
-        role === "Aluno" ? className || undefined : undefined,
-      enrollmentDate:
-        role === "Aluno" ? enrollmentDate || undefined : undefined,
-
-      guardianName:
-        role === "Aluno" ? guardianName || undefined : undefined,
-      guardianRelationship:
-        role === "Aluno"
-          ? guardianRelationship || undefined
-          : undefined,
-      guardianPhone:
-        role === "Aluno" ? guardianPhone || undefined : undefined,
-      guardianEmail:
-        role === "Aluno" ? guardianEmail || undefined : undefined,
-      guardianNif:
-        role === "Aluno" ? guardianNif || undefined : undefined,
-      guardianDocumentType:
-        role === "Aluno" ? guardianDocumentType : undefined,
-      guardianDocumentNumber:
-        role === "Aluno"
-          ? guardianDocumentNumber || undefined
-          : undefined,
-      guardianAddress:
-        role === "Aluno" ? guardianAddress || undefined : undefined,
-      guardianAlternativePhone:
-        role === "Aluno"
-          ? guardianAlternativePhone || undefined
-          : undefined,
-
+      schoolYear: role === "Aluno" ? schoolYear || undefined : undefined,
+      studentNumber: role === "Aluno" ? studentNumber || undefined : undefined,
+      course: role === "Aluno" ? course || undefined : undefined,
+      enrollmentDate: role === "Aluno" ? enrollmentDate || undefined : undefined,
+      guardianName: role === "Aluno" ? guardianName || undefined : undefined,
+      guardianRelationship: role === "Aluno" ? guardianRelationship || undefined : undefined,
+      guardianPhone: role === "Aluno" ? guardianPhone || undefined : undefined,
+      guardianEmail: role === "Aluno" ? guardianEmail || undefined : undefined,
+      guardianNif: role === "Aluno" ? guardianNif || undefined : undefined,
+      guardianDocumentType: role === "Aluno" ? guardianDocumentType : undefined,
+      guardianDocumentNumber: role === "Aluno" ? guardianDocumentNumber || undefined : undefined,
+      guardianAddress: role === "Aluno" ? guardianAddress || undefined : undefined,
+      guardianAlternativePhone: role === "Aluno" ? guardianAlternativePhone || undefined : undefined,
       professionalNumber,
       employeeNumber,
-      administratorNumber,
-      employeePosition:
-        role === "Funcionário"
-          ? employeePosition || undefined
-          : undefined,
-      department:
-        role !== "Aluno" ? department || undefined : undefined,
-      hiringDate:
-        role !== "Aluno" ? hiringDate || undefined : undefined,
-      contractType:
-        role !== "Aluno" ? contractType || undefined : undefined,
-      professionalStatus:
-        role !== "Aluno" ? professionalStatus : undefined,
-
-      username: cleanUsername,
+      department: role !== "Aluno" ? department || undefined : undefined,
+      employeePosition: role === "Funcionário" ? employeePosition || undefined : undefined,
+      hiringDate: role !== "Aluno" ? hiringDate || undefined : undefined,
+      contractType: role !== "Aluno" ? contractType || undefined : undefined,
+      professionalStatus: role !== "Aluno" ? professionalStatus : undefined,
+      username: cleanUsername || undefined,
     };
 
-    setUsers((current) => [...current, createdUser]);
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: isEditing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
 
-    alert("Utilizador criado com sucesso.");
+      if (!response.ok) {
+        alert(result.error || (isEditing ? "Não foi possível atualizar o utilizador." : "Não foi possível criar o utilizador."));
+        return;
+      }
 
-    setEditingUserEmail(null);
-    resetForm();
-    setShowForm(false);
-  } catch (error) {
-    console.error("Erro ao criar utilizador:", error);
-    alert("Ocorreu um erro ao comunicar com o servidor.");
+      const refreshedResponse = await fetch("/api/admin/users", { cache: "no-store" });
+      const refreshedResult = await refreshedResponse.json();
+      if (refreshedResponse.ok) {
+        setUsers((refreshedResult.users ?? []) as User[]);
+      } else if (result.user) {
+        setUsers((current) => isEditing
+          ? current.map((user) => user.id === editingUserId ? { ...user, ...result.user } : user)
+          : [...current, result.user as User]);
+      }
+
+      alert(isEditing ? "Utilizador atualizado com sucesso." : "Utilizador criado com sucesso.");
+      setEditingUserEmail(null);
+      setEditingUserId(null);
+      resetForm();
+      setShowForm(false);
+    } catch (error) {
+      console.error(isEditing ? "Erro ao atualizar utilizador:" : "Erro ao criar utilizador:", error);
+      alert("Ocorreu um erro ao comunicar com o servidor.");
+    }
   }
-}
 
   const filteredUsers = users.filter((user) => {
     const searchText = search.toLowerCase();
@@ -533,12 +441,12 @@ function openForm() {
 
   const previewNumber =
     role === "Professor"
-      ? generateNumber("PROF-", users, "professionalNumber")
+      ? users.find((user) => user.id === editingUserId)?.professionalNumber
+        ?? generateNumber("PROF-", users, "professionalNumber")
       : role === "Funcionário"
-        ? generateNumber("FUNC-", users, "employeeNumber")
-        : role === "Administrador" || role === "Administrador Adjunto"
-          ? generateNumber("ADM-", users, "administratorNumber")
-          : "Gerado automaticamente";
+        ? users.find((user) => user.id === editingUserId)?.employeeNumber
+          ?? generateNumber("FUNC-", users, "employeeNumber")
+        : "Gerado automaticamente";
 
   const roleMeta: Record<UserRole, { icon: string; title: string; description: string }> = {
     Aluno: { icon: "🎓", title: "Conta académica", description: "Acesso do aluno" },
@@ -774,7 +682,7 @@ function openForm() {
                         <div className="form-field"><label>Ano letivo *</label><input placeholder="2026/2027" value={schoolYear} onChange={e => setSchoolYear(e.target.value)} required /></div>
                         <div className="form-field"><label>Número de aluno *</label><input value={studentNumber} onChange={e => setStudentNumber(e.target.value)} required /></div>
                         <div className="form-field"><label>Curso *</label><input value={course} onChange={e => setCourse(e.target.value)} required /></div>
-                        <div className="form-field"><label>Turma *</label><input value={className} onChange={e => setClassName(e.target.value)} required /></div>
+                        <div className="form-field"><label>Turma{!editingUserId ? " *" : ""}</label><input value={className} onChange={e => setClassName(e.target.value)} required={!editingUserId} /></div>
                         <div className="form-field"><label>Data de matrícula</label><input type="date" value={enrollmentDate} onChange={e => setEnrollmentDate(e.target.value)} /></div>
                       </div>
                     </section>
@@ -815,9 +723,9 @@ function openForm() {
                 <section style={{ border: "1px solid #dde6f0", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
                   <div style={{ background: "#edf4ff", padding: "10px 14px", color: "#1d4ed8", fontWeight: 800, fontSize: 15 }}>🔐 &nbsp;Dados de acesso</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 185px), 1fr))", gap: 12, padding: 14 }}>
-                    <div className="form-field"><label>Nome de utilizador *</label><input value={username} onChange={e => setUsername(e.target.value)} placeholder="Ex.: ana.ribeiro" required /></div>
-                    <div className="form-field"><label>Palavra-passe *</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" minLength={6} required /></div>
-                    <div className="form-field"><label>Confirmar palavra-passe *</label><input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repita a palavra-passe" minLength={6} required /></div>
+                    <div className="form-field"><label>Nome de utilizador{!editingUserId ? " *" : ""}</label><input value={username} onChange={e => setUsername(e.target.value)} placeholder="Ex.: ana.ribeiro" required={!editingUserId} /></div>
+                    <div className="form-field"><label>{editingUserId ? "Nova palavra-passe (opcional)" : "Palavra-passe *"}</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={editingUserId ? "Deixa vazio para manter a atual" : "Mínimo 6 caracteres"} minLength={6} required={!editingUserId} /></div>
+                    <div className="form-field"><label>{editingUserId ? "Confirmar nova palavra-passe" : "Confirmar palavra-passe *"}</label><input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repita a palavra-passe" minLength={6} required={!editingUserId || Boolean(password)} /></div>
                     <div className="form-field"><label>Estado *</label><select value={status} onChange={e => setStatus(e.target.value as UserStatus)} required><option>Ativo</option><option>Inativo</option></select></div>
                   </div>
                 </section>
