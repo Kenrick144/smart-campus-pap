@@ -13,24 +13,24 @@ const roleRoutes: Record<Role, string[]> = {
     "/dashboard", "/utilizadores", "/alunos", "/professor", "/turmas", "/anos-letivos",
     "/disciplinas", "/presencas", "/horarios", "/salas", "/computadores",
     "/qr-code", "/relatorios", "/logs", "/configuracoes", "/avisos",
-    "/avaliacoes", "/notas", "/aluno", "/funcionario", "/pc",
+    "/avaliacoes", "/notas", "/aluno", "/funcionario", "/pc", "/perfil",
   ],
   "Administrador Adjunto": [
     "/dashboard", "/utilizadores", "/alunos", "/professor", "/turmas", "/anos-letivos",
     "/disciplinas", "/presencas", "/horarios", "/salas", "/computadores",
     "/qr-code", "/relatorios", "/logs", "/configuracoes", "/avisos",
-    "/avaliacoes", "/notas", "/aluno", "/funcionario", "/pc",
+    "/avaliacoes", "/notas", "/aluno", "/funcionario", "/pc", "/perfil",
   ],
   Professor: [
     "/dashboard", "/alunos", "/turmas", "/disciplinas", "/presencas",
     "/horarios", "/computadores", "/qr-code", "/relatorios", "/avaliacoes",
-    "/notas", "/avisos", "/pc",
+    "/notas", "/avisos", "/pc", "/perfil",
   ],
   "Funcionário": [
     "/dashboard", "/funcionario", "/horarios", "/salas", "/computadores",
-    "/avisos", "/pc",
+    "/avisos", "/pc", "/perfil",
   ],
-  Aluno: ["/aluno", "/horarios", "/presencas", "/qr-code", "/notas", "/avaliacoes", "/avisos", "/pc"],
+  Aluno: ["/aluno", "/horarios", "/presencas", "/qr-code", "/notas", "/avaliacoes", "/avisos", "/pc", "/perfil"],
 };
 
 const roleHome: Record<Role, string> = {
