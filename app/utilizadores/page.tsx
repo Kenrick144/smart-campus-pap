@@ -9,6 +9,14 @@ import { createClient } from "@/lib/supabase/client";
 type UserRole = "Aluno" | "Professor" | "Administrador" | "Administrador Adjunto"
   | "Funcionário";
 type UserStatus = "Ativo" | "Inativo";
+type CampusNotification = {
+  id: string;
+  title: string;
+  message: string;
+  publishedAt: string;
+  read: boolean;
+};
+type AcademicYearSummary = Record<string, string>;
 
 const USERS_STORAGE_KEY = "smartcampus_users";
 
@@ -114,6 +122,13 @@ export default function Utilizadores() {
   const [currentRole, setCurrentRole] = useState<UserRole>("Administrador");
   const [currentName, setCurrentName] = useState("");
   const [currentEmail, setCurrentEmail] = useState("");
+  const [showCampusInfo, setShowCampusInfo] = useState(false);
+  const [activeAcademicYear, setActiveAcademicYear] = useState<AcademicYearSummary | null>(null);
+  const [campusYearLoaded, setCampusYearLoaded] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<CampusNotification[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -456,6 +471,66 @@ function openForm() {
     Administrador: { icon: "👨‍💼", title: "Conta de gestão", description: "Acesso total" },
   };
 
+  async function loadNotifications() {
+    setNotificationsLoading(true);
+    setNotificationsError("");
+    try {
+      const response = await fetch("/api/notifications", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível carregar as notificações.");
+      setNotifications((result.notifications ?? []) as CampusNotification[]);
+    } catch (error) {
+      setNotificationsError(error instanceof Error ? error.message : "Não foi possível carregar as notificações.");
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }
+
+  async function toggleNotifications() {
+    const opening = !showNotifications;
+    setShowNotifications(opening);
+    if (opening) await loadNotifications();
+  }
+
+  async function markNotificationRead(id?: string) {
+    setNotificationsError("");
+    try {
+      const response = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(id ? { id } : { all: true }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível atualizar as notificações.");
+      await loadNotifications();
+    } catch (error) {
+      setNotificationsError(error instanceof Error ? error.message : "Não foi possível atualizar as notificações.");
+    }
+  }
+
+  async function loadCampusYear() {
+    try {
+      const response = await fetch("/api/campus-data?resource=%2Fanos-letivos", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível carregar o ano letivo.");
+      const years = (result.records ?? []) as AcademicYearSummary[];
+      const activeYear = years.find((year) =>
+        ["true", "ativo", "sim"].includes((year.ativo ?? "").toLocaleLowerCase("pt-PT"))
+      ) ?? null;
+      setActiveAcademicYear(activeYear);
+    } catch {
+      setActiveAcademicYear(null);
+    } finally {
+      setCampusYearLoaded(true);
+    }
+  }
+
+  async function toggleCampusInfo() {
+    const opening = !showCampusInfo;
+    setShowCampusInfo(opening);
+    if (opening && !campusYearLoaded) await loadCampusYear();
+  }
+
   async function signOut() {
     try {
       await createClient().auth.signOut();
@@ -468,14 +543,52 @@ function openForm() {
     <main className="workspace users-workspace">
       <aside className="sidebar">
         <Link className="brand" href="/dashboard" aria-label="Smart Campus — painel principal">
-          <span className="brand-mark">S</span>
-          <span>smart<span className="brand-light">campus</span><small>GESTÃO ESCOLAR</small></span>
+          <span className="brand-mark" aria-hidden="true">S</span>
+          <span className="brand-copy">
+            <span className="brand-wordmark"><span className="brand-smart">smart</span><span className="brand-light">campus</span></span>
+            <small>GESTÃO ESCOLAR</small>
+          </span>
         </Link>
-        <div className="school-switch">
+        <button
+          className={"school-switch" + (showCampusInfo ? " is-open" : "")}
+          type="button"
+          aria-expanded={showCampusInfo}
+          aria-controls="campus-info-panel"
+          onClick={toggleCampusInfo}
+        >
           <span className="school-avatar">I</span>
-          <span><strong>Escola Profissional</strong><small>Campus principal</small></span>
-          <span className="chevron">⌄</span>
-        </div>
+          <span className="school-switch-copy"><strong>Escola Profissional</strong><small>Campus principal</small></span>
+          <span className={"chevron" + (showCampusInfo ? " is-rotated" : "")} aria-hidden="true">⌄</span>
+        </button>
+        {showCampusInfo && (
+          <section className="campus-info-panel" id="campus-info-panel" aria-label="Informações do campus">
+            <div className="campus-info-heading">
+              <span className="campus-info-icon">⌂</span>
+              <div><strong>Campus principal</strong><small>Campus atual</small></div>
+            </div>
+            <div className="campus-info-divider" />
+            <div className="campus-year-info">
+              <span className="campus-year-icon">▣</span>
+              <div>
+                <small>ANO LETIVO</small>
+                <strong>{activeAcademicYear?.nome || (campusYearLoaded ? "Por configurar" : "A carregar…")}</strong>
+                <span className={"campus-year-status" + (activeAcademicYear ? " is-configured" : "")}>
+                  <i />{activeAcademicYear ? "Ano letivo ativo" : campusYearLoaded ? "Sem ano letivo ativo" : "A consultar estado"}
+                </span>
+              </div>
+            </div>
+            {activeAcademicYear?.data_inicio && activeAcademicYear?.data_fim && (
+              <p className="campus-year-dates">
+                {new Date(activeAcademicYear.data_inicio + "T00:00:00").toLocaleDateString("pt-PT")} – {new Date(activeAcademicYear.data_fim + "T00:00:00").toLocaleDateString("pt-PT")}
+              </p>
+            )}
+            {(currentRole === "Administrador" || currentRole === "Administrador Adjunto") && (
+              <Link className="campus-configure-link" href="/anos-letivos" onClick={() => setShowCampusInfo(false)}>
+                {activeAcademicYear ? "Gerir ano letivo" : "Configurar ano letivo"} <span aria-hidden="true">↗</span>
+              </Link>
+            )}
+          </section>
+        )}
         <div className="nav-caption">ESPAÇO DE TRABALHO</div>
         <nav className="main-nav" aria-label="Navegação principal">
           {menuItems.filter((item) => item.roles.includes(currentRole)).map((item) => (
@@ -501,10 +614,66 @@ function openForm() {
           <div className="breadcrumb"><span>Smart Campus</span><span>/</span><strong>Utilizadores</strong></div>
           <div className="topbar-actions">
             <label className="top-search"><span>⌕</span><input aria-label="Pesquisar utilizadores" placeholder="Pesquisar utilizadores..." value={search} onChange={(event) => setSearch(event.target.value)} /><kbd>⌘ K</kbd></label>
-            <button className="icon-button notifications" type="button" aria-label="Notificações">♧<i /></button>
+            <div className="notification-anchor">
+              <button
+                className="icon-button notifications"
+                type="button"
+                aria-label="Abrir notificações"
+                aria-expanded={showNotifications}
+                onClick={toggleNotifications}
+              >
+                ♧{notifications.some((item) => !item.read) && <i />}
+              </button>
+              {showNotifications && (
+                <section className="notification-popover" role="dialog" aria-label="Notificações">
+                  <header className="notification-popover-header">
+                    <div>
+                      <h2>Notificações</h2>
+                      <p>{notifications.filter((item) => !item.read).length} por ler</p>
+                    </div>
+                    <div className="notification-popover-actions">
+                      {notifications.some((item) => !item.read) && (
+                        <button type="button" className="notification-text-button" onClick={() => markNotificationRead()}>Marcar todas como lidas</button>
+                      )}
+                      <button type="button" className="notification-close" aria-label="Fechar notificações" onClick={() => setShowNotifications(false)}>×</button>
+                    </div>
+                  </header>
+                  {notificationsLoading ? (
+                    <p className="notification-state">A carregar notificações…</p>
+                  ) : notificationsError ? (
+                    <div className="notification-state notification-state-error">
+                      <p>{notificationsError}</p>
+                      <button type="button" className="notification-text-button" onClick={loadNotifications}>Tentar novamente</button>
+                    </div>
+                  ) : notifications.length ? (
+                    <div className="notification-list">
+                      {notifications.map((item) => (
+                        <button type="button" className={"notification-item" + (item.read ? " is-read" : " is-unread")} key={item.id} onClick={() => !item.read && markNotificationRead(item.id)}>
+                          <span className="notification-item-icon">♧</span>
+                          <span className="notification-item-copy">
+                            <strong>{item.title}</strong>
+                            <span>{item.message}</span>
+                            <time>{new Date(item.publishedAt).toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" })}</time>
+                          </span>
+                          {!item.read && <i className="notification-unread-dot" aria-label="Por ler" />}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="notification-empty">
+                      <span className="notification-empty-icon">♧</span>
+                      <strong>Sem novas notificações</strong>
+                      <p>Quando houver avisos publicados para a tua conta, aparecem aqui.</p>
+                    </div>
+                  )}
+                  <footer className="notification-popover-footer"><button type="button" onClick={loadNotifications}>Atualizar lista</button></footer>
+                </section>
+              )}
+            </div>
             <span className="top-divider" />
-            <span className="profile-role-label">{currentName || currentRole} · {currentRole}</span>
-            <span className="avatar avatar-purple top-avatar">{(currentName || currentEmail || "S").charAt(0).toUpperCase()}</span>
+            <Link className="avatar avatar-purple top-avatar profile-avatar-link" href="/perfil" aria-label="Ver o meu perfil" title="Ver o meu perfil">
+              {currentName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase() || currentEmail.charAt(0).toUpperCase() || "SC"}
+            </Link>
           </div>
         </header>
 
