@@ -743,54 +743,85 @@ function Dashboard({ role, profileName, period, setPeriod, campusData }: { role:
         : "Veja o estado das salas e equipamentos do campus.";
 
   return <>
-    {isAdmin
-      ? <AdminDashboardHero profileName={profileName} />
-      : <PageHeading eyebrow="RESUMO DIÁRIO DO CAMPUS" title={"Bom dia, " + profileName.split(" ")[0] + " 👋"} description={description} action={<button className="button button-secondary" onClick={() => window.print()}>↓ <span>Exportar resumo</span></button>} />}
+    <DashboardWelcomeHero role={role} profileName={profileName} />
     {isAdmin ? <AdminDashboard period={period} setPeriod={setPeriod} campusData={campusData} /> : role === "Professor" ? <TeacherDashboard campusData={campusData} /> : role === "Aluno" ? <StudentDashboardSummary campusData={campusData} /> : <StaffPage profileName={profileName} campusData={campusData} />}
   </>;
 }
 
-function AdminDashboardHero({ profileName }: { profileName: string }) {
+function DashboardWelcomeHero({ role, profileName }: { role: Role; profileName: string }) {
   const today = new Date();
   const weekday = today.toLocaleDateString("pt-PT", { weekday: "long" });
   const dateLabel = today.toLocaleDateString("pt-PT", { day: "numeric", month: "long", year: "numeric" });
   const hour = today.getHours();
   const greeting = hour < 12 ? "Bom dia" : hour < 19 ? "Boa tarde" : "Boa noite";
-  const firstName = profileName.trim().split(" ")[0] || "Administrador";
+  const firstName = profileName.trim().split(" ")[0] || role;
+  const isAdmin = role === "Administrador" || role === "Administrador Adjunto";
+  const heroText: Record<Role, { eyebrow: string; description: string; area: string; actionTitle: string }> = {
+    Administrador: { eyebrow: "RESUMO DIÁRIO DO CAMPUS", description: "Acompanhe o estado do campus e aceda rapidamente às tarefas de gestão.", area: "Painel de administração", actionTitle: "O que pretende fazer?" },
+    "Administrador Adjunto": { eyebrow: "RESUMO DIÁRIO DO CAMPUS", description: "Acompanhe o estado do campus e aceda rapidamente às tarefas de gestão.", area: "Painel de administração", actionTitle: "O que pretende fazer?" },
+    Professor: { eyebrow: "ÁREA DO PROFESSOR", description: "Consulte as suas turmas, horários e presenças num só lugar.", area: "Área do professor", actionTitle: "Acesso rápido às aulas" },
+    Aluno: { eyebrow: "A MINHA ÁREA ESCOLAR", description: "Consulte as suas aulas, presenças e informações académicas.", area: "Área do aluno", actionTitle: "Acesso rápido" },
+    "Funcionário": { eyebrow: "OPERAÇÕES DO CAMPUS", description: "Consulte as salas, os horários e os equipamentos visíveis para a sua função.", area: "Área do funcionário", actionTitle: "Tarefas frequentes" },
+  };
+  const shortcuts: Record<Role, { href: string; title: string; subtitle: string; icon: string; tone: string }[]> = {
+    Administrador: [
+      { href: "/utilizadores", title: "Utilizadores", subtitle: "Contas e acessos", icon: "♙", tone: "violet" },
+      { href: "/anos-letivos", title: "Anos letivos", subtitle: "Configurar calendário", icon: "▣", tone: "blue" },
+      { href: "/turmas", title: "Turmas", subtitle: "Organizar turmas", icon: "▤", tone: "amber" },
+      { href: "/horarios", title: "Horários", subtitle: "Consultar aulas", icon: "◷", tone: "green" },
+    ],
+    "Administrador Adjunto": [
+      { href: "/utilizadores", title: "Utilizadores", subtitle: "Contas e acessos", icon: "♙", tone: "violet" },
+      { href: "/anos-letivos", title: "Anos letivos", subtitle: "Configurar calendário", icon: "▣", tone: "blue" },
+      { href: "/turmas", title: "Turmas", subtitle: "Organizar turmas", icon: "▤", tone: "amber" },
+      { href: "/horarios", title: "Horários", subtitle: "Consultar aulas", icon: "◷", tone: "green" },
+    ],
+    Professor: [
+      { href: "/alunos", title: "Alunos", subtitle: "Consultar alunos", icon: "◎", tone: "violet" },
+      { href: "/turmas", title: "Turmas", subtitle: "As minhas turmas", icon: "▤", tone: "blue" },
+      { href: "/horarios", title: "Horários", subtitle: "Ver aulas", icon: "◷", tone: "amber" },
+      { href: "/presencas", title: "Presenças", subtitle: "Consultar assiduidade", icon: "✓", tone: "green" },
+    ],
+    Aluno: [
+      { href: "/horarios", title: "Horários", subtitle: "Ver as minhas aulas", icon: "◷", tone: "violet" },
+      { href: "/presencas", title: "Presenças", subtitle: "Consultar assiduidade", icon: "✓", tone: "blue" },
+      { href: "/qr-code", title: "Código QR", subtitle: "Registar presença", icon: "▦", tone: "amber" },
+      { href: "/notas", title: "Notas", subtitle: "Consultar avaliações", icon: "▤", tone: "green" },
+    ],
+    "Funcionário": [
+      { href: "/salas", title: "Salas", subtitle: "Ver espaços ativos", icon: "⌂", tone: "violet" },
+      { href: "/computadores", title: "Equipamentos", subtitle: "Estado do inventário", icon: "▣", tone: "blue" },
+      { href: "/horarios", title: "Horários", subtitle: "Consultar aulas", icon: "◷", tone: "amber" },
+      { href: "/pc", title: "Estação de trabalho", subtitle: "Acesso aos PCs", icon: "⌘", tone: "green" },
+    ],
+  };
+  const copy = heroText[role];
+  const roleShortcuts = shortcuts[role];
 
   return (
     <section className="admin-dashboard-hero">
       <div className="admin-dashboard-hero-copy">
-        <div className="eyebrow">RESUMO DIÁRIO DO CAMPUS</div>
+        <div className="eyebrow">{copy.eyebrow}</div>
         <h1>{greeting}, {firstName} <span aria-hidden="true">👋</span></h1>
-        <p>Acompanhe o estado do campus e aceda rapidamente às tarefas de gestão.</p>
+        <p>{copy.description}</p>
         <div className="admin-dashboard-hero-meta">
-          <span><i /> Painel de administração</span>
+          <span><i /> {copy.area}</span>
           <span className="admin-dashboard-date-inline">{weekday} · {dateLabel}</span>
         </div>
       </div>
       <div className="admin-dashboard-hero-tools">
         <div className="admin-dashboard-hero-tools-heading">
-          <div><span>ACESSO RÁPIDO</span><strong>O que pretende fazer?</strong></div>
-          <button className="button button-secondary" onClick={() => window.print()}>↓ <span>Exportar resumo</span></button>
+          <div><span>ACESSO RÁPIDO</span><strong>{copy.actionTitle}</strong></div>
+          <button className="button button-secondary" onClick={() => window.print()}>↓ <span>Imprimir resumo</span></button>
         </div>
         <div className="admin-dashboard-shortcuts">
-          <Link className="admin-quick-action" href="/utilizadores">
-            <span className="admin-quick-action-icon violet">♙</span>
-            <span><strong>Utilizadores</strong><small>Contas e acessos</small></span><b aria-hidden="true">↗</b>
-          </Link>
-          <Link className="admin-quick-action" href="/anos-letivos">
-            <span className="admin-quick-action-icon blue">▣</span>
-            <span><strong>Anos letivos</strong><small>Configurar calendário</small></span><b aria-hidden="true">↗</b>
-          </Link>
-          <Link className="admin-quick-action" href="/turmas">
-            <span className="admin-quick-action-icon amber">▤</span>
-            <span><strong>Turmas</strong><small>Organizar turmas</small></span><b aria-hidden="true">↗</b>
-          </Link>
-          <Link className="admin-quick-action" href="/horarios">
-            <span className="admin-quick-action-icon green">◷</span>
-            <span><strong>Horários</strong><small>Consultar aulas</small></span><b aria-hidden="true">↗</b>
-          </Link>
+          {roleShortcuts.map((shortcut) => (
+            <Link className="admin-quick-action" href={shortcut.href} key={shortcut.href}>
+              <span className={"admin-quick-action-icon " + shortcut.tone}>{shortcut.icon}</span>
+              <span><strong>{shortcut.title}</strong><small>{shortcut.subtitle}</small></span>
+              <b aria-hidden="true">↗</b>
+            </Link>
+          ))}
         </div>
       </div>
     </section>
