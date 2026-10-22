@@ -606,6 +606,15 @@ export async function GET(request: Request) {
     const table = tableMap[resource];
     let rows = await readTable(admin, table);
 
+    // The dashboard and activity page should show the newest events first.
+    if (resource === "/logs") {
+      rows = [...rows].sort((a, b) => {
+        const aTime = Date.parse(text(a, "created_at"));
+        const bTime = Date.parse(text(b, "created_at"));
+        return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+      });
+    }
+
     if (resource === "/alunos") {
       if (role === "Aluno") rows = rows.filter((row) => text(row, "id") === user.id);
       if (role === "Professor") {
