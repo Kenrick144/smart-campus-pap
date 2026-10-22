@@ -622,7 +622,7 @@ function Dashboard({ role, profileName, period, setPeriod, campusData }: { role:
   const isAdmin = role === "Administrador" || role === "Administrador Adjunto";
   return <>
     <DashboardWelcomeHero role={role} profileName={profileName} />
-    {isAdmin ? <AdminDashboard period={period} setPeriod={setPeriod} campusData={campusData} /> : role === "Professor" ? <TeacherDashboard campusData={campusData} /> : role === "Aluno" ? <StudentDashboardSummary campusData={campusData} /> : <StaffPage profileName={profileName} campusData={campusData} />}
+    {isAdmin ? <AdminDashboard period={period} setPeriod={setPeriod} campusData={campusData} /> : role === "Professor" ? <TeacherDashboard campusData={campusData} /> : role === "Aluno" ? <StudentDashboardSummary campusData={campusData} /> : <StaffPage profileName={profileName} campusData={campusData} showHeading={false} />}
   </>;
 }
 
@@ -647,6 +647,7 @@ function getLisbonDateAndTime() {
   return {
     dateKey: `${year}-${month}-${day}`,
     isoWeekday: weekday === 0 ? 7 : weekday,
+    hour: Number(hour),
     minuteOfDay: Number(hour) * 60 + Number(minute),
   };
 }
@@ -684,10 +685,15 @@ function sortAttendanceNewestFirst(attendance: RecordItem[]) {
 }
 
 function DashboardWelcomeHero({ role, profileName }: { role: Role; profileName: string }) {
-  const today = new Date();
-  const weekday = today.toLocaleDateString("pt-PT", { weekday: "long" });
-  const dateLabel = today.toLocaleDateString("pt-PT", { day: "numeric", month: "long", year: "numeric" });
-  const hour = today.getHours();
+  const now = new Date();
+  const weekday = now.toLocaleDateString("pt-PT", { weekday: "long", timeZone: "Europe/Lisbon" });
+  const dateLabel = now.toLocaleDateString("pt-PT", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/Lisbon",
+  });
+  const hour = getLisbonDateAndTime().hour;
   const greeting = hour < 12 ? "Bom dia" : hour < 19 ? "Boa tarde" : "Boa noite";
   const firstName = profileName.trim().split(" ")[0] || role;
   const isAdmin = role === "Administrador" || role === "Administrador Adjunto";
@@ -1240,13 +1246,13 @@ function StudentPage({
 }
 
 
-function StaffPage({ profileName, campusData }: { profileName: string; campusData: CampusData }) {
+function StaffPage({ profileName, campusData, showHeading = true }: { profileName: string; campusData: CampusData; showHeading?: boolean }) {
   const activeRooms = campusData.rooms.filter((room) => room.estado === "Ativa");
   const operationalComputers = campusData.computers.filter((computer) => computer.estado === "Livre");
   const nextLesson = getUpcomingLessons(campusData.timetable, 1)[0]?.lesson;
 
   return <>
-    <PageHeading eyebrow="OPERAÇÕES DO CAMPUS" title={"Olá, " + profileName.split(" ")[0]} description="Consulta as salas, os horários e os equipamentos visíveis para a tua função." action={<Link className="button button-primary" href="/salas">⌂ Consultar salas</Link>} />
+    {showHeading && <PageHeading eyebrow="OPERAÇÕES DO CAMPUS" title={"Olá, " + profileName.split(" ")[0]} description="Consulta as salas, os horários e os equipamentos visíveis para a tua função." action={<Link className="button button-primary" href="/salas">⌂ Consultar salas</Link>} />}
     <section className="stat-grid stat-grid-three">
       <article className="stat-card"><div className="stat-icon green">⌂</div><div className="stat-meta">Salas ativas</div><strong>{activeRooms.length}<span className="stat-suffix"> / {campusData.rooms.length}</span></strong><small>Dados do inventário</small></article>
       <article className="stat-card"><div className="stat-icon violet">▣</div><div className="stat-meta">Equipamentos operacionais</div><strong>{operationalComputers.length}<span className="stat-suffix"> / {campusData.computers.length}</span></strong><small>Estado do inventário</small></article>
