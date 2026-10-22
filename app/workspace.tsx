@@ -453,8 +453,11 @@ export default function Workspace() {
     <main className="workspace">
       <aside className="sidebar">
         <Link className="brand" href="/dashboard" aria-label="Smart Campus — painel principal">
-          <span className="brand-mark">S</span>
-          <span>smart<span className="brand-light">campus</span><small>GESTÃO ESCOLAR</small></span>
+          <span className="brand-mark" aria-hidden="true">S</span>
+          <span className="brand-copy">
+            <span className="brand-wordmark"><span className="brand-smart">smart</span><span className="brand-light">campus</span></span>
+            <small>GESTÃO ESCOLAR</small>
+          </span>
         </Link>
         <button
           className={"school-switch" + (showCampusInfo ? " is-open" : "")}
