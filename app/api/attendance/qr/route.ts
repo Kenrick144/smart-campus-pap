@@ -60,14 +60,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A conta ainda não está associada a uma turma ativa." }, { status: 403 });
     }
 
-    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Lisbon" }));
-    const isoDay = now.getDay() === 0 ? 7 : now.getDay();
-    const currentTime = now.toTimeString().slice(0, 5);
-    const today = [
-      now.getFullYear(),
-      String(now.getMonth() + 1).padStart(2, "0"),
-      String(now.getDate()).padStart(2, "0"),
-    ].join("-");
+    // Use Lisbon wall-clock parts directly. Avoid parsing a localized date string,
+    // which would apply the server's timezone a second time.
+    const now = new Date();
+    const lisbonParts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Lisbon",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(now);
+    const lisbonPart = (type: string) =>
+      lisbonParts.find((part) => part.type === type)?.value ?? "";
+    const year = lisbonPart("year");
+    const month = lisbonPart("month");
+    const day = lisbonPart("day");
+    const hour = lisbonPart("hour");
+    const minute = lisbonPart("minute");
+
+    if (![year, month, day, hour, minute].every(Boolean)) {
+      throw new Error("Não foi possível determinar a data e hora de Lisboa.");
+    }
+
+    const currentTime = `${hour}:${minute}`;
+    const today = `${year}-${month}-${day}`;
+    const weekday = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day))).getUTCDay();
+    const isoDay = weekday === 0 ? 7 : weekday;
 
     const { data: schedules, error: scheduleError } = await admin
       .from("horarios")
@@ -116,6 +136,15 @@ export async function POST(request: Request) {
     });
 
     if (insertError) {
+      // The database's unique constraint is the final safeguard against simultaneous QR scans.
+      // Treat a duplicate created by a concurrent request as an already-registered presence.
+      if (insertError.code === "23505") {
+        return NextResponse.json({
+          ok: true,
+          message: "A tua presença nesta aula já estava registada.",
+        });
+      }
+
       console.error("Erro ao registar presença por QR:", insertError);
       return NextResponse.json({ error: "Não foi possível guardar a presença." }, { status: 400 });
     }
