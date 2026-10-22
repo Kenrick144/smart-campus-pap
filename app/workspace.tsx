@@ -852,7 +852,7 @@ function AdminDashboard({ period, setPeriod, campusData }: { period: string; set
       let daysUntil = (dayNumber - currentIsoDay + 7) % 7;
       const startMinute = hours * 60 + minutes;
       if (daysUntil === 0 && startMinute <= currentMinute) daysUntil = 7;
-      return { ...lesson, nextOccurrence: daysUntil * 1440 + startMinute };
+      return { lesson, nextOccurrence: daysUntil * 1440 + startMinute };
     })
     .filter((lesson) => lesson !== null)
     .sort((a, b) => a.nextOccurrence - b.nextOccurrence)
@@ -986,7 +986,7 @@ function AdminDashboard({ period, setPeriod, campusData }: { period: string; set
         {campusData.logs.length === 0 && <p className="muted">Ainda não existem registos de atividade.</p>}
       </article>
       <article className="surface schedule-card"><div className="surface-heading"><div><h2>Próximas aulas</h2><p>Horários registados no campus</p></div><Link className="text-link" href="/horarios">Ver horário ↗</Link></div>
-        <div className="schedule-list">{upcomingLessons.map((lesson, index) => <Schedule key={lesson.id ?? (lesson.turma + "-" + lesson.hora + "-" + index)} time={(lesson.hora_inicio || lesson.hora).split(/[–-]/)[0].trim()} subject={lesson.disciplina} className={[lesson.turma, lesson.dia].filter(Boolean).join(" · ")} room={lesson.sala} tone={index % 2 ? "blue" : "violet"} />)}</div>
+        <div className="schedule-list">{upcomingLessons.map((entry, index) => <Schedule key={entry.lesson.id ?? (entry.lesson.turma + "-" + entry.lesson.hora + "-" + index)} time={(entry.lesson.hora_inicio || entry.lesson.hora).split(/[–-]/)[0].trim()} subject={entry.lesson.disciplina} className={[entry.lesson.turma, entry.lesson.dia].filter(Boolean).join(" · ")} room={entry.lesson.sala} tone={index % 2 ? "blue" : "violet"} />)}</div>
         {upcomingLessons.length === 0 && <p className="muted">{campusData.timetable.length ? "Não há próximas aulas com dia e hora válidos." : "Não existem horários registados."}</p>}
       </article>
     </section>
