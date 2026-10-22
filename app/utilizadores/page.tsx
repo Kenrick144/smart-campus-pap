@@ -591,7 +591,7 @@ function openForm() {
                     <div className="form-field"><label>Número de identificação</label><input value={documentNumber} onChange={e => setDocumentNumber(e.target.value)} placeholder="Ex.: BI12345678" /></div>
                     <div className="form-field"><label>Tipo de documento</label><select value={documentType} onChange={e => setDocumentType(e.target.value as User["documentType"])}><option>Cartão de Cidadão</option><option>Passaporte</option><option>Título de Residência</option></select></div>
                     <div className="form-field"><label>NISS</label><input value={niss} onChange={e => setNiss(e.target.value)} /></div>
-                    <div className="form-field"><label>Número de Utente</label><input value={healthNumber} onChange={e => setHealthNumber(e.target.value)} /></div>
+                    <div className="form-field"><label>Número de Utente</label><input name="healthNumberFieldNoAutofill" autoComplete="off" autoCorrect="off" spellCheck={false} value={healthNumber} onChange={e => setHealthNumber(e.target.value)} /></div>
                     <div className="form-field form-field-full"><label>Morada</label><input value={address} onChange={e => setAddress(e.target.value)} placeholder="Rua, número, código postal e localidade" /></div>
                   </div>
                 </section>
