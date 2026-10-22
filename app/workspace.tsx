@@ -806,6 +806,7 @@ function AdminDashboard({ period, setPeriod, campusData }: { period: string; set
   const freeComputers = computerEquipment.filter((computer) =>
     ["operacional", "livre"].includes(equipmentState(computer))
   ).length;
+  const computerCount = campusData.computers.length;
   const pcCounts = [
     { status: "Operacional", state: ["operacional", "livre"], tone: "green" },
     { status: "Em manutenção", state: ["em manutenção", "manutenção"], tone: "amber" },
@@ -836,6 +837,28 @@ function AdminDashboard({ period, setPeriod, campusData }: { period: string; set
 
   const dateKey = (date: Date) =>
     date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+  const now = new Date();
+  const currentIsoDay = now.getDay() === 0 ? 7 : now.getDay();
+  const currentMinute = now.getHours() * 60 + now.getMinutes();
+  const upcomingLessons = campusData.timetable
+    .map((lesson) => {
+      const dayNumber = Number(lesson.dia_semana);
+      const startTime = (lesson.hora_inicio || lesson.hora || "").split(/[–-]/)[0].trim().slice(0, 5);
+      const [hours, minutes] = startTime.split(":").map(Number);
+      if (
+        !Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 7 ||
+        !Number.isFinite(hours) || !Number.isFinite(minutes)
+      ) return null;
+      let daysUntil = (dayNumber - currentIsoDay + 7) % 7;
+      const startMinute = hours * 60 + minutes;
+      if (daysUntil === 0 && startMinute <= currentMinute) daysUntil = 7;
+      return { ...lesson, nextOccurrence: daysUntil * 1440 + startMinute };
+    })
+    .filter((lesson) => lesson !== null)
+    .sort((a, b) => a.nextOccurrence - b.nextOccurrence)
+    .slice(0, 4);
+
+
   const recordDateKey = (value: string) => {
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
     const parsed = new Date(value);
@@ -963,8 +986,8 @@ function AdminDashboard({ period, setPeriod, campusData }: { period: string; set
         {campusData.logs.length === 0 && <p className="muted">Ainda não existem registos de atividade.</p>}
       </article>
       <article className="surface schedule-card"><div className="surface-heading"><div><h2>Próximas aulas</h2><p>Horários registados no campus</p></div><Link className="text-link" href="/horarios">Ver horário ↗</Link></div>
-        <div className="schedule-list">{campusData.timetable.slice(0, 4).map((lesson, index) => <Schedule key={lesson.id ?? (lesson.turma + "-" + lesson.hora + "-" + index)} time={lesson.hora.split("–")[0].trim()} subject={lesson.disciplina} className={lesson.turma} room={lesson.sala} tone={index % 2 ? "blue" : "violet"} />)}</div>
-        {campusData.timetable.length === 0 && <p className="muted">Não existem horários registados.</p>}
+        <div className="schedule-list">{upcomingLessons.map((lesson, index) => <Schedule key={lesson.id ?? (lesson.turma + "-" + lesson.hora + "-" + index)} time={(lesson.hora_inicio || lesson.hora).split(/[–-]/)[0].trim()} subject={lesson.disciplina} className={[lesson.turma, lesson.dia].filter(Boolean).join(" · ")} room={lesson.sala} tone={index % 2 ? "blue" : "violet"} />)}</div>
+        {upcomingLessons.length === 0 && <p className="muted">{campusData.timetable.length ? "Não há próximas aulas com dia e hora válidos." : "Não existem horários registados."}</p>}
       </article>
     </section>
   </>;
