@@ -32,7 +32,7 @@ A aplicação usa Supabase Auth para iniciar/terminar sessão. O perfil é lido 
 
 A integração foi alinhada com o esquema do projeto Supabase Smart Campus: `users`, `alunos`, `professores`, `funcionarios`, `anos_letivos`, `turmas`, `salas`, `disciplinas`, `alunos_turmas`, `professores_turmas`, `disciplinas_turmas`, `professores_disciplinas_turmas`, `horarios`, `presencas`, `equipamentos`, `notas`, `avaliacoes`, `logs`, `avisos` e `avisos_leituras`.
 
-A aplicação não cria nem altera automaticamente o esquema da base de dados. Não executes SQL de criação de tabelas por cima da base existente sem rever a migração primeiro. A tabela `users` liga-se a Supabase Auth através do mesmo UUID. A gestão de utilizadores cria a conta Auth e os registos de perfil correspondentes através de uma rota de servidor.
+A aplicação não cria nem altera automaticamente o esquema da base de dados. Não executes SQL de criação de tabelas por cima da base existente sem rever a migração primeiro. **Atenção:** `supabase/schema.sql` ainda é o esquema legado do protótipo inicial (tabelas em inglês, como `profiles`, `students` e `classes`) e não corresponde à base de dados ativa. Não o executes no projeto atual. Os ficheiros em `supabase/migrations/` registam correções incrementais de segurança; ainda não constituem uma migração base completa para instalar o sistema numa base de dados vazia. A tabela `users` liga-se a Supabase Auth através do mesmo UUID. A gestão de utilizadores cria a conta Auth e os registos de perfil correspondentes através de uma rota de servidor.
 
 ## Perfis
 
