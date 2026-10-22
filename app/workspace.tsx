@@ -450,7 +450,8 @@ export default function Workspace() {
   }
 
   return (
-    <CampusShell
+    <>
+      <CampusShell
       title={title}
       pathname={pathname}
       role={role}
@@ -530,7 +531,7 @@ export default function Workspace() {
         onClose={() => { setShowForm(false); setEditingIndex(null); }}
         onSubmit={saveRecord}
       />}
-    </main>
+    </>
   );
 }
 
