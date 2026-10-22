@@ -11,6 +11,13 @@ import { QrImage, QrScanner } from "./qr-tools";
 type Role = "Aluno" | "Professor" | "Funcionário" | "Administrador Adjunto" | "Administrador";
 type RecordItem = Record<string, string>;
 type TemporaryCode = { code: string; expiresAt: number };
+type CampusNotification = {
+  id: string;
+  title: string;
+  message: string;
+  publishedAt: string;
+  read: boolean;
+};
 type CampusData = {
   academicYears: RecordItem[];
   students: RecordItem[];
@@ -57,6 +64,7 @@ const pageNames: Record<string, string> = {
   "/relatorios": "Relatórios",
   "/logs": "Registos de atividade",
   "/configuracoes": "Configurações",
+  "/perfil": "O meu perfil",
   "/aluno": "Área do aluno",
   "/funcionario": "Área do funcionário",
   "/pc": "Estação de trabalho",
@@ -65,9 +73,9 @@ const pageNames: Record<string, string> = {
 const roleRoutes: Record<Role, string[]> = {
   Administrador: Object.keys(pageNames),
   "Administrador Adjunto": Object.keys(pageNames),
-  Professor: ["/dashboard", "/alunos", "/professor", "/turmas", "/disciplinas", "/presencas", "/horarios", "/salas", "/computadores", "/qr-code", "/relatorios", "/avaliacoes", "/notas", "/avisos", "/pc"],
-  Aluno: ["/aluno", "/horarios", "/presencas", "/qr-code", "/notas", "/avaliacoes", "/avisos", "/pc"],
-  "Funcionário": ["/dashboard", "/funcionario", "/horarios", "/salas", "/computadores", "/avisos", "/pc"],
+  Professor: ["/dashboard", "/alunos", "/professor", "/turmas", "/disciplinas", "/presencas", "/horarios", "/salas", "/computadores", "/qr-code", "/relatorios", "/avaliacoes", "/notas", "/avisos", "/pc", "/perfil"],
+  Aluno: ["/aluno", "/horarios", "/presencas", "/qr-code", "/notas", "/avaliacoes", "/avisos", "/pc", "/perfil"],
+  "Funcionário": ["/dashboard", "/funcionario", "/horarios", "/salas", "/computadores", "/avisos", "/pc", "/perfil"],
 };
 
 const roles: Role[] = ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"];
@@ -108,6 +116,11 @@ export default function Workspace() {
   const [role, setRole] = useState<Role>("Aluno");
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
+  const [profileDetails, setProfileDetails] = useState<RecordItem>({});
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<CampusNotification[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState("");
   const [records, setRecords] = useState<RecordItem[]>([]);
   const [recordsPath, setRecordsPath] = useState("");
   const [sessionReady, setSessionReady] = useState(false);
@@ -193,7 +206,7 @@ export default function Workspace() {
 
         const { data: profile, error: profileError } = await supabase
           .from("users")
-          .select("id, name, email, role, status")
+          .select("id, name, email, role, status, username, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status, created_at")
           .eq("id", authData.user.id)
           .maybeSingle();
 
@@ -228,6 +241,35 @@ export default function Workspace() {
         setRole(currentRole);
         setProfileName(profile.name);
         setProfileEmail(profile.email);
+
+        const roleDetails: Record<string, unknown> = {};
+        if (currentRole === "Aluno") {
+          const { data } = await supabase
+            .from("alunos")
+            .select("student_number, school_year, course, enrollment_date")
+            .eq("id", profile.id)
+            .maybeSingle();
+          Object.assign(roleDetails, data ?? {});
+        } else if (currentRole === "Professor") {
+          const { data } = await supabase
+            .from("professores")
+            .select("professional_number, department, hiring_date, contract_type, professional_status")
+            .eq("id", profile.id)
+            .maybeSingle();
+          Object.assign(roleDetails, data ?? {});
+        } else if (currentRole === "Funcionário") {
+          const { data } = await supabase
+            .from("funcionarios")
+            .select("employee_number, department, employee_position, hiring_date, contract_type, professional_status")
+            .eq("id", profile.id)
+            .maybeSingle();
+          Object.assign(roleDetails, data ?? {});
+        }
+
+        const combinedProfile = { ...profile, ...roleDetails };
+        setProfileDetails(Object.fromEntries(
+          Object.entries(combinedProfile).map(([key, value]) => [key, value === null || value === undefined ? "" : String(value)])
+        ) as RecordItem);
 
         await refreshWorkspaceData(currentRole, pathname);
 
@@ -355,6 +397,43 @@ export default function Workspace() {
     setNotice("Os códigos temporários ainda não têm uma tabela de sessões no Supabase. Nenhum código de demonstração foi criado.");
   }
 
+  async function loadNotifications() {
+    setNotificationsLoading(true);
+    setNotificationsError("");
+    try {
+      const response = await fetch("/api/notifications", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível carregar as notificações.");
+      setNotifications((result.notifications ?? []) as CampusNotification[]);
+    } catch (error) {
+      setNotificationsError(error instanceof Error ? error.message : "Não foi possível carregar as notificações.");
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }
+
+  async function toggleNotifications() {
+    const opening = !showNotifications;
+    setShowNotifications(opening);
+    if (opening) await loadNotifications();
+  }
+
+  async function markNotificationRead(id?: string) {
+    setNotificationsError("");
+    try {
+      const response = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(id ? { id } : { all: true }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível atualizar as notificações.");
+      await loadNotifications();
+    } catch (error) {
+      setNotificationsError(error instanceof Error ? error.message : "Não foi possível atualizar as notificações.");
+    }
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     router.replace("/login");
@@ -397,10 +476,77 @@ export default function Workspace() {
           <div className="breadcrumb"><span>Smart Campus</span><span>/</span><strong>{title}</strong></div>
           <div className="topbar-actions">
             <label className="top-search"><span>⌕</span><input aria-label="Pesquisar" placeholder="Pesquisar..." value={search} onChange={(event) => setSearch(event.target.value)} /><kbd>⌘ K</kbd></label>
-            <button className="icon-button notifications" aria-label="Notificações">♧<i /></button>
+            <div className="notification-anchor">
+              <button
+                className="icon-button notifications"
+                type="button"
+                aria-label="Abrir notificações"
+                aria-expanded={showNotifications}
+                onClick={toggleNotifications}
+              >
+                ♧
+                {notifications.some((item) => !item.read) && <i />}
+              </button>
+              {showNotifications && (
+                <section className="notification-popover" role="dialog" aria-label="Notificações">
+                  <header className="notification-popover-header">
+                    <div>
+                      <h2>Notificações</h2>
+                      <p>{notifications.filter((item) => !item.read).length} por ler</p>
+                    </div>
+                    <div className="notification-popover-actions">
+                      {notifications.some((item) => !item.read) && (
+                        <button type="button" className="notification-text-button" onClick={() => markNotificationRead()}>
+                          Marcar todas como lidas
+                        </button>
+                      )}
+                      <button type="button" className="notification-close" aria-label="Fechar notificações" onClick={() => setShowNotifications(false)}>×</button>
+                    </div>
+                  </header>
+                  {notificationsLoading ? (
+                    <p className="notification-state">A carregar notificações…</p>
+                  ) : notificationsError ? (
+                    <div className="notification-state notification-state-error">
+                      <p>{notificationsError}</p>
+                      <button type="button" className="notification-text-button" onClick={loadNotifications}>Tentar novamente</button>
+                    </div>
+                  ) : notifications.length ? (
+                    <div className="notification-list">
+                      {notifications.map((item) => (
+                        <button
+                          type="button"
+                          className={"notification-item" + (item.read ? " is-read" : " is-unread")}
+                          key={item.id}
+                          onClick={() => !item.read && markNotificationRead(item.id)}
+                        >
+                          <span className="notification-item-icon">♧</span>
+                          <span className="notification-item-copy">
+                            <strong>{item.title}</strong>
+                            <span>{item.message}</span>
+                            <time>{new Date(item.publishedAt).toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" })}</time>
+                          </span>
+                          {!item.read && <i className="notification-unread-dot" aria-label="Por ler" />}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="notification-empty">
+                      <span className="notification-empty-icon">♧</span>
+                      <strong>Sem novas notificações</strong>
+                      <p>Quando houver avisos publicados para a tua conta, aparecem aqui.</p>
+                    </div>
+                  )}
+                  <footer className="notification-popover-footer">
+                    <button type="button" onClick={loadNotifications}>Atualizar lista</button>
+                  </footer>
+                </section>
+              )}
+            </div>
             <span className="top-divider" />
-            <span className="profile-role-label">{profileName} · {role}</span>
-            <span className="avatar avatar-purple top-avatar">{profileEmail.charAt(0).toUpperCase()}</span>
+            <span className="profile-role-label"><strong>{profileName || profileEmail}</strong><small>{role}</small></span>
+            <Link className="avatar avatar-purple top-avatar profile-avatar-link" href="/perfil" aria-label="Ver o meu perfil" title="Ver o meu perfil">
+              {profileName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase() || profileEmail.charAt(0).toUpperCase()}
+            </Link>
           </div>
         </header>
 
@@ -408,6 +554,8 @@ export default function Workspace() {
           {notice && <div className="notice" role="status"><span>ℹ</span>{notice}<button onClick={() => setNotice("")} aria-label="Fechar">×</button></div>}
           {pathname === "/dashboard" ? (
             <Dashboard role={role} profileName={profileName} period={period} setPeriod={setPeriod} campusData={campusData} />
+          ) : pathname === "/perfil" ? (
+            <ProfilePage profile={profileDetails} role={role} />
           ) : pathname === "/aluno" ? (
             <StudentPage name={profileName} qrCode={qrCode} setQrCode={setQrCode} onScan={markPresence} attendance={campusData.attendance} computers={campusData.computers} timetable={campusData.timetable} />
           ) : pathname === "/funcionario" ? (
@@ -457,6 +605,85 @@ export default function Workspace() {
 
 function PageHeading({ eyebrow, title, description, action }: { eyebrow?: string; title: string; description: string; action?: React.ReactNode }) {
   return <div className="page-heading"><div>{eyebrow && <div className="eyebrow">{eyebrow}</div>}<h1>{title}</h1><p>{description}</p></div>{action}</div>;
+}
+
+
+
+function ProfilePage({ profile, role }: { profile: RecordItem; role: Role }) {
+  const initials = (profile.name ?? "").split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+  const personalFields: [string, string][] = [
+    ["Email", "email"],
+    ["Nome de utilizador", "username"],
+    ["Estado da conta", "status"],
+    ["Telefone", "phone"],
+    ["Data de nascimento", "birth_date"],
+    ["NIF", "nif"],
+    ["Tipo de documento", "document_type"],
+    ["Número de identificação", "document_number"],
+    ["NISS", "niss"],
+    ["Número de utente", "health_number"],
+    ["Morada", "address"],
+  ];
+  const academicFields: [string, string][] = [
+    ["Número de aluno", "student_number"],
+    ["Ano escolar", "school_year"],
+    ["Curso", "course"],
+    ["Data de inscrição", "enrollment_date"],
+  ];
+  const professionalFields: [string, string][] = [
+    ["Número profissional", role === "Funcionário" ? "employee_number" : "professional_number"],
+    ["Departamento", "department"],
+    ["Cargo", "employee_position"],
+    ["Data de contratação", "hiring_date"],
+    ["Tipo de contrato", "contract_type"],
+    ["Estado profissional", "professional_status"],
+  ];
+  const fields = role === "Aluno" ? academicFields : role === "Professor" || role === "Funcionário" ? professionalFields : [];
+  const visibleValue = (key: string) => {
+    const value = profile[key];
+    return value && value.trim() ? value : "Não indicado";
+  };
+
+  return <>
+    <PageHeading eyebrow="CONTA PESSOAL" title="O meu perfil" description="Consulta os dados associados à tua conta do Smart Campus." />
+    <section className="profile-page-hero surface">
+      <div className="profile-page-avatar">{initials || "SC"}</div>
+      <div className="profile-page-identity">
+        <span className="profile-page-eyebrow">PERFIL DO UTILIZADOR</span>
+        <h2>{profile.name || "Utilizador"}</h2>
+        <p>{profile.email || "Email não disponível"}</p>
+        <div className="profile-page-badges">
+          <span className="profile-page-role">{role}</span>
+          <span className={"profile-page-status" + (profile.status === "Ativo" ? " is-active" : "")}>{profile.status || "Estado desconhecido"}</span>
+        </div>
+      </div>
+      <div className="profile-page-account">
+        <small>MEMBRO DESDE</small>
+        <strong>{profile.created_at ? new Date(profile.created_at).toLocaleDateString("pt-PT", { day: "numeric", month: "long", year: "numeric" }) : "—"}</strong>
+      </div>
+    </section>
+
+    <section className="profile-detail-grid">
+      <article className="surface profile-detail-card">
+        <div className="surface-heading"><div><h2>Dados pessoais e de acesso</h2><p>Informação guardada na tua conta</p></div></div>
+        <dl className="profile-fields">
+          {personalFields.map(([label, key]) => (
+            <div key={key}><dt>{label}</dt><dd>{visibleValue(key)}</dd></div>
+          ))}
+        </dl>
+      </article>
+      {fields.length > 0 && (
+        <article className="surface profile-detail-card">
+          <div className="surface-heading"><div><h2>{role === "Aluno" ? "Dados académicos" : "Dados profissionais"}</h2><p>Informação associada ao teu perfil</p></div></div>
+          <dl className="profile-fields">
+            {fields.map(([label, key]) => (
+              <div key={key}><dt>{label}</dt><dd>{visibleValue(key)}</dd></div>
+            ))}
+          </dl>
+        </article>
+      )}
+    </section>
+  </>;
 }
 
 function Dashboard({ role, profileName, period, setPeriod, campusData }: { role: Role; profileName: string; period: string; setPeriod: (value: string) => void; campusData: CampusData }) {
