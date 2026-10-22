@@ -114,6 +114,7 @@ export default function Workspace() {
   const supabase = useMemo(() => createClient(), []);
 
   const [role, setRole] = useState<Role>("Aluno");
+  const [showCampusInfo, setShowCampusInfo] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
   const [profileDetails, setProfileDetails] = useState<RecordItem>({});
@@ -149,6 +150,10 @@ export default function Workspace() {
   });
 
   const title = pageNames[pathname] ?? "Painel principal";
+  const activeAcademicYear = campusData.academicYears.find((year) =>
+    ["true", "ativo", "sim"].includes((year.ativo ?? "").toLocaleLowerCase("pt-PT"))
+  );
+  const isCampusAdministrator = role === "Administrador" || role === "Administrador Adjunto";
   const dataRoutes = [
     "/alunos", "/professor", "/turmas", "/anos-letivos", "/disciplinas",
     "/presencas", "/horarios", "/salas", "/computadores", "/qr-code", "/logs",
@@ -451,7 +456,46 @@ export default function Workspace() {
           <span className="brand-mark">S</span>
           <span>smart<span className="brand-light">campus</span><small>GESTÃO ESCOLAR</small></span>
         </Link>
-        <div className="school-switch"><span className="school-avatar">I</span><span><strong>Escola Profissional</strong><small>Campus principal</small></span><span className="chevron">⌄</span></div>
+        <button
+          className={"school-switch" + (showCampusInfo ? " is-open" : "")}
+          type="button"
+          aria-expanded={showCampusInfo}
+          aria-controls="campus-info-panel"
+          onClick={() => setShowCampusInfo((open) => !open)}
+        >
+          <span className="school-avatar">I</span>
+          <span className="school-switch-copy"><strong>Escola Profissional</strong><small>Campus principal</small></span>
+          <span className={"chevron" + (showCampusInfo ? " is-rotated" : "")} aria-hidden="true">⌄</span>
+        </button>
+        {showCampusInfo && (
+          <section className="campus-info-panel" id="campus-info-panel" aria-label="Informações do campus">
+            <div className="campus-info-heading">
+              <span className="campus-info-icon">⌂</span>
+              <div><strong>Campus principal</strong><small>Campus atual</small></div>
+            </div>
+            <div className="campus-info-divider" />
+            <div className="campus-year-info">
+              <span className="campus-year-icon">▣</span>
+              <div>
+                <small>ANO LETIVO</small>
+                <strong>{activeAcademicYear?.nome || "Por configurar"}</strong>
+                <span className={"campus-year-status" + (activeAcademicYear ? " is-configured" : "")}>
+                  <i />{activeAcademicYear ? "Ano letivo ativo" : "Sem ano letivo ativo"}
+                </span>
+              </div>
+            </div>
+            {activeAcademicYear?.data_inicio && activeAcademicYear?.data_fim && (
+              <p className="campus-year-dates">
+                {new Date(activeAcademicYear.data_inicio + "T00:00:00").toLocaleDateString("pt-PT")} – {new Date(activeAcademicYear.data_fim + "T00:00:00").toLocaleDateString("pt-PT")}
+              </p>
+            )}
+            {isCampusAdministrator && (
+              <Link className="campus-configure-link" href="/anos-letivos" onClick={() => setShowCampusInfo(false)}>
+                {activeAcademicYear ? "Gerir ano letivo" : "Configurar ano letivo"} <span aria-hidden="true">↗</span>
+              </Link>
+            )}
+          </section>
+        )}
         <div className="nav-caption">ESPAÇO DE TRABALHO</div>
         <nav className="main-nav" aria-label="Navegação principal">
           {visibleNavigation.map((item) => (
