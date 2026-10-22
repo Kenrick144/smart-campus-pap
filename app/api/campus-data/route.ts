@@ -164,6 +164,7 @@ async function enrich(
         "data de contratação": text(row, "hiring_date"),
         "tipo de contrato": text(row, "contract_type"),
         estado: text(row, "professional_status", "Ativo"),
+        estado_conta: text(user, "status", "Inativo"),
       };
     });
   }
