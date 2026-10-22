@@ -543,7 +543,6 @@ export default function Workspace() {
               )}
             </div>
             <span className="top-divider" />
-            <span className="profile-role-label"><strong>{profileName || profileEmail}</strong><small>{role}</small></span>
             <Link className="avatar avatar-purple top-avatar profile-avatar-link" href="/perfil" aria-label="Ver o meu perfil" title="Ver o meu perfil">
               {profileName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase() || profileEmail.charAt(0).toUpperCase()}
             </Link>
