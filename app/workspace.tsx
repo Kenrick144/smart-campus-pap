@@ -754,13 +754,15 @@ function AdminDashboardHero({ profileName }: { profileName: string }) {
   const today = new Date();
   const weekday = today.toLocaleDateString("pt-PT", { weekday: "long" });
   const dateLabel = today.toLocaleDateString("pt-PT", { day: "numeric", month: "long", year: "numeric" });
+  const hour = today.getHours();
+  const greeting = hour < 12 ? "Bom dia" : hour < 19 ? "Boa tarde" : "Boa noite";
   const firstName = profileName.trim().split(" ")[0] || "Administrador";
 
   return (
     <section className="admin-dashboard-hero">
       <div className="admin-dashboard-hero-copy">
         <div className="eyebrow">RESUMO DIÁRIO DO CAMPUS</div>
-        <h1>Bom dia, {firstName} <span aria-hidden="true">👋</span></h1>
+        <h1>{greeting}, {firstName} <span aria-hidden="true">👋</span></h1>
         <p>Acompanhe o estado do campus e aceda rapidamente às tarefas de gestão.</p>
         <div className="admin-dashboard-hero-meta">
           <span><i /> Painel de administração</span>
@@ -796,18 +798,40 @@ function AdminDashboardHero({ profileName }: { profileName: string }) {
 }
 
 function AdminDashboard({ period, setPeriod, campusData }: { period: string; setPeriod: (value: string) => void; campusData: CampusData }) {
-  const freeComputers = campusData.computers.filter((computer) => computer.estado === "Livre").length;
-  const computerCount = campusData.computers.length;
-  const pcCounts = ["Livre", "Manutenção", "Avariado", "Inativo"].map((status) => ({
-    status,
-    count: campusData.computers.filter((computer) => computer.estado === status).length,
-    tone: status === "Livre" ? "green" : status === "Manutenção" ? "amber" : status === "Avariado" ? "red" : "slate",
+  const equipmentState = (computer: RecordItem) =>
+    (computer.__estado_db || computer.estado || "").trim().toLocaleLowerCase("pt-PT");
+  const computerEquipment = campusData.computers.filter(
+    (computer) => (computer.tipo || "").trim().toLocaleLowerCase("pt-PT") === "computador"
+  );
+  const freeComputers = computerEquipment.filter((computer) =>
+    ["operacional", "livre"].includes(equipmentState(computer))
+  ).length;
+  const pcCounts = [
+    { status: "Operacional", state: ["operacional", "livre"], tone: "green" },
+    { status: "Em manutenção", state: ["em manutenção", "manutenção"], tone: "amber" },
+    { status: "Avariado", state: ["avariado"], tone: "red" },
+    { status: "Inativo", state: ["inativo"], tone: "slate" },
+  ].map((category) => ({
+    status: category.status,
+    count: campusData.computers.filter((computer) => category.state.includes(equipmentState(computer))).length,
+    tone: category.tone,
   }));
+  const activeStudentCount = campusData.students.filter(
+    (student) => (student.estado || "").trim().toLocaleLowerCase("pt-PT") === "ativo"
+  ).length;
+  const activeTeacherCount = campusData.teachers.filter(
+    (teacher) =>
+      (teacher.estado || "").trim().toLocaleLowerCase("pt-PT") === "ativo" &&
+      (teacher.estado_conta || "").trim().toLocaleLowerCase("pt-PT") === "ativo"
+  ).length;
+  const activeClassCount = campusData.classes.filter(
+    (item) => (item.estado || "").trim().toLocaleLowerCase("pt-PT") === "ativa"
+  ).length;
   const stats = [
-    { label: "Alunos inscritos", value: String(campusData.students.filter((student) => student.estado !== "Inativo").length), change: "Dados do Supabase", icon: "◎", color: "violet" },
-    { label: "Professores", value: String(campusData.teachers.filter((teacher) => teacher.estado !== "Inativo").length), change: "Dados do Supabase", icon: "♧", color: "blue" },
-    { label: "Turmas ativas", value: String(campusData.classes.filter((item) => item.estado !== "Inativa").length), change: "Dados do Supabase", icon: "▤", color: "amber" },
-    { label: "PCs operacionais", value: String(freeComputers), change: "de " + computerCount + " equipamentos", icon: "▣", color: "green" },
+    { label: "Alunos ativos", value: String(activeStudentCount), change: "Contas ativas · Supabase", icon: "◎", color: "violet" },
+    { label: "Professores ativos", value: String(activeTeacherCount), change: "Perfil e conta ativos", icon: "♧", color: "blue" },
+    { label: "Turmas ativas", value: String(activeClassCount), change: "Estado da turma", icon: "▤", color: "amber" },
+    { label: "PCs operacionais", value: String(freeComputers), change: "de " + computerEquipment.length + " computadores", icon: "▣", color: "green" },
   ];
 
   const dateKey = (date: Date) =>
@@ -828,24 +852,30 @@ function AdminDashboard({ period, setPeriod, campusData }: { period: string; set
   today.setHours(0, 0, 0, 0);
 
   if (period === "Esta semana") {
+    // Use Monday–Sunday, matching the period definition in ReportsPage.
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7));
     activityBuckets = Array.from({ length: 7 }, (_, index) => {
-      const day = new Date(today);
-      day.setDate(today.getDate() - (6 - index));
+      const day = new Date(weekStart);
+      day.setDate(weekStart.getDate() + index);
       return makeBucket(day, day, day.toLocaleDateString("pt-PT", { weekday: "short" }).replace(".", ""));
     });
   } else if (period === "Este mês") {
     const year = today.getFullYear();
     const month = today.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    for (let firstDay = 1; firstDay <= daysInMonth; firstDay += 7) {
-      const lastDay = Math.min(firstDay + 6, daysInMonth);
-      activityBuckets.push(
-        makeBucket(
-          new Date(year, month, firstDay),
-          new Date(year, month, lastDay),
-          firstDay + "–" + lastDay
-        )
-      );
+    const monthStart = new Date(year, month, 1);
+    const monthEnd = new Date(year, month + 1, 0);
+    let bucketStart = new Date(monthStart);
+
+    // Group the month into calendar weeks, clipped to the days of this month.
+    while (bucketStart <= monthEnd) {
+      const daysFromMonday = (bucketStart.getDay() + 6) % 7;
+      const calendarWeekEnd = new Date(bucketStart);
+      calendarWeekEnd.setDate(bucketStart.getDate() + (6 - daysFromMonday));
+      const bucketEnd = calendarWeekEnd > monthEnd ? monthEnd : calendarWeekEnd;
+      activityBuckets.push(makeBucket(bucketStart, bucketEnd, bucketStart.getDate() + "–" + bucketEnd.getDate()));
+      bucketStart = new Date(bucketEnd);
+      bucketStart.setDate(bucketStart.getDate() + 1);
     }
   } else {
     const activeAcademicYear = campusData.academicYears.find((item) =>
@@ -882,8 +912,17 @@ function AdminDashboard({ period, setPeriod, campusData }: { period: string; set
     };
     const attendanceCount = campusData.attendance.filter((item) => inBucket(item.data)).length;
     const bucketLogs = campusData.logs.filter((item) => inBucket(item.data));
-    const pcCount = bucketLogs.filter((item) => item.atividade.toLocaleLowerCase().includes("pc") || item.atividade.toLocaleLowerCase().includes("equipamento")).length;
-    const qrCount = bucketLogs.filter((item) => item.atividade.toLocaleLowerCase().includes("qr") || item.atividade.toLocaleLowerCase().includes("presença")).length;
+    const pcCount = bucketLogs.filter((item) => {
+      const action = (item.atividade || "").toLocaleLowerCase("pt-PT");
+      // Count actual PC/computer session or usage events, not inventory edits.
+      return /(pc|computador)/.test(action) &&
+        /(utiliza[çc][ãa]o|sess[aã]o|iniciar|iniciada|terminar|terminada)/.test(action);
+    }).length;
+    const qrCount = bucketLogs.filter((item) => {
+      const action = (item.atividade || "").toLocaleLowerCase("pt-PT");
+      return action.includes("qr") ||
+        (/(leitura|scan|scaneamento)/.test(action) && /(c[oó]digo|sala)/.test(action));
+    }).length;
     return { ...bucket, attendanceCount, pcCount, qrCount };
   });
   const maxActivity = Math.max(1, ...weekActivities.flatMap((item) => [item.attendanceCount, item.pcCount, item.qrCount]));
@@ -893,8 +932,8 @@ function AdminDashboard({ period, setPeriod, campusData }: { period: string; set
     <section className="stat-grid">{stats.map((stat) => <article className="stat-card" key={stat.label}><div className={"stat-icon " + stat.color}>{stat.icon}</div><div className="stat-meta">{stat.label}<span>↗</span></div><strong>{stat.value}</strong><small>{stat.change}</small></article>)}</section>
     <section className="dashboard-grid">
       <article className="surface chart-card">
-        <div className="surface-heading"><div><h2>Atividade do campus</h2><p>Presenças e ações guardadas no sistema</p></div><select className="select-control" value={period} onChange={(event) => setPeriod(event.target.value)}><option>Esta semana</option><option>Este mês</option><option>Este período letivo</option></select></div>
-        <div className="chart-legend"><span><i className="legend-dot violet-dot" />Presenças</span><span><i className="legend-dot green-dot" />Utilização de PCs</span><span><i className="legend-dot amber-dot" />Scans QR</span></div>
+        <div className="surface-heading"><div><h2>Atividade do campus</h2><p>Presenças registadas, sessões de PCs e leituras QR</p></div><select className="select-control" value={period} onChange={(event) => setPeriod(event.target.value)}><option>Esta semana</option><option>Este mês</option><option>Este período letivo</option></select></div>
+        <div className="chart-legend"><span><i className="legend-dot violet-dot" />Presenças</span><span><i className="legend-dot green-dot" />Utilização de PCs</span><span><i className="legend-dot amber-dot" />Presenças por QR</span></div>
         <div className="activity-chart"><div className="chart-y"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0</span></div><div className="chart-plot"><div className="chart-grid-lines"><i /><i /><i /><i /><i /></div>
           <div className="chart-columns">{weekActivities.map((item) => <div className="chart-day" key={item.startKey} style={{ width: (100 / Math.max(1, weekActivities.length)) + "%" }}><div className="bar-group"><i className="bar bar-purple" style={{ height: (item.attendanceCount / maxActivity * 100) + "%" }} /><i className="bar bar-green" style={{ height: (item.pcCount / maxActivity * 100) + "%" }} /><i className="bar bar-amber" style={{ height: (item.qrCount / maxActivity * 100) + "%" }} /></div><small>{item.label}</small></div>)}</div>
         </div></div>
@@ -914,7 +953,7 @@ function AdminDashboard({ period, setPeriod, campusData }: { period: string; set
             const start = computerCount ? previous / computerCount * 360 : 0;
             const finish = computerCount ? next / computerCount * 360 : 360;
             return color + " " + start + "deg " + finish + "deg";
-          }).join(",") + ")" }}><div><strong>{computerCount}</strong><small>equipamentos</small></div></div>
+          }).join(",") + ")" }}><div><strong>{campusData.computers.length}</strong><small>equipamentos</small></div></div>
           <div className="pc-legend">{pcCounts.map((item) => <StatusLine key={item.status} name={item.status} count={String(item.count)} color={item.tone} />)}</div>
         </div>
         <div className="pc-footnote"><span className="live-pulse" /> Estado consultado no Supabase</div>
