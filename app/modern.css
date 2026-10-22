@@ -1126,3 +1126,167 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .profile-page-account { margin-left: 0; }
   .profile-fields { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+/* Seletor do campus com estado real do ano letivo. */
+.school-switch {
+  width: 100%;
+  flex: 0 0 auto;
+  background: #fff;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.school-switch:hover,
+.school-switch.is-open {
+  border-color: #d8d2ff;
+  background: #fcfbff;
+}
+.school-switch.is-open {
+  box-shadow: 0 0 0 3px rgba(98, 83, 217, .055);
+}
+.school-switch-copy {
+  display: block;
+  min-width: 0;
+  flex: 1;
+}
+.school-switch .chevron {
+  flex: 0 0 auto;
+  transition: transform .16s ease;
+}
+.school-switch .chevron.is-rotated {
+  transform: rotate(180deg);
+}
+.campus-info-panel {
+  flex: 0 0 auto;
+  margin: 8px 0 0;
+  padding: 13px 12px 12px;
+  border: 1px solid #e9e6fb;
+  border-radius: 11px;
+  background: linear-gradient(145deg, #fff 0%, #faf9ff 100%);
+  box-shadow: 0 5px 16px rgba(57, 46, 124, .055);
+  animation: campus-info-enter .16s ease-out both;
+}
+@keyframes campus-info-enter {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.campus-info-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.campus-info-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border-radius: 9px;
+  background: #efedff;
+  color: #6253d9;
+  font-size: 16px;
+}
+.campus-info-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.campus-info-heading strong {
+  color: #354057;
+  font-size: 10px;
+  font-weight: 750;
+}
+.campus-info-heading small {
+  color: #929aab;
+  font-size: 9px;
+}
+.campus-info-divider {
+  height: 1px;
+  margin: 12px 0;
+  background: #eeedf6;
+}
+.campus-year-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+.campus-year-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  border-radius: 8px;
+  background: #f0f4ff;
+  color: #5579ca;
+  font-size: 13px;
+}
+.campus-year-info > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+.campus-year-info > div > small {
+  color: #9098a9;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .8px;
+}
+.campus-year-info > div > strong {
+  color: #374259;
+  font-size: 10px;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+.campus-year-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #b7791f;
+  font-size: 9px;
+}
+.campus-year-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e2a13a;
+}
+.campus-year-status.is-configured {
+  color: #278558;
+}
+.campus-year-status.is-configured i {
+  background: #2da66c;
+}
+.campus-year-dates {
+  margin: 9px 0 0 37px;
+  color: #7f899e;
+  font-size: 9px;
+  line-height: 1.5;
+}
+.campus-configure-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 9px 10px;
+  border: 1px solid #e0dcfb;
+  border-radius: 8px;
+  background: #f4f2ff;
+  color: #5c4dca;
+  font-size: 10px;
+  font-weight: 750;
+  text-decoration: none;
+  transition: background .15s ease, border-color .15s ease;
+}
+.campus-configure-link:hover {
+  border-color: #ccc5fb;
+  background: #eeebff;
+}
+@media (prefers-reduced-motion: reduce) {
+  .campus-info-panel { animation: none; }
+  .school-switch, .school-switch .chevron, .campus-configure-link { transition: none; }
+}
