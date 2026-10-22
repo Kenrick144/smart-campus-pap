@@ -12,6 +12,7 @@ type Role = "Aluno" | "Professor" | "Funcionário" | "Administrador Adjunto" | "
 type RecordItem = Record<string, string>;
 type TemporaryCode = { code: string; expiresAt: number };
 type CampusData = {
+  academicYears: RecordItem[];
   students: RecordItem[];
   teachers: RecordItem[];
   classes: RecordItem[];
@@ -123,6 +124,7 @@ export default function Workspace() {
   const [activeComputer] = useState("");
   const [period, setPeriod] = useState("Esta semana");
   const [campusData, setCampusData] = useState<CampusData>({
+    academicYears: [],
     students: [],
     teachers: [],
     classes: [],
@@ -160,6 +162,7 @@ export default function Workspace() {
     const byPath = new Map<string, RecordItem[]>(results);
 
     const snapshot: CampusData = {
+      academicYears: byPath.get("/anos-letivos") ?? [],
       students: byPath.get("/alunos") ?? [],
       teachers: byPath.get("/professor") ?? [],
       classes: byPath.get("/turmas") ?? [],
@@ -479,19 +482,84 @@ function AdminDashboard({ period, setPeriod, campusData }: { period: string; set
     { label: "PCs operacionais", value: String(freeComputers), change: "de " + computerCount + " equipamentos", icon: "▣", color: "green" },
   ];
 
-  const weekActivities = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date();
-    date.setHours(0, 0, 0, 0);
-    date.setDate(date.getDate() - (6 - index));
-    const key = date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
-    const label = date.toLocaleDateString("pt-PT", { weekday: "short" }).replace(".", "");
-    const attendanceCount = campusData.attendance.filter((item) => item.data === key).length;
-    const dayLogs = campusData.logs.filter((item) => String(item.data).startsWith(key));
-    const pcCount = dayLogs.filter((item) => item.atividade.toLocaleLowerCase().includes("pc") || item.atividade.toLocaleLowerCase().includes("equipamento")).length;
-    const qrCount = dayLogs.filter((item) => item.atividade.toLocaleLowerCase().includes("qr") || item.atividade.toLocaleLowerCase().includes("presença")).length;
-    return { label, attendanceCount, pcCount, qrCount };
+  const dateKey = (date: Date) =>
+    date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+  const recordDateKey = (value: string) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? String(value).slice(0, 10) : dateKey(parsed);
+  };
+  const makeBucket = (start: Date, end: Date, label: string) => ({
+    startKey: dateKey(start),
+    endKey: dateKey(end),
+    label,
+  });
+
+  let activityBuckets: { startKey: string; endKey: string; label: string }[] = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (period === "Esta semana") {
+    activityBuckets = Array.from({ length: 7 }, (_, index) => {
+      const day = new Date(today);
+      day.setDate(today.getDate() - (6 - index));
+      return makeBucket(day, day, day.toLocaleDateString("pt-PT", { weekday: "short" }).replace(".", ""));
+    });
+  } else if (period === "Este mês") {
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let firstDay = 1; firstDay <= daysInMonth; firstDay += 7) {
+      const lastDay = Math.min(firstDay + 6, daysInMonth);
+      activityBuckets.push(
+        makeBucket(
+          new Date(year, month, firstDay),
+          new Date(year, month, lastDay),
+          firstDay + "–" + lastDay
+        )
+      );
+    }
+  } else {
+    const activeAcademicYear = campusData.academicYears.find((item) =>
+      ["true", "ativo", "sim"].includes((item.ativo ?? "").toLocaleLowerCase())
+    );
+    const startValue = activeAcademicYear?.data_inicio;
+    const endValue = activeAcademicYear?.data_fim;
+    const startDate = startValue ? new Date(startValue.slice(0, 10) + "T00:00:00") : null;
+    const endDate = endValue ? new Date(endValue.slice(0, 10) + "T00:00:00") : null;
+
+    if (
+      startDate && endDate &&
+      !Number.isNaN(startDate.getTime()) &&
+      !Number.isNaN(endDate.getTime()) &&
+      startDate <= endDate
+    ) {
+      const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+      while (cursor <= endDate) {
+        const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+        const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+        const bucketStart = monthStart < startDate ? startDate : monthStart;
+        const bucketEnd = monthEnd > endDate ? endDate : monthEnd;
+        const label = cursor.toLocaleDateString("pt-PT", { month: "short" }).replace(".", "");
+        activityBuckets.push(makeBucket(bucketStart, bucketEnd, label));
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+    }
+  }
+
+  const weekActivities = activityBuckets.map((bucket) => {
+    const inBucket = (value: string) => {
+      const key = recordDateKey(value);
+      return Boolean(key) && key >= bucket.startKey && key <= bucket.endKey;
+    };
+    const attendanceCount = campusData.attendance.filter((item) => inBucket(item.data)).length;
+    const bucketLogs = campusData.logs.filter((item) => inBucket(item.data));
+    const pcCount = bucketLogs.filter((item) => item.atividade.toLocaleLowerCase().includes("pc") || item.atividade.toLocaleLowerCase().includes("equipamento")).length;
+    const qrCount = bucketLogs.filter((item) => item.atividade.toLocaleLowerCase().includes("qr") || item.atividade.toLocaleLowerCase().includes("presença")).length;
+    return { ...bucket, attendanceCount, pcCount, qrCount };
   });
   const maxActivity = Math.max(1, ...weekActivities.flatMap((item) => [item.attendanceCount, item.pcCount, item.qrCount]));
+  const activityTotal = weekActivities.reduce((sum, item) => sum + item.attendanceCount + item.pcCount + item.qrCount, 0);
 
   return <>
     <section className="stat-grid">{stats.map((stat) => <article className="stat-card" key={stat.label}><div className={"stat-icon " + stat.color}>{stat.icon}</div><div className="stat-meta">{stat.label}<span>↗</span></div><strong>{stat.value}</strong><small>{stat.change}</small></article>)}</section>
@@ -500,9 +568,13 @@ function AdminDashboard({ period, setPeriod, campusData }: { period: string; set
         <div className="surface-heading"><div><h2>Atividade do campus</h2><p>Presenças e ações guardadas no sistema</p></div><select className="select-control" value={period} onChange={(event) => setPeriod(event.target.value)}><option>Esta semana</option><option>Este mês</option><option>Este período letivo</option></select></div>
         <div className="chart-legend"><span><i className="legend-dot violet-dot" />Presenças</span><span><i className="legend-dot green-dot" />Utilização de PCs</span><span><i className="legend-dot amber-dot" />Scans QR</span></div>
         <div className="activity-chart"><div className="chart-y"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0</span></div><div className="chart-plot"><div className="chart-grid-lines"><i /><i /><i /><i /><i /></div>
-          <div className="chart-columns">{weekActivities.map((item) => <div className="chart-day" key={item.label}><div className="bar-group"><i className="bar bar-purple" style={{ height: (item.attendanceCount / maxActivity * 100) + "%" }} /><i className="bar bar-green" style={{ height: (item.pcCount / maxActivity * 100) + "%" }} /><i className="bar bar-amber" style={{ height: (item.qrCount / maxActivity * 100) + "%" }} /></div><small>{item.label}</small></div>)}</div>
+          <div className="chart-columns">{weekActivities.map((item) => <div className="chart-day" key={item.startKey} style={{ width: (100 / Math.max(1, weekActivities.length)) + "%" }}><div className="bar-group"><i className="bar bar-purple" style={{ height: (item.attendanceCount / maxActivity * 100) + "%" }} /><i className="bar bar-green" style={{ height: (item.pcCount / maxActivity * 100) + "%" }} /><i className="bar bar-amber" style={{ height: (item.qrCount / maxActivity * 100) + "%" }} /></div><small>{item.label}</small></div>)}</div>
         </div></div>
-        {campusData.attendance.length === 0 && campusData.logs.length === 0 && <p className="muted">Ainda não existem atividades registadas para apresentar.</p>}
+        {weekActivities.length === 0
+          ? <p className="muted">Não existe um ano letivo ativo com datas válidas para apresentar este período.</p>
+          : activityTotal === 0
+            ? <p className="muted">Não há presenças, utilizações de PCs ou leituras QR neste período.</p>
+            : null}
       </article>
       <article className="surface pc-status-card">
         <div className="surface-heading"><div><h2>Estado dos equipamentos</h2><p>Inventário real do campus</p></div><Link className="text-link" href="/computadores">Ver todos ↗</Link></div>
