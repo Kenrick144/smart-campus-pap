@@ -626,6 +626,63 @@ function Dashboard({ role, profileName, period, setPeriod, campusData }: { role:
   </>;
 }
 
+function getLisbonDateAndTime() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Lisbon",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  const year = part("year");
+  const month = part("month");
+  const day = part("day");
+  const hour = part("hour");
+  const minute = part("minute");
+  const weekday = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day))).getUTCDay();
+
+  return {
+    dateKey: `${year}-${month}-${day}`,
+    isoWeekday: weekday === 0 ? 7 : weekday,
+    minuteOfDay: Number(hour) * 60 + Number(minute),
+  };
+}
+
+function getUpcomingLessons(lessons: RecordItem[], limit = 5) {
+  const now = getLisbonDateAndTime();
+
+  return lessons
+    .map((lesson) => {
+      const dayNumber = Number(lesson.dia_semana);
+      const startTime = String(lesson.hora_inicio || lesson.hora || "").split(/[–-]/)[0].trim().slice(0, 5);
+      const [hours, minutes] = startTime.split(":").map(Number);
+      if (
+        !Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 7 ||
+        !Number.isFinite(hours) || !Number.isFinite(minutes)
+      ) return null;
+
+      let daysUntil = (dayNumber - now.isoWeekday + 7) % 7;
+      const startMinute = hours * 60 + minutes;
+      if (daysUntil === 0 && startMinute <= now.minuteOfDay) daysUntil = 7;
+
+      return { lesson, daysUntil, nextOccurrence: daysUntil * 1440 + startMinute };
+    })
+    .filter((entry): entry is { lesson: RecordItem; daysUntil: number; nextOccurrence: number } => entry !== null)
+    .sort((a, b) => a.nextOccurrence - b.nextOccurrence)
+    .slice(0, limit);
+}
+
+function sortAttendanceNewestFirst(attendance: RecordItem[]) {
+  return [...attendance].sort((a, b) => {
+    const dateA = Date.parse(a.data || "");
+    const dateB = Date.parse(b.data || "");
+    return (Number.isNaN(dateB) ? 0 : dateB) - (Number.isNaN(dateA) ? 0 : dateA);
+  });
+}
+
 function DashboardWelcomeHero({ role, profileName }: { role: Role; profileName: string }) {
   const today = new Date();
   const weekday = today.toLocaleDateString("pt-PT", { weekday: "long" });
@@ -746,26 +803,7 @@ function AdminDashboard({ period, setPeriod, campusData }: { period: string; set
 
   const dateKey = (date: Date) =>
     date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
-  const now = new Date();
-  const currentIsoDay = now.getDay() === 0 ? 7 : now.getDay();
-  const currentMinute = now.getHours() * 60 + now.getMinutes();
-  const upcomingLessons = campusData.timetable
-    .map((lesson) => {
-      const dayNumber = Number(lesson.dia_semana);
-      const startTime = (lesson.hora_inicio || lesson.hora || "").split(/[–-]/)[0].trim().slice(0, 5);
-      const [hours, minutes] = startTime.split(":").map(Number);
-      if (
-        !Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 7 ||
-        !Number.isFinite(hours) || !Number.isFinite(minutes)
-      ) return null;
-      let daysUntil = (dayNumber - currentIsoDay + 7) % 7;
-      const startMinute = hours * 60 + minutes;
-      if (daysUntil === 0 && startMinute <= currentMinute) daysUntil = 7;
-      return { lesson, nextOccurrence: daysUntil * 1440 + startMinute };
-    })
-    .filter((lesson) => lesson !== null)
-    .sort((a, b) => a.nextOccurrence - b.nextOccurrence)
-    .slice(0, 4);
+  const upcomingLessons = getUpcomingLessons(campusData.timetable, 4);
 
 
   const recordDateKey = (value: string) => {
@@ -915,8 +953,10 @@ function Schedule({ time, subject, className, room, tone }: { time: string; subj
 
 function TeacherDashboard({ campusData }: { campusData: CampusData }) {
   const activeClasses = campusData.classes.filter((item) => item.estado !== "Inativa");
-  const today = new Date().toISOString().slice(0, 10);
-  const todayAttendance = campusData.attendance.filter((item) => item.data === today);
+  const today = getLisbonDateAndTime().dateKey;
+  const todayAttendance = sortAttendanceNewestFirst(campusData.attendance.filter((item) => item.data === today));
+  const upcomingLessons = getUpcomingLessons(campusData.timetable, 5);
+  const recentAttendance = sortAttendanceNewestFirst(campusData.attendance).slice(0, 5);
   const present = todayAttendance.filter((item) => item.estado === "Presente" || item.estado === "Atrasado").length;
   const presenceRate = todayAttendance.length ? Math.round((present / todayAttendance.length) * 100) : null;
 
@@ -932,11 +972,11 @@ function TeacherDashboard({ campusData }: { campusData: CampusData }) {
         {activeClasses.length === 0 && <p className="muted">Ainda não existem turmas atribuídas à tua conta.</p>}
       </article>
       <article className="surface"><div className="surface-heading"><div><h2>Agenda</h2><p>Horários atribuídos</p></div><Link className="text-link" href="/horarios">Ver horário ↗</Link></div>
-        <div className="schedule-list">{campusData.timetable.slice(0, 5).map((item, index) => <Schedule key={item.id ?? index} time={item.hora} subject={item.disciplina} className={item.turma} room={item.sala} tone={index % 2 ? "blue" : "violet"} />)}</div>
+        <div className="schedule-list">{upcomingLessons.map((entry, index) => <Schedule key={entry.lesson.id ?? index} time={entry.lesson.hora} subject={entry.lesson.disciplina} className={[entry.lesson.turma, entry.lesson.dia].filter(Boolean).join(" · ")} room={entry.lesson.sala} tone={index % 2 ? "blue" : "violet"} />)}</div>
         {campusData.timetable.length === 0 && <p className="muted">Não existem horários atribuídos.</p>}
       </article>
       <article className="surface attendance-card"><div className="surface-heading"><div><h2>Presenças recentes</h2><p>Registos das tuas aulas</p></div><Link className="text-link" href="/presencas">Ver presenças ↗</Link></div>
-        <div className="activity-list">{campusData.attendance.slice(0, 5).map((item, index) => <div className="activity-row" key={item.id ?? index}><span className="activity-copy"><strong>{item.aluno} · {item.turma}</strong><small>{item.data} · {item.disciplina}</small></span><span className={"pill " + statusTone(item.estado)}>{item.estado}</span></div>)}</div>
+        <div className="activity-list">{recentAttendance.map((item, index) => <div className="activity-row" key={item.id ?? index}><span className="activity-copy"><strong>{item.aluno} · {item.turma}</strong><small>{item.data} · {item.disciplina}</small></span><span className={"pill " + statusTone(item.estado)}>{item.estado}</span></div>)}</div>
         {campusData.attendance.length === 0 && <p className="muted">Ainda não existem presenças para as turmas atribuídas.</p>}
       </article>
     </section>
@@ -944,8 +984,10 @@ function TeacherDashboard({ campusData }: { campusData: CampusData }) {
 }
 
 function StudentDashboardSummary({ campusData }: { campusData: CampusData }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const todaysAttendance = campusData.attendance.filter((item) => item.data === today);
+  const today = getLisbonDateAndTime().dateKey;
+  const todaysAttendance = sortAttendanceNewestFirst(campusData.attendance.filter((item) => item.data === today));
+  const recentAttendance = sortAttendanceNewestFirst(campusData.attendance).slice(0, 5);
+  const upcomingLessons = getUpcomingLessons(campusData.timetable, 5);
   const available = campusData.computers.filter((item) => item.estado === "Livre").length;
 
   return <>
@@ -956,11 +998,11 @@ function StudentDashboardSummary({ campusData }: { campusData: CampusData }) {
     </section>
     <section className="dashboard-grid">
       <article className="surface"><div className="surface-heading"><div><h2>Próximas aulas</h2><p>Horário associado à tua conta</p></div><Link className="text-link" href="/horarios">Ver horário ↗</Link></div>
-        <div className="schedule-list">{campusData.timetable.slice(0, 5).map((item, index) => <Schedule key={item.id ?? index} time={item.hora} subject={item.disciplina} className={item.turma} room={item.sala} tone={index % 2 ? "blue" : "violet"} />)}</div>
+        <div className="schedule-list">{upcomingLessons.map((entry, index) => <Schedule key={entry.lesson.id ?? index} time={entry.lesson.hora} subject={entry.lesson.disciplina} className={[entry.lesson.turma, entry.lesson.dia].filter(Boolean).join(" · ")} room={entry.lesson.sala} tone={index % 2 ? "blue" : "violet"} />)}</div>
         {campusData.timetable.length === 0 && <p className="muted">Ainda não tens horários associados à conta.</p>}
       </article>
       <article className="surface"><div className="surface-heading"><div><h2>As minhas presenças</h2><p>Últimos registos</p></div><Link className="text-link" href="/presencas">Ver presenças ↗</Link></div>
-        <div className="activity-list">{campusData.attendance.slice(0, 5).map((item, index) => <div className="activity-row" key={item.id ?? index}><span className="activity-copy"><strong>{item.disciplina} · {item.turma}</strong><small>{item.data} · {item.sala}</small></span><span className={"pill " + statusTone(item.estado)}>{item.estado}</span></div>)}</div>
+        <div className="activity-list">{recentAttendance.map((item, index) => <div className="activity-row" key={item.id ?? index}><span className="activity-copy"><strong>{item.disciplina} · {item.turma}</strong><small>{item.data} · {item.sala}</small></span><span className={"pill " + statusTone(item.estado)}>{item.estado}</span></div>)}</div>
         {campusData.attendance.length === 0 && <p className="muted">Ainda não existem presenças associadas à tua conta.</p>}
       </article>
     </section>
@@ -1201,7 +1243,7 @@ function StudentPage({
 function StaffPage({ profileName, campusData }: { profileName: string; campusData: CampusData }) {
   const activeRooms = campusData.rooms.filter((room) => room.estado === "Ativa");
   const operationalComputers = campusData.computers.filter((computer) => computer.estado === "Livre");
-  const nextLesson = campusData.timetable[0];
+  const nextLesson = getUpcomingLessons(campusData.timetable, 1)[0]?.lesson;
 
   return <>
     <PageHeading eyebrow="OPERAÇÕES DO CAMPUS" title={"Olá, " + profileName.split(" ")[0]} description="Consulta as salas, os horários e os equipamentos visíveis para a tua função." action={<Link className="button button-primary" href="/salas">⌂ Consultar salas</Link>} />
@@ -1220,7 +1262,7 @@ function StaffPage({ profileName, campusData }: { profileName: string; campusDat
         {activeRooms.length === 0 && <p className="muted">Não existem salas ativas para apresentar.</p>}
       </article>
       <article className="surface"><div className="surface-heading"><div><h2>Próxima aula no horário</h2><p>Horários visíveis para a tua conta</p></div><Link className="text-link" href="/horarios">Ver horários ↗</Link></div>
-        {nextLesson ? <div className="schedule-list"><Schedule time={nextLesson.hora} subject={nextLesson.disciplina} className={nextLesson.turma} room={nextLesson.sala} tone="blue" /></div> : <p className="muted">Não existem horários disponíveis para apresentar.</p>}
+        {nextLesson ? <div className="schedule-list"><Schedule time={nextLesson.hora} subject={nextLesson.disciplina} className={[nextLesson.turma, nextLesson.dia].filter(Boolean).join(" · ")} room={nextLesson.sala} tone="blue" /></div> : <p className="muted">Não existem horários disponíveis para apresentar.</p>}
       </article>
     </section>
   </>;
