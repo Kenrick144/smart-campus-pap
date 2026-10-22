@@ -54,6 +54,7 @@ type CampusShellProps = {
   notificationsLoading: boolean;
   notificationsError: string;
   onToggleNotifications: () => void | Promise<void>;
+  onCloseNotifications: () => void;
   onLoadNotifications: () => void | Promise<void>;
   onMarkNotificationRead: (id?: string) => void | Promise<void>;
   onSignOut: () => void | Promise<void>;
@@ -81,6 +82,7 @@ export default function CampusShell({
   notificationsLoading,
   notificationsError,
   onToggleNotifications,
+  onCloseNotifications,
   onLoadNotifications,
   onMarkNotificationRead,
   onSignOut,
@@ -216,7 +218,7 @@ export default function CampusShell({
                           Marcar todas como lidas
                         </button>
                       )}
-                      <button type="button" className="notification-close" aria-label="Fechar notificações" onClick={() => { /* controlled by the page */ }}>
+                      <button type="button" className="notification-close" aria-label="Fechar notificações" onClick={onCloseNotifications}>
                         ×
                       </button>
                     </div>
