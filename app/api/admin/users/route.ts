@@ -542,9 +542,17 @@ export async function POST(request: Request) {
       });
 
     if (authError || !authData.user) {
+      const authErrorMessage = authError?.message ?? "";
+      const isDuplicateEmail =
+        /already been registered|already exists|email address.*registered|user already registered/i.test(authErrorMessage);
+
       return NextResponse.json(
-        { error: authError?.message ?? "Não foi possível criar a conta." },
-        { status: 400 },
+        {
+          error: isDuplicateEmail
+            ? "Este email já está registado no sistema de autenticação. Procura a conta em Utilizadores; se não aparecer na lista, será necessário associar o registo existente antes de tentar criá-la novamente."
+            : authErrorMessage || "Não foi possível criar a conta.",
+        },
+        { status: isDuplicateEmail ? 409 : 400 },
       );
     }
 
