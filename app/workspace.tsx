@@ -461,10 +461,65 @@ function PageHeading({ eyebrow, title, description, action }: { eyebrow?: string
 
 function Dashboard({ role, profileName, period, setPeriod, campusData }: { role: Role; profileName: string; period: string; setPeriod: (value: string) => void; campusData: CampusData }) {
   const isAdmin = role === "Administrador" || role === "Administrador Adjunto";
+  const description = isAdmin
+    ? "Aqui está o resumo do que está a acontecer no campus hoje."
+    : role === "Professor"
+      ? "Consulte as suas turmas, horários e presenças num só lugar."
+      : role === "Aluno"
+        ? "Consulte as suas aulas e presenças."
+        : "Veja o estado das salas e equipamentos do campus.";
+
   return <>
-    <PageHeading eyebrow="RESUMO DIÁRIO DO CAMPUS" title={"Bom dia, " + profileName.split(" ")[0] + " 👋"} description={isAdmin ? "Aqui está o resumo do que está a acontecer no campus hoje." : role === "Professor" ? "Consulte as suas turmas, horários e presenças num só lugar." : role === "Aluno" ? "Consulte as suas aulas e presenças." : "Veja o estado das salas e equipamentos do campus."} action={<button className="button button-secondary" onClick={() => window.print()}>↓ <span>Exportar resumo</span></button>} />
+    {isAdmin
+      ? <AdminDashboardHero profileName={profileName} />
+      : <PageHeading eyebrow="RESUMO DIÁRIO DO CAMPUS" title={"Bom dia, " + profileName.split(" ")[0] + " 👋"} description={description} action={<button className="button button-secondary" onClick={() => window.print()}>↓ <span>Exportar resumo</span></button>} />}
     {isAdmin ? <AdminDashboard period={period} setPeriod={setPeriod} campusData={campusData} /> : role === "Professor" ? <TeacherDashboard campusData={campusData} /> : role === "Aluno" ? <StudentDashboardSummary campusData={campusData} /> : <StaffPage profileName={profileName} campusData={campusData} />}
   </>;
+}
+
+function AdminDashboardHero({ profileName }: { profileName: string }) {
+  const today = new Date();
+  const weekday = today.toLocaleDateString("pt-PT", { weekday: "long" });
+  const dateLabel = today.toLocaleDateString("pt-PT", { day: "numeric", month: "long", year: "numeric" });
+  const firstName = profileName.trim().split(" ")[0] || "Administrador";
+
+  return (
+    <section className="admin-dashboard-hero">
+      <div className="admin-dashboard-hero-copy">
+        <div className="eyebrow">RESUMO DIÁRIO DO CAMPUS</div>
+        <h1>Bom dia, {firstName} <span aria-hidden="true">👋</span></h1>
+        <p>Acompanhe o estado do campus e aceda rapidamente às tarefas de gestão.</p>
+        <div className="admin-dashboard-hero-meta">
+          <span><i /> Painel de administração</span>
+          <span className="admin-dashboard-date-inline">{weekday} · {dateLabel}</span>
+        </div>
+      </div>
+      <div className="admin-dashboard-hero-tools">
+        <div className="admin-dashboard-hero-tools-heading">
+          <div><span>ACESSO RÁPIDO</span><strong>O que pretende fazer?</strong></div>
+          <button className="button button-secondary" onClick={() => window.print()}>↓ <span>Exportar resumo</span></button>
+        </div>
+        <div className="admin-dashboard-shortcuts">
+          <Link className="admin-quick-action" href="/utilizadores">
+            <span className="admin-quick-action-icon violet">♙</span>
+            <span><strong>Utilizadores</strong><small>Contas e acessos</small></span><b aria-hidden="true">↗</b>
+          </Link>
+          <Link className="admin-quick-action" href="/anos-letivos">
+            <span className="admin-quick-action-icon blue">▣</span>
+            <span><strong>Anos letivos</strong><small>Configurar calendário</small></span><b aria-hidden="true">↗</b>
+          </Link>
+          <Link className="admin-quick-action" href="/turmas">
+            <span className="admin-quick-action-icon amber">▤</span>
+            <span><strong>Turmas</strong><small>Organizar turmas</small></span><b aria-hidden="true">↗</b>
+          </Link>
+          <Link className="admin-quick-action" href="/horarios">
+            <span className="admin-quick-action-icon green">◷</span>
+            <span><strong>Horários</strong><small>Consultar aulas</small></span><b aria-hidden="true">↗</b>
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function AdminDashboard({ period, setPeriod, campusData }: { period: string; setPeriod: (value: string) => void; campusData: CampusData }) {
