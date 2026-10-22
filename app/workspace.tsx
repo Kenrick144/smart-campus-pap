@@ -734,14 +734,6 @@ function ProfilePage({ profile, role }: { profile: RecordItem; role: Role }) {
 
 function Dashboard({ role, profileName, period, setPeriod, campusData }: { role: Role; profileName: string; period: string; setPeriod: (value: string) => void; campusData: CampusData }) {
   const isAdmin = role === "Administrador" || role === "Administrador Adjunto";
-  const description = isAdmin
-    ? "Aqui está o resumo do que está a acontecer no campus hoje."
-    : role === "Professor"
-      ? "Consulte as suas turmas, horários e presenças num só lugar."
-      : role === "Aluno"
-        ? "Consulte as suas aulas e presenças."
-        : "Veja o estado das salas e equipamentos do campus.";
-
   return <>
     <DashboardWelcomeHero role={role} profileName={profileName} />
     {isAdmin ? <AdminDashboard period={period} setPeriod={setPeriod} campusData={campusData} /> : role === "Professor" ? <TeacherDashboard campusData={campusData} /> : role === "Aluno" ? <StudentDashboardSummary campusData={campusData} /> : <StaffPage profileName={profileName} campusData={campusData} />}
