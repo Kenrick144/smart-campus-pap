@@ -614,6 +614,8 @@ function payloadToRow(resource: string, input: Row): Row | null {
       estado: text(input, "estado", "Ativa"),
       professor_coordenador_id: text(input, "professor_coordenador_id").trim() || null,
       disciplina_ids: disciplineIds.join(","),
+      reutilizar: text(input, "reutilizar") === "true" ? "true" : "false",
+      reutilizar_origem_id: text(input, "reutilizar_origem_id").trim(),
     };
   }
   if (resource === "/horarios") {
@@ -959,6 +961,19 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
       const state = text(row, "estado", "Ativa");
       const teacherId = text(row, "professor_coordenador_id").trim();
       const disciplineIds = text(row, "disciplina_ids").split(",").filter(Boolean);
+      const isReuse = method === "POST" && text(row, "reutilizar") === "true";
+      const reuseSourceId = text(row, "reutilizar_origem_id").trim();
+
+      if (isReuse) {
+        if (!reuseSourceId) {
+          return NextResponse.json({ error: "Não foi possível identificar a turma original para reutilização." }, { status: 400 });
+        }
+        const { data: sourceClass, error: sourceError } = await admin
+          .from("turmas").select("id").eq("id", reuseSourceId).maybeSingle();
+        if (sourceError || !sourceClass) {
+          return NextResponse.json({ error: "A turma original já não existe. Atualiza a página e tenta novamente." }, { status: 400 });
+        }
+      }
 
       if (!name) return NextResponse.json({ error: "Introduz o nome da turma." }, { status: 400 });
       if (!yearId) return NextResponse.json({ error: "Seleciona o ano letivo." }, { status: 400 });
@@ -985,8 +1000,8 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
         return NextResponse.json({ error: "O ano letivo selecionado não existe. Atualiza a página." }, { status: 400 });
       }
       const keepsHistoricalYear = Boolean(currentClass && text(currentClass as Row, "ano_letivo_id") === yearId);
-      if (academicYear.ativo !== true && !keepsHistoricalYear) {
-        return NextResponse.json({ error: "Só podes criar turmas no ano letivo ativo. Para uma turma antiga, mantém o ano letivo original." }, { status: 400 });
+      if (academicYear.ativo !== true && !keepsHistoricalYear && !isReuse) {
+        return NextResponse.json({ error: "Só podes criar turmas no ano letivo ativo. Usa «Reutilizar» para criar uma cópia noutro ano letivo." }, { status: 400 });
       }
 
       if (teacherId) {
@@ -1043,6 +1058,7 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
         p_estado: text(row, "estado", "Ativa"),
         p_professor_coordenador_id: text(row, "professor_coordenador_id") || null,
         p_disciplina_ids: disciplineIds,
+        p_reutilizar: method === "POST" && text(row, "reutilizar") === "true",
       });
       if (error) {
         const message = error.code === "23505"
