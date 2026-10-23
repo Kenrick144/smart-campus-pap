@@ -1058,12 +1058,67 @@ function DataPage({
   const isAttendance = pathname === "/presencas";
   const canManage = role === "Administrador" || role === "Administrador Adjunto" || (role === "Professor" && pathname === "/presencas");
   const hasAction = Boolean(primaryActions[pathname]) && canManage;
-  const columns = records.length ? Object.keys(records[0]).filter((column) => column !== "id" && !column.endsWith("_id") && !column.startsWith("__")) : (formFields[pathname] ?? ["nome", "descrição"]).filter((field) => field !== "palavra-passe" && !field.endsWith("_id"));
+  const canManageStudents = pathname === "/alunos" && (role === "Administrador" || role === "Administrador Adjunto");
+  const showStudentManagementAction = canManageStudents;
+  const columns = pathname === "/alunos"
+    ? ["nome", "número", "curso", "ano escolar", "turma", "email", "estado"]
+    : records.length
+      ? Object.keys(records[0]).filter((column) => column !== "id" && !column.endsWith("_id") && !column.startsWith("__"))
+      : (formFields[pathname] ?? ["nome", "descrição"]).filter((field) => field !== "palavra-passe" && !field.endsWith("_id"));
+  const activeStudents = allRecords.filter((record) => (record.estado || "").trim().toLocaleLowerCase("pt-PT") === "ativo").length;
+  const inactiveStudents = allRecords.filter((record) => (record.estado || "").trim().toLocaleLowerCase("pt-PT") === "inativo").length;
+  const representedCourses = new Set(allRecords.map((record) => (record.curso || "").trim()).filter(Boolean)).size;
   const statuses = [...new Set(allRecords.map((record) => record.estado).filter(Boolean))];
   return <>
-    <PageHeading eyebrow="GESTÃO DO CAMPUS" title={title} description={descriptionFor(pathname)} action={hasAction ? <button className="button button-primary" onClick={onAdd}><span>＋</span>{primaryActions[pathname]}</button> : undefined} />
+    <PageHeading
+      eyebrow={pathname === "/alunos" ? "GESTÃO ACADÉMICA" : "GESTÃO DO CAMPUS"}
+      title={title}
+      description={descriptionFor(pathname)}
+      action={
+        pathname === "/alunos" && canManageStudents
+          ? <Link className="button button-primary" href="/utilizadores?novo=aluno"><span>＋</span>Criar aluno</Link>
+          : hasAction
+            ? <button className="button button-primary" onClick={onAdd}><span>＋</span>{primaryActions[pathname]}</button>
+            : undefined
+      }
+    />
+    {pathname === "/alunos" && (
+      <section className="stat-grid student-management-stats">
+        <article className="stat-card">
+          <div className="stat-icon violet">◎</div>
+          <div className="stat-meta">Total de alunos</div>
+          <strong>{allRecords.length}</strong>
+          <small>Perfis académicos encontrados</small>
+        </article>
+        <article className="stat-card">
+          <div className="stat-icon green">✓</div>
+          <div className="stat-meta">Contas ativas</div>
+          <strong>{activeStudents}</strong>
+          <small>Podem iniciar sessão</small>
+        </article>
+        <article className="stat-card">
+          <div className="stat-icon amber">Ⅱ</div>
+          <div className="stat-meta">Contas inativas</div>
+          <strong>{inactiveStudents}</strong>
+          <small>Acesso bloqueado</small>
+        </article>
+        <article className="stat-card">
+          <div className="stat-icon blue">▤</div>
+          <div className="stat-meta">Cursos representados</div>
+          <strong>{representedCourses}</strong>
+          <small>Com alunos registados</small>
+        </article>
+      </section>
+    )}
+    {pathname === "/alunos" && canManageStudents && (
+      <div className="notice student-management-note" role="note">
+        <span>ℹ</span>
+        As contas e fichas académicas são criadas e editadas em Utilizadores, para manter o Supabase Auth e o perfil do aluno sincronizados.
+        <Link className="text-link" href="/utilizadores">Gerir contas ↗</Link>
+      </div>
+    )}
     <div className="toolbar"><div className="result-count"><strong>{allRecords.length}</strong> registos <span>·</span> ano letivo 2026/2027</div><div className="toolbar-actions">{statuses.length > 0 && <select className="select-control" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filtrar por estado"><option>Todos os estados</option>{statuses.map((status) => <option key={status}>{status}</option>)}</select>}<button className="button button-secondary" onClick={() => downloadCsv(`${pathname.slice(1)}.csv`, allRecords)}>↓ Exportar CSV</button></div></div>
-    <section className="surface table-surface"><div className="table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}{isAttendance && <th>Presença</th>}{hasAction && <th>Ações</th>}</tr></thead><tbody>{records.map((record) => { const index = allRecords.indexOf(record); return <tr key={`${Object.values(record).join("-")}-${index}`}>{columns.map((column) => <td key={column}>{column === "código" && pathname === "/qr-code" ? <span className="qr-code-cell">{record[column]}<QrImage value={record[column]} /></span> : column === "estado" ? <span className={`pill ${statusTone(record[column])}`}>{record[column]}</span> : column === "email" ? <a className="email-link" href={`mailto:${record[column]}`}>{record[column]}</a> : column === "utilizador" && record[column] === "—" ? <span className="muted">Disponível</span> : record[column]}</td>)}{isAttendance && <td>{role === "Professor" || role === "Administrador" || role === "Administrador Adjunto" ? <select className="inline-select" aria-label={`Estado da presença de ${record.aluno}`} value={record.estado} onChange={(event) => onStatus(index, event.target.value)}><option>Presente</option><option>Atrasado</option><option>Ausente</option><option>Falta justificada</option></select> : <span className={`pill ${statusTone(record.estado)}`}>{record.estado}</span>}</td>}{hasAction && <td><div className="row-actions"><button className="button button-secondary" onClick={() => onEdit(index)}>Editar</button>{!(role === "Professor" && pathname === "/presencas") && <button className="button button-secondary" onClick={() => onDelete(index)}>Eliminar</button>}</div></td>}</tr>; })}</tbody></table>{records.length === 0 && <div className="empty-state"><span>⌕</span><strong>{search || statusFilter !== "Todos os estados" ? "Não encontrámos resultados" : "Ainda não existem registos"}</strong><p>{search || statusFilter !== "Todos os estados" ? "Altere os filtros e tente novamente." : "Adicione o primeiro registo para começar."}</p></div>}</div><div className="table-footer"><span>A mostrar <strong>{records.length}</strong> de <strong>{allRecords.length}</strong> registos</span><div><button disabled>← Anterior</button><button className="current-page">1</button><button disabled>Seguinte →</button></div></div></section>
+    <section className="surface table-surface"><div className="table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}{isAttendance && <th>Presença</th>}{(hasAction || showStudentManagementAction) && <th>Ações</th>}</tr></thead><tbody>{records.map((record) => { const index = allRecords.indexOf(record); return <tr key={`${Object.values(record).join("-")}-${index}`}>{columns.map((column) => <td key={column}>{column === "código" && pathname === "/qr-code" ? <span className="qr-code-cell">{record[column]}<QrImage value={record[column]} /></span> : column === "estado" ? <span className={`pill ${statusTone(record[column])}`}>{record[column]}</span> : column === "email" ? <a className="email-link" href={`mailto:${record[column]}`}>{record[column]}</a> : column === "utilizador" && record[column] === "—" ? <span className="muted">Disponível</span> : record[column]}</td>)}{isAttendance && <td>{role === "Professor" || role === "Administrador" || role === "Administrador Adjunto" ? <select className="inline-select" aria-label={`Estado da presença de ${record.aluno}`} value={record.estado} onChange={(event) => onStatus(index, event.target.value)}><option>Presente</option><option>Atrasado</option><option>Ausente</option><option>Falta justificada</option></select> : <span className={`pill ${statusTone(record.estado)}`}>{record.estado}</span>}</td>}{(hasAction || showStudentManagementAction) && <td><div className="row-actions">{showStudentManagementAction ? <Link className="button button-secondary" href={`/utilizadores?editar=${encodeURIComponent(record.id)}`}>Editar ficha</Link> : <><button className="button button-secondary" onClick={() => onEdit(index)}>Editar</button>{!(role === "Professor" && pathname === "/presencas") && <button className="button button-secondary" onClick={() => onDelete(index)}>Eliminar</button>}</>}</div></td>}</tr>; })}</tbody></table>{records.length === 0 && <div className="empty-state"><span>⌕</span><strong>{search || statusFilter !== "Todos os estados" ? "Não encontrámos resultados" : pathname === "/alunos" ? "Ainda não existem alunos para apresentar" : "Ainda não existem registos"}</strong><p>{search || statusFilter !== "Todos os estados" ? "Altere os filtros e tente novamente." : pathname === "/alunos" ? role === "Professor" ? "Não existem alunos nas turmas atribuídas à tua conta." : "Crie uma conta com perfil Aluno para a respetiva ficha aparecer aqui." : "Adicione o primeiro registo para começar."}</p></div>}</div><div className="table-footer"><span>A mostrar <strong>{records.length}</strong> de <strong>{allRecords.length}</strong> registos</span><div><button disabled>← Anterior</button><button className="current-page">1</button><button disabled>Seguinte →</button></div></div></section>
     {pathname === "/computadores" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Estado do parque informático</h2><p>Alterar o estado de um computador</p></div><Link className="text-link" href="/pc">Abrir interface do PC ↗</Link></div><div className="pc-state-grid">{["Livre", "Manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => record.estado === state).length}</strong></span>)}</div><div className="code-generator"><div><strong>{temporaryCodeActive ? temporaryCode?.code : "Sem código ativo"}</strong><small>A geração de códigos temporários ainda não está ligada à base de dados.</small></div><button className="button button-primary" onClick={onGenerateCode}>Gerar código temporário</button></div></section>}
     {pathname === "/qr-code" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Leitura rápida</h2><p>Introduza ou leia um código de sala ativo para registar a presença do utilizador atual.</p></div></div><form className="scan-row" onSubmit={(event) => { event.preventDefault(); onScan(); }}><input className="field-control" value={qrCode} onChange={(event) => setQrCode(event.target.value)} placeholder="Código do QR da sala" aria-label="Código QR da sala" /><button className="button button-primary">▦ Ler código</button><QrScanner onDetected={onScan} /></form></section>}
   </>;
