@@ -95,7 +95,7 @@ const roles: Role[] = ["Administrador", "Administrador Adjunto", "Professor", "A
 const formFields: Record<string, string[]> = {
   "/anos-letivos": ["nome", "data_inicio", "data_fim", "ativo"],
   "/turmas": ["nome", "ano_letivo_id", "ano_escolar", "curso", "capacidade", "estado", "professor_coordenador_id"],
-  "/disciplinas": ["nome", "codigo", "departamento", "descricao", "estado"],
+  "/disciplinas": ["nome", "codigo", "descricao", "estado"],
   "/presencas": ["aluno_id", "horario_id", "data", "estado", "observacoes"],
   "/horarios": ["turma_id", "disciplina_turma_id", "professor_id", "sala_id", "dia_semana", "hora_inicio", "hora_fim", "observacoes"],
   "/salas": ["nome", "edificio", "piso", "capacidade", "tipo", "estado", "observacoes"],
@@ -356,16 +356,10 @@ export default function Workspace() {
 
     if (pathname === "/disciplinas") {
       item.nome = (item.nome ?? "").trim();
-      item.codigo = (item.codigo ?? "").trim();
-      item.departamento = (item.departamento ?? "").trim();
       item.descricao = (item.descricao ?? "").trim();
 
       if (!item.nome) {
         window.alert("Introduz o nome da disciplina.");
-        return;
-      }
-      if ((item.codigo ?? "").length > 40) {
-        window.alert("O código da disciplina deve ter no máximo 40 caracteres.");
         return;
       }
       if (item.estado !== "Ativa" && item.estado !== "Inativa") {
@@ -1135,7 +1129,7 @@ function DataPage({
   const columns = pathname === "/anos-letivos"
     ? ["nome", "data_inicio", "data_fim", "ativo"]
     : pathname === "/disciplinas"
-      ? ["nome", "codigo", "departamento", "descricao", "estado"]
+      ? ["nome", "codigo", "descricao", "estado"]
       : pathname === "/alunos"
         ? ["nome", "número", "curso", "ano escolar", "turma", "email", "estado"]
         : records.length
@@ -1279,7 +1273,7 @@ function DataPage({
       </div>
     )}
     <div className="toolbar"><div className="result-count"><strong>{allRecords.length}</strong> registos <span>·</span> {pathname === "/anos-letivos" ? (activeAcademicYearName ? "ano letivo " + activeAcademicYearName : "sem ano letivo ativo") : activeAcademicYearName ? "ano letivo " + activeAcademicYearName : "gestão do campus"}</div><div className="toolbar-actions">{statuses.length > 0 && <select className="select-control" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filtrar por estado"><option>Todos os estados</option>{statuses.map((status) => <option key={status}>{status}</option>)}</select>}<button className="button button-secondary" onClick={() => downloadCsv(`${pathname.slice(1)}.csv`, allRecords)}>↓ Exportar CSV</button></div></div>
-    <section className="surface table-surface"><div className="table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{pathname === "/anos-letivos" ? ({ nome: "Ano letivo", data_inicio: "Data de início", data_fim: "Data de fim", ativo: "Estado" } as Record<string, string>)[column] ?? column : pathname === "/disciplinas" ? ({ nome: "Disciplina", codigo: "Código", departamento: "Departamento", descricao: "Descrição", estado: "Estado" } as Record<string, string>)[column] ?? column : column}</th>)}{isAttendance && <th>Presença</th>}{(hasAction || showStudentManagementAction) && <th>Ações</th>}</tr></thead><tbody>{records.map((record) => { const index = allRecords.indexOf(record); return <tr key={`${Object.values(record).join("-")}-${index}`}>{columns.map((column) => <td key={column}>{pathname === "/anos-letivos" && column === "ativo" ? <span className={`pill ${record.ativo === "true" ? "pill-green" : "pill-slate"}`}>{record.ativo === "true" ? "Ativo" : "Inativo"}</span> : pathname === "/anos-letivos" && (column === "data_inicio" || column === "data_fim") ? formatAcademicDate(record[column]) : column === "código" && pathname === "/qr-code" ? <span className="qr-code-cell">{record[column]}<QrImage value={record[column]} /></span> : column === "estado" ? <span className={`pill ${statusTone(record[column])}`}>{record[column]}</span> : column === "email" ? <a className="email-link" href={`mailto:${record[column]}`}>{record[column]}</a> : column === "utilizador" && record[column] === "—" ? <span className="muted">Disponível</span> : record[column]}</td>)}{isAttendance && <td>{role === "Professor" || role === "Administrador" || role === "Administrador Adjunto" ? <select className="inline-select" aria-label={`Estado da presença de ${record.aluno}`} value={record.estado} onChange={(event) => onStatus(index, event.target.value)}><option>Presente</option><option>Atrasado</option><option>Ausente</option><option>Falta justificada</option></select> : <span className={`pill ${statusTone(record.estado)}`}>{record.estado}</span>}</td>}{(hasAction || showStudentManagementAction) && <td><div className="row-actions">{showStudentManagementAction ? <><button type="button" className="button button-secondary" disabled={studentClassLoading || (record.estado || "").toLocaleLowerCase("pt-PT") !== "ativo"} title={(record.estado || "").toLocaleLowerCase("pt-PT") !== "ativo" ? "Ativa a conta do aluno antes de associar uma turma." : "Associar ou transferir o aluno para uma turma"} onClick={() => void openStudentClassDialog(record)}>Associar turma</button><Link className="button button-secondary" href={`/utilizadores?editar=${encodeURIComponent(record.id)}`}>Editar ficha</Link></> : <><button className="button button-secondary" onClick={() => onEdit(index)}>Editar</button>{!(role === "Professor" && pathname === "/presencas") && <button className="button button-secondary" onClick={() => onDelete(index)}>Eliminar</button>}</>}</div></td>}</tr>; })}</tbody></table>{records.length === 0 && <div className="empty-state"><span>⌕</span><strong>{search || statusFilter !== "Todos os estados" ? "Não encontrámos resultados" : pathname === "/alunos" ? "Ainda não existem alunos para apresentar" : "Ainda não existem registos"}</strong><p>{search || statusFilter !== "Todos os estados" ? "Altere os filtros e tente novamente." : pathname === "/alunos" ? role === "Professor" ? "Não existem alunos nas turmas atribuídas à tua conta." : "Crie uma conta com perfil Aluno para a respetiva ficha aparecer aqui." : "Adicione o primeiro registo para começar."}</p></div>}</div><div className="table-footer"><span>A mostrar <strong>{records.length}</strong> de <strong>{allRecords.length}</strong> registos</span><div><button disabled>← Anterior</button><button className="current-page">1</button><button disabled>Seguinte →</button></div></div></section>
+    <section className="surface table-surface"><div className="table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{pathname === "/anos-letivos" ? ({ nome: "Ano letivo", data_inicio: "Data de início", data_fim: "Data de fim", ativo: "Estado" } as Record<string, string>)[column] ?? column : pathname === "/disciplinas" ? ({ nome: "Nome", codigo: "Código", descricao: "Descrição", estado: "Estado" } as Record<string, string>)[column] ?? column : column}</th>)}{isAttendance && <th>Presença</th>}{(hasAction || showStudentManagementAction) && <th>Ações</th>}</tr></thead><tbody>{records.map((record) => { const index = allRecords.indexOf(record); return <tr key={`${Object.values(record).join("-")}-${index}`}>{columns.map((column) => <td key={column}>{pathname === "/anos-letivos" && column === "ativo" ? <span className={`pill ${record.ativo === "true" ? "pill-green" : "pill-slate"}`}>{record.ativo === "true" ? "Ativo" : "Inativo"}</span> : pathname === "/anos-letivos" && (column === "data_inicio" || column === "data_fim") ? formatAcademicDate(record[column]) : column === "código" && pathname === "/qr-code" ? <span className="qr-code-cell">{record[column]}<QrImage value={record[column]} /></span> : column === "estado" ? <span className={`pill ${statusTone(record[column])}`}>{record[column]}</span> : column === "email" ? <a className="email-link" href={`mailto:${record[column]}`}>{record[column]}</a> : column === "utilizador" && record[column] === "—" ? <span className="muted">Disponível</span> : record[column]}</td>)}{isAttendance && <td>{role === "Professor" || role === "Administrador" || role === "Administrador Adjunto" ? <select className="inline-select" aria-label={`Estado da presença de ${record.aluno}`} value={record.estado} onChange={(event) => onStatus(index, event.target.value)}><option>Presente</option><option>Atrasado</option><option>Ausente</option><option>Falta justificada</option></select> : <span className={`pill ${statusTone(record.estado)}`}>{record.estado}</span>}</td>}{(hasAction || showStudentManagementAction) && <td><div className="row-actions">{showStudentManagementAction ? <><button type="button" className="button button-secondary" disabled={studentClassLoading || (record.estado || "").toLocaleLowerCase("pt-PT") !== "ativo"} title={(record.estado || "").toLocaleLowerCase("pt-PT") !== "ativo" ? "Ativa a conta do aluno antes de associar uma turma." : "Associar ou transferir o aluno para uma turma"} onClick={() => void openStudentClassDialog(record)}>Associar turma</button><Link className="button button-secondary" href={`/utilizadores?editar=${encodeURIComponent(record.id)}`}>Editar ficha</Link></> : <><button className="button button-secondary" onClick={() => onEdit(index)}>Editar</button>{!(role === "Professor" && pathname === "/presencas") && <button className="button button-secondary" onClick={() => onDelete(index)}>Eliminar</button>}</>}</div></td>}</tr>; })}</tbody></table>{records.length === 0 && <div className="empty-state"><span>⌕</span><strong>{search || statusFilter !== "Todos os estados" ? "Não encontrámos resultados" : pathname === "/alunos" ? "Ainda não existem alunos para apresentar" : "Ainda não existem registos"}</strong><p>{search || statusFilter !== "Todos os estados" ? "Altere os filtros e tente novamente." : pathname === "/alunos" ? role === "Professor" ? "Não existem alunos nas turmas atribuídas à tua conta." : "Crie uma conta com perfil Aluno para a respetiva ficha aparecer aqui." : "Adicione o primeiro registo para começar."}</p></div>}</div><div className="table-footer"><span>A mostrar <strong>{records.length}</strong> de <strong>{allRecords.length}</strong> registos</span><div><button disabled>← Anterior</button><button className="current-page">1</button><button disabled>Seguinte →</button></div></div></section>
     {studentClassTarget && pathname === "/alunos" && (
       <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !studentClassSaving) setStudentClassTarget(null); }}>
         <section className="modal-card student-class-modal" role="dialog" aria-modal="true" aria-labelledby="student-class-title">
@@ -1393,7 +1387,7 @@ function RecordModal({ title, resource, fields, initialValues, onClose, onSubmit
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="modal-heading"><div><div className="eyebrow">SMART CAMPUS</div><h2 id="modal-title">{title}</h2></div><button type="button" className="icon-button close-button" onClick={onClose} aria-label="Fechar">×</button></div><p className="modal-description">Preencha os dados abaixo. Os campos assinalados são obrigatórios.</p><form onSubmit={onSubmit}><div className="form-grid">{fields.map((field) => <label className={field === "encarregado de educação" || field === "equipamentos" || field === "observacoes" ? "form-wide" : ""} key={field}>{resource === "/anos-letivos"
   ? ({ nome: "Nome do ano letivo", data_inicio: "Data de início", data_fim: "Data de fim", ativo: "Estado" } as Record<string, string>)[field] ?? field
   : resource === "/disciplinas"
-    ? ({ nome: "Nome da disciplina", codigo: "Código (opcional)", departamento: "Departamento (opcional)", descricao: "Descrição (opcional)", estado: "Estado" } as Record<string, string>)[field] ?? field
+    ? ({ nome: "Nome", codigo: "Código (automático)", descricao: "Descrição", estado: "Estado" } as Record<string, string>)[field] ?? field
     : field.replaceAll("_", " ")}<FormInput resource={resource} field={field} initialValue={initialValues?.[field]} /></label>)}</div><div className="modal-footer"><button type="button" className="button button-secondary" onClick={onClose}>Cancelar</button><button type="submit" className="button button-primary">Guardar registo</button></div></form></section></div>;
 }
 
@@ -1434,7 +1428,7 @@ function FormInput({ resource, field, initialValue }: { resource: string; field:
     className: "field-control",
     required: !optionalFields.includes(field),
     name: field,
-    defaultValue: initialValue ?? "",
+    defaultValue: initialValue ?? (resource === "/disciplinas" && field === "estado" ? "Ativa" : ""),
   };
 
   if (lookupKey) {
@@ -1477,7 +1471,12 @@ function FormInput({ resource, field, initialValue }: { resource: string; field:
     return <select {...common}><option value="">Selecionar...</option>{choices.map((option) => <option key={option}>{option}</option>)}</select>;
   }
 
-  if (field === "codigo" && resource === "/disciplinas") return <input {...common} maxLength={40} placeholder="Ex.: MAT101" />;
+  if (field === "codigo" && resource === "/disciplinas") {
+    return <input {...common} readOnly aria-readonly="true" className="field-control readonly-field" placeholder="Gerado automaticamente ao guardar" />;
+  }
+  if (field === "descricao" && resource === "/disciplinas") {
+    return <textarea {...common} rows={5} maxLength={2000} placeholder="Escreva a descrição da disciplina" />;
+  }
   if (field === "email") return <input {...common} type="email" placeholder="nome@escola.pt" />;
   if (field.toLowerCase().includes("data")) return <input {...common} type="date" />;
   if (["hora", "hora de início", "hora de fim", "hora_inicio", "hora_fim"].includes(field)) return <input {...common} type="time" />;
