@@ -305,7 +305,6 @@ async function enrich(
         id: text(row, "id"),
         nome: text(row, "nome"),
         codigo: text(row, "codigo"),
-        departamento: text(row, "departamento"),
         descricao: text(row, "descricao"),
         estado: text(row, "estado", "Ativa"),
       }));
@@ -497,10 +496,9 @@ function payloadToRow(resource: string, input: Row): Row | null {
     };
   }
   if (resource === "/disciplinas") {
+    // The database trigger generates codigo on INSERT and keeps it unchanged on PATCH.
     return {
       nome: text(input, "nome", text(input, "disciplina")).trim().replace(/\s+/g, " "),
-      codigo: text(input, "codigo", text(input, "código")).trim().replace(/\s+/g, " ") || null,
-      departamento: text(input, "departamento").trim().replace(/\s+/g, " ") || null,
       descricao: text(input, "descricao", text(input, "descrição")).trim() || null,
       estado: text(input, "estado", "Ativa"),
     };
@@ -837,7 +835,6 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
 
     if (resource === "/disciplinas" && method !== "DELETE" && row) {
       const name = text(row, "nome").trim();
-      const code = text(row, "codigo").trim();
       const state = text(row, "estado", "Ativa");
 
       if (!name) {
@@ -845,9 +842,6 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
       }
       if (state !== "Ativa" && state !== "Inativa") {
         return NextResponse.json({ error: "O estado da disciplina deve ser Ativa ou Inativa." }, { status: 400 });
-      }
-      if (code.length > 40) {
-        return NextResponse.json({ error: "O código da disciplina deve ter no máximo 40 caracteres." }, { status: 400 });
       }
     }
 
