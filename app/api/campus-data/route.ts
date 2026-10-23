@@ -498,9 +498,9 @@ function payloadToRow(resource: string, input: Row): Row | null {
   }
   if (resource === "/disciplinas") {
     return {
-      nome: text(input, "nome", text(input, "disciplina")).trim().replace(/\\s+/g, " "),
-      codigo: text(input, "codigo", text(input, "código")).trim().replace(/\\s+/g, " ") || null,
-      departamento: text(input, "departamento").trim().replace(/\\s+/g, " ") || null,
+      nome: text(input, "nome", text(input, "disciplina")).trim().replace(/\s+/g, " "),
+      codigo: text(input, "codigo", text(input, "código")).trim().replace(/\s+/g, " ") || null,
+      departamento: text(input, "departamento").trim().replace(/\s+/g, " ") || null,
       descricao: text(input, "descricao", text(input, "descrição")).trim() || null,
       estado: text(input, "estado", "Ativa"),
     };
