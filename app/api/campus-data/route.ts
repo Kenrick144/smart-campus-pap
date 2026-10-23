@@ -74,6 +74,25 @@ function disciplineWriteError(error: { code?: string; message?: string }, method
   return message || "Não foi possível guardar a disciplina.";
 }
 
+function classWriteError(error: { code?: string; message?: string }, method: string): string {
+  const message = error.message || "";
+  if (error.code === "23505") {
+    return "Já existe uma turma com o mesmo nome, curso, ano escolar e ano letivo.";
+  }
+  if (error.code === "23514") {
+    return "Confirma o nome, o ano escolar, o curso, a capacidade e o estado da turma.";
+  }
+  if (error.code === "23503" && method === "DELETE") {
+    return message.includes("Esta turma já tem alunos")
+      ? message
+      : "Não é possível eliminar esta turma porque existem registos associados. Marca-a como Inativa para preservar o histórico.";
+  }
+  if (error.code === "23503") {
+    return "O ano letivo ou o professor coordenador selecionado já não existe. Atualiza a página e tenta novamente.";
+  }
+  return message || "Não foi possível guardar a turma.";
+}
+
 function isAdmin(role: Role) {
   return adminRoles.includes(role);
 }
@@ -280,22 +299,31 @@ async function enrich(
     ]);
     const yearById = new Map(years.map((row) => [text(row, "id"), row]));
     const teacherById = new Map(teachers.map((row) => [text(row, "id"), row]));
-    return rows.map((row) => {
-      const coordinator = teacherById.get(text(row, "professor_coordenador_id"));
-      const coordinatorUser = userById.get(text(coordinator, "id"));
-      return {
-        id: text(row, "id"),
-        turma: text(row, "nome"),
-        "ano letivo": text(yearById.get(text(row, "ano_letivo_id")), "nome"),
-        "ano escolar": text(row, "ano_escolar"),
-        curso: text(row, "curso"),
-        capacidade: text(row, "capacidade"),
-        "professor coordenador": text(coordinatorUser, "name"),
-        estado: text(row, "estado", "Ativa"),
-        ano_letivo_id: text(row, "ano_letivo_id"),
-        professor_coordenador_id: text(row, "professor_coordenador_id"),
-      };
-    });
+    return [...rows]
+      .sort((a, b) =>
+        text(yearById.get(text(b, "ano_letivo_id")), "nome").localeCompare(
+          text(yearById.get(text(a, "ano_letivo_id")), "nome"), "pt-PT"
+        ) ||
+        text(a, "curso").localeCompare(text(b, "curso"), "pt-PT") ||
+        text(a, "ano_escolar").localeCompare(text(b, "ano_escolar"), "pt-PT") ||
+        text(a, "nome").localeCompare(text(b, "nome"), "pt-PT")
+      )
+      .map((row) => {
+        const coordinator = teacherById.get(text(row, "professor_coordenador_id"));
+        const coordinatorUser = userById.get(text(coordinator, "id"));
+        return {
+          id: text(row, "id"),
+          turma: text(row, "nome"),
+          "ano letivo": text(yearById.get(text(row, "ano_letivo_id")), "nome"),
+          "ano escolar": text(row, "ano_escolar"),
+          curso: text(row, "curso"),
+          capacidade: text(row, "capacidade"),
+          "professor coordenador": text(coordinatorUser, "name") || "—",
+          estado: text(row, "estado", "Ativa"),
+          ano_letivo_id: text(row, "ano_letivo_id"),
+          professor_coordenador_id: text(row, "professor_coordenador_id"),
+        };
+      });
   }
 
   if (resource === "/disciplinas") {
@@ -524,10 +552,10 @@ function payloadToRow(resource: string, input: Row): Row | null {
   }
   if (resource === "/turmas") {
     return {
-      nome: text(input, "nome", text(input, "turma")).trim(),
+      nome: text(input, "nome", text(input, "turma")).trim().replace(/\s+/g, " "),
       ano_letivo_id: text(input, "ano_letivo_id").trim(),
-      ano_escolar: text(input, "ano_escolar", text(input, "ano escolar")).trim(),
-      curso: text(input, "curso").trim(),
+      ano_escolar: text(input, "ano_escolar", text(input, "ano escolar")).trim().replace(/\s+/g, " "),
+      curso: text(input, "curso").trim().replace(/\s+/g, " "),
       capacidade: Number(text(input, "capacidade", "30")),
       estado: text(input, "estado", "Ativa"),
       professor_coordenador_id: text(input, "professor_coordenador_id").trim() || null,
@@ -853,6 +881,60 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
       }
     }
 
+    if (resource === "/turmas" && method !== "DELETE" && row) {
+      const name = text(row, "nome").trim();
+      const yearId = text(row, "ano_letivo_id").trim();
+      const schoolYear = text(row, "ano_escolar").trim();
+      const course = text(row, "curso").trim();
+      const capacity = Number(row.capacidade);
+      const state = text(row, "estado", "Ativa");
+      const teacherId = text(row, "professor_coordenador_id").trim();
+
+      if (!name) return NextResponse.json({ error: "Introduz o nome da turma." }, { status: 400 });
+      if (!yearId) return NextResponse.json({ error: "Seleciona o ano letivo." }, { status: 400 });
+      if (!schoolYear) return NextResponse.json({ error: "Introduz o ano escolar (por exemplo, 10.º ano)." }, { status: 400 });
+      if (!course) return NextResponse.json({ error: "Introduz o curso da turma." }, { status: 400 });
+      if (!Number.isInteger(capacity) || capacity < 1 || capacity > 500) {
+        return NextResponse.json({ error: "A capacidade deve ser um número inteiro entre 1 e 500." }, { status: 400 });
+      }
+      if (state !== "Ativa" && state !== "Inativa") {
+        return NextResponse.json({ error: "O estado da turma deve ser Ativa ou Inativa." }, { status: 400 });
+      }
+
+      const { data: currentClass, error: currentClassError } = method === "PATCH" && recordId
+        ? await admin.from("turmas").select("ano_letivo_id, professor_coordenador_id").eq("id", recordId).maybeSingle()
+        : { data: null, error: null };
+      if (currentClassError || (method === "PATCH" && recordId && !currentClass)) {
+        return NextResponse.json({ error: "Não foi possível confirmar a turma a editar. Atualiza a página." }, { status: 400 });
+      }
+
+      const { data: academicYear, error: yearError } = await admin
+        .from("anos_letivos").select("id, ativo").eq("id", yearId).maybeSingle();
+      if (yearError || !academicYear) {
+        return NextResponse.json({ error: "O ano letivo selecionado não existe. Atualiza a página." }, { status: 400 });
+      }
+      const keepsHistoricalYear = Boolean(currentClass && text(currentClass as Row, "ano_letivo_id") === yearId);
+      if (academicYear.ativo !== true && !keepsHistoricalYear) {
+        return NextResponse.json({ error: "Só podes criar turmas no ano letivo ativo. Para uma turma antiga, mantém o ano letivo original." }, { status: 400 });
+      }
+
+      if (teacherId) {
+        const { data: teacher, error: teacherError } = await admin
+          .from("professores").select("id, professional_status").eq("id", teacherId).maybeSingle();
+        if (teacherError || !teacher) {
+          return NextResponse.json({ error: "O professor coordenador selecionado não existe." }, { status: 400 });
+        }
+        const keepsExistingTeacher = Boolean(currentClass && text(currentClass as Row, "professor_coordenador_id") === teacherId);
+        if (!keepsExistingTeacher) {
+          const { data: teacherAccount, error: teacherAccountError } = await admin
+            .from("users").select("status").eq("id", teacherId).maybeSingle();
+          if (teacherAccountError || !teacherAccount || text(teacherAccount as Row, "status") !== "Ativo" || text(teacher as Row, "professional_status") !== "Ativo") {
+            return NextResponse.json({ error: "Seleciona um professor com conta e situação profissional ativas." }, { status: 400 });
+          }
+        }
+      }
+    }
+
     const tableMap: Record<string, string> = {
       "/anos-letivos": "anos_letivos",
       "/turmas": "turmas",
@@ -913,7 +995,9 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
           ? academicYearWriteError(error, method)
           : resource === "/disciplinas"
             ? disciplineWriteError(error, method)
-            : error.message;
+            : resource === "/turmas"
+              ? classWriteError(error, method)
+              : error.message;
         return NextResponse.json({ error: message }, { status: 400 });
       }
       if (!data) return NextResponse.json({ error: "Registo não encontrado." }, { status: 404 });
@@ -930,7 +1014,9 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
         ? academicYearWriteError(error, method)
         : resource === "/disciplinas"
           ? disciplineWriteError(error, method)
-          : error.message;
+          : resource === "/turmas"
+            ? classWriteError(error, method)
+            : error.message;
       return NextResponse.json({ error: message }, { status: 400 });
     }
     return NextResponse.json({ ok: true });
