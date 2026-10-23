@@ -602,7 +602,9 @@ export default function Workspace() {
                 setFormInitialOverride({
                   ...record,
                   nome: (record.nome || record.turma || "Turma") + " (cópia)",
-                  ano_letivo_id: "",
+                  ano_letivo_id: activeAcademicYear?.id ?? "",
+                  reutilizar: "true",
+                  reutilizar_origem_id: record.id,
                 });
                 setShowForm(true);
               }}
@@ -1433,7 +1435,7 @@ function statusTone(status: string) {
 }
 
 function RecordModal({ title, resource, fields, initialValues, onClose, onSubmit }: { title: string; resource: string; fields: string[]; initialValues?: RecordItem; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="modal-heading"><div><div className="eyebrow">SMART CAMPUS</div><h2 id="modal-title">{title}</h2></div><button type="button" className="icon-button close-button" onClick={onClose} aria-label="Fechar">×</button></div><p className="modal-description">Preencha os dados abaixo. Os campos assinalados são obrigatórios.</p><form onSubmit={onSubmit}><div className="form-grid">{fields.map((field) => <label className={field === "encarregado de educação" || field === "equipamentos" || field === "observacoes" || field === "disciplina_ids" || (resource === "/cursos" && field === "descricao") ? "form-wide" : ""} key={field}>{resource === "/anos-letivos"
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="modal-heading"><div><div className="eyebrow">SMART CAMPUS</div><h2 id="modal-title">{title}</h2></div><button type="button" className="icon-button close-button" onClick={onClose} aria-label="Fechar">×</button></div><p className="modal-description">Preencha os dados abaixo. Os campos assinalados são obrigatórios.</p><form onSubmit={onSubmit}>{resource === "/turmas" && initialValues?.reutilizar === "true" && <><input type="hidden" name="reutilizar" value="true" /><input type="hidden" name="reutilizar_origem_id" value={initialValues.reutilizar_origem_id ?? ""} /></>}<div className="form-grid">{fields.map((field) => <label className={field === "encarregado de educação" || field === "equipamentos" || field === "observacoes" || field === "disciplina_ids" || (resource === "/cursos" && field === "descricao") ? "form-wide" : ""} key={field}>{resource === "/anos-letivos"
   ? ({ nome: "Nome do ano letivo", data_inicio: "Data de início", data_fim: "Data de fim", ativo: "Estado" } as Record<string, string>)[field] ?? field
   : resource === "/cursos"
     ? ({ nome: "Nome do curso", descricao: "Descrição (opcional)", estado: "Estado" } as Record<string, string>)[field] ?? field
