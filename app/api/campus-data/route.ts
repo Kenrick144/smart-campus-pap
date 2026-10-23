@@ -292,13 +292,29 @@ async function enrich(
     });
   }
 
+  if (resource === "/cursos") {
+    return [...rows]
+      .sort((a, b) => text(a, "nome").localeCompare(text(b, "nome"), "pt-PT"))
+      .map((row) => ({ id: text(row, "id"), nome: text(row, "nome"), descricao: text(row, "descricao"), estado: text(row, "estado", "Ativo") }));
+  }
+
   if (resource === "/turmas") {
-    const [years, teachers] = await Promise.all([
+    const [years, courses, teachers, links, disciplines] = await Promise.all([
       readTable(admin, "anos_letivos"),
+      readTable(admin, "cursos"),
       readTable(admin, "professores"),
+      readTable(admin, "disciplinas_turmas"),
+      readTable(admin, "disciplinas"),
     ]);
     const yearById = new Map(years.map((row) => [text(row, "id"), row]));
+    const courseById = new Map(courses.map((row) => [text(row, "id"), row]));
     const teacherById = new Map(teachers.map((row) => [text(row, "id"), row]));
+    const disciplineById = new Map(disciplines.map((row) => [text(row, "id"), row]));
+    const linksByClass = new Map<string, Row[]>();
+    for (const link of links.filter((item) => item.ativa === true)) {
+      const classId = text(link, "turma_id");
+      linksByClass.set(classId, [...(linksByClass.get(classId) ?? []), link]);
+    }
     return [...rows]
       .sort((a, b) =>
         text(yearById.get(text(b, "ano_letivo_id")), "nome").localeCompare(
@@ -311,16 +327,23 @@ async function enrich(
       .map((row) => {
         const coordinator = teacherById.get(text(row, "professor_coordenador_id"));
         const coordinatorUser = userById.get(text(coordinator, "id"));
+        const classLinks = linksByClass.get(text(row, "id")) ?? [];
+        const classDisciplines = classLinks.map((link) => disciplineById.get(text(link, "disciplina_id"))).filter((item): item is Row => Boolean(item));
         return {
           id: text(row, "id"),
+          nome: text(row, "nome"),
           turma: text(row, "nome"),
           "ano letivo": text(yearById.get(text(row, "ano_letivo_id")), "nome"),
           "ano escolar": text(row, "ano_escolar"),
-          curso: text(row, "curso"),
+          curso: text(courseById.get(text(row, "curso_id")), "nome", text(row, "curso")),
+          curso_id: text(row, "curso_id"),
+          disciplinas: classDisciplines.map((item) => text(item, "nome")).join(", "),
+          disciplina_ids: classLinks.map((link) => text(link, "disciplina_id")).join(","),
           capacidade: text(row, "capacidade"),
           "professor coordenador": text(coordinatorUser, "name") || "—",
           estado: text(row, "estado", "Ativa"),
           ano_letivo_id: text(row, "ano_letivo_id"),
+          ano_escolar: text(row, "ano_escolar"),
           professor_coordenador_id: text(row, "professor_coordenador_id"),
         };
       });
@@ -465,6 +488,18 @@ async function enrich(
 }
 
 async function lookupRecords(resource: string, admin: ReturnType<typeof createAdminClient>): Promise<RecordItem[]> {
+  if (resource === "lookup:cursos") {
+    const rows = await readTable(admin, "cursos");
+    return [...rows]
+      .sort((a, b) => text(a, "nome").localeCompare(text(b, "nome"), "pt-PT"))
+      .map((row) => ({ id: text(row, "id"), label: text(row, "nome") + (text(row, "estado") === "Ativo" ? "" : " (inativo)") }));
+  }
+  if (resource === "lookup:disciplinas") {
+    const rows = await readTable(admin, "disciplinas");
+    return [...rows]
+      .sort((a, b) => text(a, "nome").localeCompare(text(b, "nome"), "pt-PT"))
+      .map((row) => ({ id: text(row, "id"), label: text(row, "nome") + " · " + text(row, "codigo") + (text(row, "estado") === "Ativa" ? "" : " (inativa)") }));
+  }
   if (resource === "lookup:anos_letivos") {
     const rows = await readTable(admin, "anos_letivos");
     return rows.map((row) => ({ id: text(row, "id"), label: text(row, "nome") + (row.ativo === true ? " (ativo)" : "") }));
@@ -550,15 +585,27 @@ function payloadToRow(resource: string, input: Row): Row | null {
       observacoes: text(input, "observacoes", text(input, "observações")).trim() || null,
     };
   }
+  if (resource === "/cursos") {
+    return {
+      nome: text(input, "nome").trim().replace(/\s+/g, " "),
+      descricao: text(input, "descricao", text(input, "descrição")).trim() || null,
+      estado: text(input, "estado", "Ativo"),
+    };
+  }
   if (resource === "/turmas") {
+    const rawDisciplineIds = input.disciplina_ids;
+    const disciplineIds = Array.isArray(rawDisciplineIds)
+      ? rawDisciplineIds.map(String).filter(Boolean)
+      : text(input, "disciplina_ids").split(",").map((id) => id.trim()).filter(Boolean);
     return {
       nome: text(input, "nome", text(input, "turma")).trim().replace(/\s+/g, " "),
       ano_letivo_id: text(input, "ano_letivo_id").trim(),
       ano_escolar: text(input, "ano_escolar", text(input, "ano escolar")).trim().replace(/\s+/g, " "),
-      curso: text(input, "curso").trim().replace(/\s+/g, " "),
+      curso_id: text(input, "curso_id").trim(),
       capacidade: Number(text(input, "capacidade", "30")),
       estado: text(input, "estado", "Ativa"),
       professor_coordenador_id: text(input, "professor_coordenador_id").trim() || null,
+      disciplina_ids: disciplineIds.join(","),
     };
   }
   if (resource === "/horarios") {
@@ -647,6 +694,10 @@ export async function GET(request: Request) {
     const role = profile.role as Role;
     const admin = createAdminClient();
 
+    if (resource === "/cursos" && !isAdmin(role)) {
+      return NextResponse.json({ error: "Não tens permissão para gerir cursos." }, { status: 403 });
+    }
+
     if (resource.startsWith("lookup:")) {
       if (isAdmin(role)) {
         return NextResponse.json({ records: await lookupRecords(resource, admin) });
@@ -733,6 +784,7 @@ export async function GET(request: Request) {
     }
 
     const tableMap: Record<string, string> = {
+      "/cursos": "cursos",
       "/anos-letivos": "anos_letivos",
       "/alunos": "alunos",
       "/professor": "professores",
