@@ -150,7 +150,27 @@ export default function Utilizadores() {
         setCurrentRole(result.currentRole as UserRole);
         setCurrentName(String(result.currentUser?.name ?? ""));
         setCurrentEmail(String(result.currentUser?.email ?? ""));
-        setUsers((result.users ?? []) as User[]);
+        const loadedUsers = (result.users ?? []) as User[];
+        setUsers(loadedUsers);
+
+        // Deep links from the student directory open the existing, secure user workflow.
+        const query = new URLSearchParams(window.location.search);
+        if (query.get("novo") === "aluno") {
+          setRole("Aluno");
+          setShowForm(true);
+          window.history.replaceState({}, "", window.location.pathname);
+        } else {
+          const targetId = query.get("editar");
+          if (targetId) {
+            const targetUser = loadedUsers.find((user) => user.id === targetId);
+            if (targetUser) {
+              editUser(targetUser);
+            } else {
+              setLoadError("Não foi encontrada uma conta para a ficha de aluno selecionada.");
+            }
+            window.history.replaceState({}, "", window.location.pathname);
+          }
+        }
       } catch (error) {
         if (active) {
           setLoadError(
