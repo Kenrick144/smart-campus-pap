@@ -122,7 +122,8 @@ async function enrich(
   resource: string,
   rows: Row[],
   admin: ReturnType<typeof createAdminClient>,
-  role: Role
+  role: Role,
+  userId: string
 ): Promise<RecordItem[]> {
   if (!rows.length) return [];
 
@@ -130,16 +131,69 @@ async function enrich(
   const userById = new Map(users.map((row) => [text(row, "id"), row]));
 
   if (resource === "/alunos") {
+    const studentIds = unique(rows.map((row) => text(row, "id")));
+    let memberships: Row[] = [];
+
+    if (studentIds.length) {
+      let allowedClassIds: string[] | null = null;
+      if (role === "Professor") {
+        allowedClassIds = await classIdsForUser(admin, role, userId);
+      }
+
+      if (allowedClassIds === null || allowedClassIds.length > 0) {
+        let membershipQuery = admin
+          .from("alunos_turmas")
+          .select("aluno_id, turma_id")
+          .in("aluno_id", studentIds)
+          .is("data_fim", null);
+        if (allowedClassIds !== null) {
+          membershipQuery = membershipQuery.in("turma_id", allowedClassIds);
+        }
+
+        const { data: membershipRows, error: membershipError } = await membershipQuery;
+        if (membershipError) {
+          throw new Error("Não foi possível carregar as turmas atuais dos alunos.");
+        }
+        memberships = asRows(membershipRows);
+      }
+    }
+
+    const classIds = unique(memberships.map((membership) => text(membership, "turma_id")));
+    let classNames = new Map<string, string>();
+    if (classIds.length) {
+      const { data: classRows, error: classError } = await admin
+        .from("turmas")
+        .select("id, nome")
+        .in("id", classIds);
+      if (classError) {
+        throw new Error("Não foi possível carregar os nomes das turmas dos alunos.");
+      }
+      classNames = new Map(asRows(classRows).map((item) => [text(item, "id"), text(item, "nome")]));
+    }
+
+    const classesByStudent = new Map<string, string[]>();
+    for (const membership of memberships) {
+      const studentId = text(membership, "aluno_id");
+      const className = classNames.get(text(membership, "turma_id"));
+      if (!studentId || !className) continue;
+      const current = classesByStudent.get(studentId) ?? [];
+      current.push(className);
+      classesByStudent.set(studentId, current);
+    }
+
     return rows.map((row) => {
-      const user = userById.get(text(row, "id"));
+      const studentId = text(row, "id");
+      const user = userById.get(studentId);
+      const currentClasses = [...new Set(classesByStudent.get(studentId) ?? [])].sort((a, b) => a.localeCompare(b, "pt-PT"));
       return {
-        id: text(row, "id"),
+        id: studentId,
         nome: text(user, "name", "Aluno"),
         email: text(user, "email"),
         estado: text(user, "status", "Ativo"),
         número: text(row, "student_number"),
         "ano escolar": text(row, "school_year"),
         curso: text(row, "course"),
+        turma: currentClasses.join(", ") || "Sem turma ativa",
         "data de inscrição": text(row, "enrollment_date"),
         ...(isAdmin(role)
           ? {
@@ -665,7 +719,10 @@ export async function GET(request: Request) {
     if (resource === "/salas" && !isAdmin(role)) rows = rows.filter((row) => text(row, "estado") === "Ativa");
     if (resource === "/computadores" && !isAdmin(role)) rows = rows.filter((row) => text(row, "estado") !== "Inativo");
 
-    const records = await enrich(resource, rows, admin, role);
+    const records = await enrich(resource, rows, admin, role, user.id);
+    if (resource === "/alunos") {
+      records.sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-PT"));
+    }
     return NextResponse.json({ records });
   } catch (error) {
     console.error("Erro ao consultar dados do campus:", error);
