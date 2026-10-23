@@ -83,7 +83,7 @@ begin
   end if;
 
   update public.alunos_turmas as m
-     set data_fim = pg_catalog.greatest(v_today, m.data_inicio)
+     set data_fim = GREATEST(v_today, m.data_inicio)
    where m.aluno_id = p_student_id
      and m.data_fim is null;
 
