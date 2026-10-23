@@ -12,6 +12,17 @@ import CampusShell from "./campus-shell";
 type Role = "Aluno" | "Professor" | "Funcionário" | "Administrador Adjunto" | "Administrador";
 type RecordItem = Record<string, string>;
 type TemporaryCode = { code: string; expiresAt: number };
+type StudentClassOption = {
+  id: string;
+  nome: string;
+  anoEscolar: string;
+  curso: string;
+  anoLetivo: string;
+  capacidade: number;
+  alunosAtivos: number;
+  vagasDisponiveis: number;
+  isCurrent: boolean;
+};
 type CampusNotification = {
   id: string;
   title: string;
@@ -518,6 +529,7 @@ export default function Workspace() {
               onScan={markPresence}
               qrCode={qrCode}
               setQrCode={setQrCode}
+              onRefresh={() => refreshWorkspaceData(role, pathname)}
             />
           )}
         </div>
@@ -1035,6 +1047,7 @@ function DataPage({
   onScan,
   qrCode,
   setQrCode,
+  onRefresh,
 }: {
   pathname: string;
   title: string;
@@ -1054,7 +1067,19 @@ function DataPage({
   onScan: (value?: string) => void;
   qrCode: string;
   setQrCode: (value: string) => void;
+  onRefresh: () => Promise<void>;
 }) {
+  const [studentClassTarget, setStudentClassTarget] = useState<RecordItem | null>(null);
+  const [studentClassOptions, setStudentClassOptions] = useState<StudentClassOption[]>([]);
+  const [studentClassSelectedId, setStudentClassSelectedId] = useState("");
+  const [studentClassCurrentId, setStudentClassCurrentId] = useState("");
+  const [studentClassCurrentName, setStudentClassCurrentName] = useState("");
+  const [studentClassLoading, setStudentClassLoading] = useState(false);
+  const [studentClassSaving, setStudentClassSaving] = useState(false);
+  const [studentClassActiveYearConfigured, setStudentClassActiveYearConfigured] = useState(false);
+  const [studentClassError, setStudentClassError] = useState("");
+  const [studentClassFeedback, setStudentClassFeedback] = useState("");
+
   const isAttendance = pathname === "/presencas";
   const canManage = role === "Administrador" || role === "Administrador Adjunto" || (role === "Professor" && pathname === "/presencas");
   const hasAction = Boolean(primaryActions[pathname]) && canManage;
@@ -1069,6 +1094,83 @@ function DataPage({
   const inactiveStudents = allRecords.filter((record) => (record.estado || "").trim().toLocaleLowerCase("pt-PT") === "inativo").length;
   const representedCourses = new Set(allRecords.map((record) => (record.curso || "").trim()).filter(Boolean)).size;
   const statuses = [...new Set(allRecords.map((record) => record.estado).filter(Boolean))];
+  const selectedStudentClass = studentClassOptions.find((item) => item.id === studentClassSelectedId);
+  const studentClassCanSave = Boolean(
+    studentClassTarget?.id &&
+    selectedStudentClass &&
+    studentClassSelectedId !== studentClassCurrentId &&
+    selectedStudentClass.vagasDisponiveis > 0 &&
+    !studentClassLoading &&
+    !studentClassSaving
+  );
+
+  async function openStudentClassDialog(student: RecordItem) {
+    if (!student.id) {
+      setStudentClassError("Não foi possível identificar o aluno. Atualiza a página e tenta novamente.");
+      return;
+    }
+
+    setStudentClassTarget(student);
+    setStudentClassOptions([]);
+    setStudentClassSelectedId("");
+    setStudentClassCurrentId("");
+    setStudentClassCurrentName("");
+    setStudentClassActiveYearConfigured(false);
+    setStudentClassError("");
+    setStudentClassFeedback("");
+    setStudentClassLoading(true);
+
+    try {
+      const response = await fetch("/api/admin/student-class?studentId=" + encodeURIComponent(student.id), { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível carregar as turmas.");
+
+      const options = (result.classes ?? []) as StudentClassOption[];
+      const currentId = String(result.currentClassId ?? "");
+      setStudentClassOptions(options);
+      setStudentClassCurrentId(currentId);
+      setStudentClassCurrentName(String(result.currentClassName ?? ""));
+      setStudentClassSelectedId(options.some((item) => item.id === currentId) ? currentId : "");
+      setStudentClassActiveYearConfigured(Boolean(result.activeYearConfigured));
+
+      if (!Boolean(result.activeYearConfigured)) {
+        setStudentClassError("Ainda não existe um ano letivo ativo. Configura primeiro o ano letivo para poderes associar alunos.");
+      } else if (options.length === 0) {
+        setStudentClassError("Não existem turmas ativas no ano letivo atual. Cria ou ativa uma turma antes de continuar.");
+      }
+    } catch (error) {
+      setStudentClassError(error instanceof Error ? error.message : "Não foi possível carregar as turmas.");
+    } finally {
+      setStudentClassLoading(false);
+    }
+  }
+
+  async function saveStudentClass() {
+    if (!studentClassTarget?.id || !studentClassSelectedId || !studentClassCanSave) return;
+
+    setStudentClassSaving(true);
+    setStudentClassError("");
+    setStudentClassFeedback("");
+
+    try {
+      const response = await fetch("/api/admin/student-class", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: studentClassTarget.id, classId: studentClassSelectedId }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível associar o aluno à turma.");
+
+      setStudentClassCurrentId(studentClassSelectedId);
+      setStudentClassCurrentName(String(result.className ?? selectedStudentClass?.nome ?? ""));
+      setStudentClassFeedback(String(result.message ?? "Associação guardada com sucesso."));
+      await onRefresh();
+    } catch (error) {
+      setStudentClassError(error instanceof Error ? error.message : "Não foi possível guardar a associação.");
+    } finally {
+      setStudentClassSaving(false);
+    }
+  }
   return <>
     <PageHeading
       eyebrow={pathname === "/alunos" ? "GESTÃO ACADÉMICA" : "GESTÃO DO CAMPUS"}
@@ -1118,7 +1220,75 @@ function DataPage({
       </div>
     )}
     <div className="toolbar"><div className="result-count"><strong>{allRecords.length}</strong> registos <span>·</span> ano letivo 2026/2027</div><div className="toolbar-actions">{statuses.length > 0 && <select className="select-control" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filtrar por estado"><option>Todos os estados</option>{statuses.map((status) => <option key={status}>{status}</option>)}</select>}<button className="button button-secondary" onClick={() => downloadCsv(`${pathname.slice(1)}.csv`, allRecords)}>↓ Exportar CSV</button></div></div>
-    <section className="surface table-surface"><div className="table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}{isAttendance && <th>Presença</th>}{(hasAction || showStudentManagementAction) && <th>Ações</th>}</tr></thead><tbody>{records.map((record) => { const index = allRecords.indexOf(record); return <tr key={`${Object.values(record).join("-")}-${index}`}>{columns.map((column) => <td key={column}>{column === "código" && pathname === "/qr-code" ? <span className="qr-code-cell">{record[column]}<QrImage value={record[column]} /></span> : column === "estado" ? <span className={`pill ${statusTone(record[column])}`}>{record[column]}</span> : column === "email" ? <a className="email-link" href={`mailto:${record[column]}`}>{record[column]}</a> : column === "utilizador" && record[column] === "—" ? <span className="muted">Disponível</span> : record[column]}</td>)}{isAttendance && <td>{role === "Professor" || role === "Administrador" || role === "Administrador Adjunto" ? <select className="inline-select" aria-label={`Estado da presença de ${record.aluno}`} value={record.estado} onChange={(event) => onStatus(index, event.target.value)}><option>Presente</option><option>Atrasado</option><option>Ausente</option><option>Falta justificada</option></select> : <span className={`pill ${statusTone(record.estado)}`}>{record.estado}</span>}</td>}{(hasAction || showStudentManagementAction) && <td><div className="row-actions">{showStudentManagementAction ? <Link className="button button-secondary" href={`/utilizadores?editar=${encodeURIComponent(record.id)}`}>Editar ficha</Link> : <><button className="button button-secondary" onClick={() => onEdit(index)}>Editar</button>{!(role === "Professor" && pathname === "/presencas") && <button className="button button-secondary" onClick={() => onDelete(index)}>Eliminar</button>}</>}</div></td>}</tr>; })}</tbody></table>{records.length === 0 && <div className="empty-state"><span>⌕</span><strong>{search || statusFilter !== "Todos os estados" ? "Não encontrámos resultados" : pathname === "/alunos" ? "Ainda não existem alunos para apresentar" : "Ainda não existem registos"}</strong><p>{search || statusFilter !== "Todos os estados" ? "Altere os filtros e tente novamente." : pathname === "/alunos" ? role === "Professor" ? "Não existem alunos nas turmas atribuídas à tua conta." : "Crie uma conta com perfil Aluno para a respetiva ficha aparecer aqui." : "Adicione o primeiro registo para começar."}</p></div>}</div><div className="table-footer"><span>A mostrar <strong>{records.length}</strong> de <strong>{allRecords.length}</strong> registos</span><div><button disabled>← Anterior</button><button className="current-page">1</button><button disabled>Seguinte →</button></div></div></section>
+    <section className="surface table-surface"><div className="table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}{isAttendance && <th>Presença</th>}{(hasAction || showStudentManagementAction) && <th>Ações</th>}</tr></thead><tbody>{records.map((record) => { const index = allRecords.indexOf(record); return <tr key={`${Object.values(record).join("-")}-${index}`}>{columns.map((column) => <td key={column}>{column === "código" && pathname === "/qr-code" ? <span className="qr-code-cell">{record[column]}<QrImage value={record[column]} /></span> : column === "estado" ? <span className={`pill ${statusTone(record[column])}`}>{record[column]}</span> : column === "email" ? <a className="email-link" href={`mailto:${record[column]}`}>{record[column]}</a> : column === "utilizador" && record[column] === "—" ? <span className="muted">Disponível</span> : record[column]}</td>)}{isAttendance && <td>{role === "Professor" || role === "Administrador" || role === "Administrador Adjunto" ? <select className="inline-select" aria-label={`Estado da presença de ${record.aluno}`} value={record.estado} onChange={(event) => onStatus(index, event.target.value)}><option>Presente</option><option>Atrasado</option><option>Ausente</option><option>Falta justificada</option></select> : <span className={`pill ${statusTone(record.estado)}`}>{record.estado}</span>}</td>}{(hasAction || showStudentManagementAction) && <td><div className="row-actions">{showStudentManagementAction ? <><button type="button" className="button button-secondary" disabled={studentClassLoading} onClick={() => void openStudentClassDialog(record)}>Associar turma</button><Link className="button button-secondary" href={`/utilizadores?editar=${encodeURIComponent(record.id)}`}>Editar ficha</Link></> : <><button className="button button-secondary" onClick={() => onEdit(index)}>Editar</button>{!(role === "Professor" && pathname === "/presencas") && <button className="button button-secondary" onClick={() => onDelete(index)}>Eliminar</button>}</>}</div></td>}</tr>; })}</tbody></table>{records.length === 0 && <div className="empty-state"><span>⌕</span><strong>{search || statusFilter !== "Todos os estados" ? "Não encontrámos resultados" : pathname === "/alunos" ? "Ainda não existem alunos para apresentar" : "Ainda não existem registos"}</strong><p>{search || statusFilter !== "Todos os estados" ? "Altere os filtros e tente novamente." : pathname === "/alunos" ? role === "Professor" ? "Não existem alunos nas turmas atribuídas à tua conta." : "Crie uma conta com perfil Aluno para a respetiva ficha aparecer aqui." : "Adicione o primeiro registo para começar."}</p></div>}</div><div className="table-footer"><span>A mostrar <strong>{records.length}</strong> de <strong>{allRecords.length}</strong> registos</span><div><button disabled>← Anterior</button><button className="current-page">1</button><button disabled>Seguinte →</button></div></div></section>
+    {studentClassTarget && pathname === "/alunos" && (
+      <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !studentClassSaving) setStudentClassTarget(null); }}>
+        <section className="modal-card student-class-modal" role="dialog" aria-modal="true" aria-labelledby="student-class-title">
+          <div className="modal-heading">
+            <div>
+              <div className="eyebrow">GESTÃO ACADÉMICA</div>
+              <h2 id="student-class-title">Associar aluno a turma</h2>
+            </div>
+            <button type="button" className="icon-button close-button" onClick={() => setStudentClassTarget(null)} disabled={studentClassSaving} aria-label="Fechar">×</button>
+          </div>
+          <p className="modal-description">Aluno: <strong>{studentClassTarget.nome}</strong>{studentClassTarget.número ? ` · Nº ${studentClassTarget.número}` : ""}. A transferência termina a associação anterior e mantém o histórico.</p>
+          {studentClassLoading ? (
+            <div className="empty-state"><span>◌</span><strong>A carregar turmas...</strong><p>A consultar o ano letivo ativo e as vagas disponíveis.</p></div>
+          ) : (
+            <>
+              {studentClassError && (
+                <div className="notice" role="alert"><span>!</span>{studentClassError}</div>
+              )}
+              {studentClassFeedback && (
+                <div className="notice" role="status"><span>✓</span>{studentClassFeedback}</div>
+              )}
+              {studentClassActiveYearConfigured && studentClassOptions.length > 0 && (
+                <div className="form-grid student-class-form">
+                  <label className="form-wide">
+                    Turma e ano letivo
+                    <select className="field-control" value={studentClassSelectedId} onChange={(event) => { setStudentClassSelectedId(event.target.value); setStudentClassError(""); setStudentClassFeedback(""); }} required>
+                      <option value="">Selecionar turma...</option>
+                      {studentClassOptions.map((item) => (
+                        <option key={item.id} value={item.id} disabled={item.vagasDisponiveis <= 0 && item.id !== studentClassCurrentId}>
+                          {item.nome} · {item.curso} · {item.anoLetivo} · {item.alunosAtivos}/{item.capacidade} alunos{item.id === studentClassCurrentId ? " · turma atual" : item.vagasDisponiveis <= 0 ? " · sem vagas" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {selectedStudentClass && (
+                    <div className="form-wide student-class-capacity">
+                      <strong>{selectedStudentClass.nome}</strong>
+                      <span>{selectedStudentClass.curso} · {selectedStudentClass.anoEscolar} · Ano letivo {selectedStudentClass.anoLetivo}</span>
+                      <span>{selectedStudentClass.alunosAtivos} de {selectedStudentClass.capacidade} alunos · {selectedStudentClass.vagasDisponiveis} vagas disponíveis</span>
+                      {studentClassSelectedId === studentClassCurrentId && <small>Este aluno já pertence a esta turma.</small>}
+                      {studentClassSelectedId !== studentClassCurrentId && selectedStudentClass.vagasDisponiveis === 0 && <small>A turma atingiu a capacidade máxima.</small>}
+                    </div>
+                  )}
+                </div>
+              )}
+              {!studentClassActiveYearConfigured && (
+                <div className="modal-footer student-class-guidance">
+                  <Link className="button button-secondary" href="/anos-letivos">Configurar ano letivo</Link>
+                </div>
+              )}
+              {studentClassActiveYearConfigured && studentClassOptions.length === 0 && (
+                <div className="modal-footer student-class-guidance">
+                  <Link className="button button-secondary" href="/turmas">Gerir turmas</Link>
+                </div>
+              )}
+            </>
+          )}
+          <div className="modal-footer">
+            <button type="button" className="button button-secondary" onClick={() => setStudentClassTarget(null)} disabled={studentClassSaving}>Fechar</button>
+            {studentClassActiveYearConfigured && studentClassOptions.length > 0 && (
+              <button type="button" className="button button-primary" onClick={() => void saveStudentClass()} disabled={!studentClassCanSave}>
+                {studentClassSaving ? "A guardar..." : studentClassSelectedId === studentClassCurrentId ? "Já associado" : "Guardar associação"}
+              </button>
+            )}
+          </div>
+        </section>
+      </div>
+    )}
     {pathname === "/computadores" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Estado do parque informático</h2><p>Alterar o estado de um computador</p></div><Link className="text-link" href="/pc">Abrir interface do PC ↗</Link></div><div className="pc-state-grid">{["Livre", "Manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => record.estado === state).length}</strong></span>)}</div><div className="code-generator"><div><strong>{temporaryCodeActive ? temporaryCode?.code : "Sem código ativo"}</strong><small>A geração de códigos temporários ainda não está ligada à base de dados.</small></div><button className="button button-primary" onClick={onGenerateCode}>Gerar código temporário</button></div></section>}
     {pathname === "/qr-code" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Leitura rápida</h2><p>Introduza ou leia um código de sala ativo para registar a presença do utilizador atual.</p></div></div><form className="scan-row" onSubmit={(event) => { event.preventDefault(); onScan(); }}><input className="field-control" value={qrCode} onChange={(event) => setQrCode(event.target.value)} placeholder="Código do QR da sala" aria-label="Código QR da sala" /><button className="button button-primary">▦ Ler código</button><QrScanner onDetected={onScan} /></form></section>}
   </>;
