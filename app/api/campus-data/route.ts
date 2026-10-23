@@ -448,7 +448,15 @@ async function lookupRecords(resource: string, admin: ReturnType<typeof createAd
   if (resource === "lookup:professores") {
     const [rows, users] = await Promise.all([readTable(admin, "professores"), readTable(admin, "users")]);
     const usersById = new Map(users.map((row) => [text(row, "id"), row]));
-    return rows.map((row) => ({ id: text(row, "id"), label: text(usersById.get(text(row, "id")), "name", text(row, "professional_number")) }));
+    return rows.map((row) => {
+      const account = usersById.get(text(row, "id"));
+      const name = text(account, "name", text(row, "professional_number"));
+      const active = text(account, "status") === "Ativo" && text(row, "professional_status") === "Ativo";
+      return {
+        id: text(row, "id"),
+        label: name + (active ? "" : " (inativo)"),
+      };
+    });
   }
   if (resource === "lookup:turmas") {
     const rows = await readTable(admin, "turmas");
