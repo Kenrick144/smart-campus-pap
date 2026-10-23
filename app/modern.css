@@ -1355,3 +1355,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .campus-info-panel { animation: none; }
   .school-switch, .school-switch .chevron, .campus-configure-link { transition: none; }
 }
+
+
+/* Student class assignment dialog */
+.student-class-modal { width: min(100%, 650px); }
+.student-class-modal .notice[role="alert"] { border-color: #f0c6ca; background: #fff2f3; color: #a8333d; }
+.student-class-modal .notice[role="status"] { border-color: #bce7d0; background: #effaf4; color: #257e53; }
+.student-class-form { margin-top: 17px; }
+.student-class-capacity { display: grid; gap: 6px; padding: 13px 14px; border: 1px solid #e8e7fb; border-radius: 8px; background: #f8f7ff; color: #5c6679; font-size: 11px; }
+.student-class-capacity strong { color: #25254a; font-size: 13px; }
+.student-class-capacity small { color: #6754ce; font-size: 10px; }
+.student-class-guidance { justify-content: flex-start; margin-top: 12px; padding-top: 0; border-top: 0; }
+.student-management-note { align-items: flex-start; }
+.student-management-note .text-link { margin-left: auto; white-space: nowrap; }
+.row-actions .button:disabled { cursor: not-allowed; opacity: .55; }
+@media (max-width: 600px) {
+  .student-class-modal { width: 100%; }
+  .student-management-note { flex-direction: column; }
+  .student-management-note .text-link { margin-left: 0; }
+}
