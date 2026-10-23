@@ -36,6 +36,25 @@ function unique(values: string[]) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function isValidIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(value + "T00:00:00.000Z");
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function academicYearWriteError(error: { code?: string; message?: string }, method: string): string {
+  if (error.code === "23505") {
+    return "Já existe um ano letivo com esse nome ou houve um conflito ao ativar. Atualiza a página e tenta novamente.";
+  }
+  if (error.code === "23514") {
+    return "Os dados do ano letivo não são válidos. Confirma o nome e as datas.";
+  }
+  if (error.code === "23503" && method === "DELETE") {
+    return "Não é possível eliminar este ano letivo porque existem registos, como turmas, associados. Desativa-o em vez de o eliminar.";
+  }
+  return error.message || "Não foi possível guardar o ano letivo.";
+}
+
 function isAdmin(role: Role) {
   return adminRoles.includes(role);
 }
@@ -126,6 +145,18 @@ async function enrich(
   userId: string
 ): Promise<RecordItem[]> {
   if (!rows.length) return [];
+
+  if (resource === "/anos-letivos") {
+    return [...rows]
+      .sort((a, b) => text(b, "data_inicio").localeCompare(text(a, "data_inicio")))
+      .map((row) => ({
+        id: text(row, "id"),
+        nome: text(row, "nome"),
+        data_inicio: text(row, "data_inicio"),
+        data_fim: text(row, "data_fim"),
+        ativo: text(row, "ativo").toLowerCase() === "true" ? "true" : "false",
+      }));
+  }
 
   const users = await readTable(admin, "users");
   const userById = new Map(users.map((row) => [text(row, "id"), row]));
@@ -767,6 +798,22 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
     const allowed = await authorizeWrite(admin, resource, method, user.id, role, recordId);
     if (!allowed) return NextResponse.json({ error: "Não tens permissão para executar esta operação." }, { status: 403 });
 
+    if (resource === "/anos-letivos" && method !== "DELETE" && row) {
+      const name = text(row, "nome").trim();
+      const startDate = text(row, "data_inicio").trim();
+      const endDate = text(row, "data_fim").trim();
+
+      if (!name) {
+        return NextResponse.json({ error: "Introduz o nome do ano letivo." }, { status: 400 });
+      }
+      if (!isValidIsoDate(startDate) || !isValidIsoDate(endDate)) {
+        return NextResponse.json({ error: "Introduz datas válidas para o início e o fim do ano letivo." }, { status: 400 });
+      }
+      if (endDate <= startDate) {
+        return NextResponse.json({ error: "A data de fim tem de ser posterior à data de início." }, { status: 400 });
+      }
+    }
+
     const tableMap: Record<string, string> = {
       "/anos-letivos": "anos_letivos",
       "/turmas": "turmas",
@@ -799,7 +846,12 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
         );
       }
       const { data, error } = await admin.from(table).insert(row).select("*").single();
-      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      if (error) {
+        const message = resource === "/anos-letivos"
+          ? academicYearWriteError(error, method)
+          : error.message;
+        return NextResponse.json({ error: message }, { status: 400 });
+      }
       return NextResponse.json({ ok: true, record: data });
     }
 
@@ -813,7 +865,12 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
         );
       }
       const { data, error } = await admin.from(table).update(row).eq("id", recordId).select("*").maybeSingle();
-      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      if (error) {
+        const message = resource === "/anos-letivos"
+          ? academicYearWriteError(error, method)
+          : error.message;
+        return NextResponse.json({ error: message }, { status: 400 });
+      }
       if (!data) return NextResponse.json({ error: "Registo não encontrado." }, { status: 404 });
       return NextResponse.json({ ok: true, record: data });
     }
@@ -823,7 +880,12 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
     }
 
     const { error } = await admin.from(table).delete().eq("id", recordId);
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error) {
+      const message = resource === "/anos-letivos"
+        ? academicYearWriteError(error, method)
+        : error.message;
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Erro ao guardar dados do campus:", error);
