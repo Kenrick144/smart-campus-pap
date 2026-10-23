@@ -88,9 +88,17 @@ function classWriteError(error: { code?: string; message?: string }, method: str
       : "Não é possível eliminar esta turma porque existem registos associados. Marca-a como Inativa para preservar o histórico.";
   }
   if (error.code === "23503") {
-    return "O ano letivo ou o professor coordenador selecionado já não existe. Atualiza a página e tenta novamente.";
+    return "O ano letivo, curso ou professor coordenador selecionado já não existe. Atualiza a página e tenta novamente.";
   }
   return message || "Não foi possível guardar a turma.";
+}
+
+function courseWriteError(error: { code?: string; message?: string }, method: string): string {
+  const message = error.message || "";
+  if (error.code === "23505") return "Já existe um curso com esse nome.";
+  if (error.code === "23514") return "O nome do curso é obrigatório e o estado tem de ser válido.";
+  if (error.code === "23503" && method === "DELETE") return "Este curso tem turmas associadas. Marca-o como Inativo em vez de o eliminar.";
+  return message || "Não foi possível guardar o curso.";
 }
 
 function isAdmin(role: Role) {
@@ -921,6 +929,15 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
       }
     }
 
+    if (resource === "/cursos" && method !== "DELETE" && row) {
+      if (!text(row, "nome").trim()) {
+        return NextResponse.json({ error: "Introduz o nome do curso." }, { status: 400 });
+      }
+      if (text(row, "estado", "Ativo") !== "Ativo" && text(row, "estado") !== "Inativo") {
+        return NextResponse.json({ error: "O estado do curso deve ser Ativo ou Inativo." }, { status: 400 });
+      }
+    }
+
     if (resource === "/disciplinas" && method !== "DELETE" && row) {
       const name = text(row, "nome").trim();
       const state = text(row, "estado", "Ativa");
@@ -937,15 +954,17 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
       const name = text(row, "nome").trim();
       const yearId = text(row, "ano_letivo_id").trim();
       const schoolYear = text(row, "ano_escolar").trim();
-      const course = text(row, "curso").trim();
+      const courseId = text(row, "curso_id").trim();
       const capacity = Number(row.capacidade);
       const state = text(row, "estado", "Ativa");
       const teacherId = text(row, "professor_coordenador_id").trim();
+      const disciplineIds = text(row, "disciplina_ids").split(",").filter(Boolean);
 
       if (!name) return NextResponse.json({ error: "Introduz o nome da turma." }, { status: 400 });
       if (!yearId) return NextResponse.json({ error: "Seleciona o ano letivo." }, { status: 400 });
       if (!schoolYear) return NextResponse.json({ error: "Introduz o ano escolar (por exemplo, 10.º ano)." }, { status: 400 });
-      if (!course) return NextResponse.json({ error: "Introduz o curso da turma." }, { status: 400 });
+      if (!courseId) return NextResponse.json({ error: "Seleciona o curso da turma." }, { status: 400 });
+      if (disciplineIds.length === 0) return NextResponse.json({ error: "Seleciona pelo menos uma disciplina para a turma." }, { status: 400 });
       if (!Number.isInteger(capacity) || capacity < 1 || capacity > 500) {
         return NextResponse.json({ error: "A capacidade deve ser um número inteiro entre 1 e 500." }, { status: 400 });
       }
@@ -988,6 +1007,7 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
     }
 
     const tableMap: Record<string, string> = {
+      "/cursos": "cursos",
       "/anos-letivos": "anos_letivos",
       "/turmas": "turmas",
       "/disciplinas": "disciplinas",
@@ -1011,6 +1031,30 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
       }
     }
 
+    if (resource === "/turmas" && method !== "DELETE" && row) {
+      const disciplineIds = text(row, "disciplina_ids").split(",").map((id) => id.trim()).filter(Boolean);
+      const { data, error } = await admin.rpc("save_class_with_disciplines", {
+        p_class_id: method === "PATCH" ? recordId || null : null,
+        p_nome: text(row, "nome"),
+        p_ano_letivo_id: text(row, "ano_letivo_id"),
+        p_ano_escolar: text(row, "ano_escolar"),
+        p_curso_id: text(row, "curso_id"),
+        p_capacidade: Number(row.capacidade),
+        p_estado: text(row, "estado", "Ativa"),
+        p_professor_coordenador_id: text(row, "professor_coordenador_id") || null,
+        p_disciplina_ids: disciplineIds,
+      });
+      if (error) {
+        const message = error.code === "23505"
+          ? "Já existe uma turma com o mesmo nome, curso, ano escolar e ano letivo."
+          : error.code === "23503"
+            ? "O ano letivo, curso ou professor selecionado já não é válido."
+            : error.message || "Não foi possível guardar a turma.";
+        return NextResponse.json({ error: message }, { status: 400 });
+      }
+      return NextResponse.json({ ok: true, record: data });
+    }
+
     if (method === "POST") {
       if (!row) {
         return NextResponse.json(
@@ -1024,9 +1068,11 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
           ? academicYearWriteError(error, method)
           : resource === "/disciplinas"
             ? disciplineWriteError(error, method)
-            : resource === "/turmas"
-              ? classWriteError(error, method)
-              : error.message;
+            : resource === "/cursos"
+              ? courseWriteError(error, method)
+              : resource === "/turmas"
+                ? classWriteError(error, method)
+                : error.message;
         return NextResponse.json({ error: message }, { status: 400 });
       }
       return NextResponse.json({ ok: true, record: data });
@@ -1066,9 +1112,11 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
         ? academicYearWriteError(error, method)
         : resource === "/disciplinas"
           ? disciplineWriteError(error, method)
-          : resource === "/turmas"
-            ? classWriteError(error, method)
-            : error.message;
+          : resource === "/cursos"
+            ? courseWriteError(error, method)
+            : resource === "/turmas"
+              ? classWriteError(error, method)
+              : error.message;
       return NextResponse.json({ error: message }, { status: 400 });
     }
     return NextResponse.json({ ok: true });
