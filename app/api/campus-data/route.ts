@@ -882,7 +882,9 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
           ? academicYearWriteError(error, method)
           : resource === "/disciplinas"
             ? disciplineWriteError(error, method)
-            : error.message;
+            : resource === "/turmas"
+              ? classWriteError(error, method)
+              : error.message;
         return NextResponse.json({ error: message }, { status: 400 });
       }
       return NextResponse.json({ ok: true, record: data });
