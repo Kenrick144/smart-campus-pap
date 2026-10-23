@@ -55,6 +55,25 @@ function academicYearWriteError(error: { code?: string; message?: string }, meth
   return error.message || "Não foi possível guardar o ano letivo.";
 }
 
+function disciplineWriteError(error: { code?: string; message?: string }, method: string): string {
+  const message = error.message || "";
+  if (error.code === "23505") {
+    if (message.includes("codigo_normalizado") || message.includes("disciplinas_codigo_key")) {
+      return "Já existe uma disciplina com este código. Escolhe outro código.";
+    }
+    return "Já existe uma disciplina com este nome. Verifica se não está registada.";
+  }
+  if (error.code === "23514") {
+    return "O nome da disciplina é obrigatório e o código, quando preenchido, não pode conter apenas espaços.";
+  }
+  if (error.code === "23503" && method === "DELETE") {
+    return message.includes("Esta disciplina está associada")
+      ? message
+      : "Não é possível eliminar esta disciplina porque está associada a turmas. Marca-a como Inativa para preservar o histórico.";
+  }
+  return message || "Não foi possível guardar a disciplina.";
+}
+
 function isAdmin(role: Role) {
   return adminRoles.includes(role);
 }
@@ -280,14 +299,16 @@ async function enrich(
   }
 
   if (resource === "/disciplinas") {
-    return rows.map((row) => ({
-      id: text(row, "id"),
-      disciplina: text(row, "nome"),
-      código: text(row, "codigo"),
-      departamento: text(row, "departamento"),
-      descrição: text(row, "descricao"),
-      estado: text(row, "estado", "Ativa"),
-    }));
+    return [...rows]
+      .sort((a, b) => text(a, "nome").localeCompare(text(b, "nome"), "pt-PT"))
+      .map((row) => ({
+        id: text(row, "id"),
+        nome: text(row, "nome"),
+        codigo: text(row, "codigo"),
+        departamento: text(row, "departamento"),
+        descricao: text(row, "descricao"),
+        estado: text(row, "estado", "Ativa"),
+      }));
   }
 
   if (resource === "/salas") {
@@ -477,9 +498,9 @@ function payloadToRow(resource: string, input: Row): Row | null {
   }
   if (resource === "/disciplinas") {
     return {
-      nome: text(input, "nome", text(input, "disciplina")).trim(),
-      codigo: text(input, "codigo", text(input, "código")).trim() || null,
-      departamento: text(input, "departamento").trim() || null,
+      nome: text(input, "nome", text(input, "disciplina")).trim().replace(/\s+/g, " "),
+      codigo: text(input, "codigo", text(input, "código")).trim().replace(/\s+/g, " ") || null,
+      departamento: text(input, "departamento").trim().replace(/\s+/g, " ") || null,
       descricao: text(input, "descricao", text(input, "descrição")).trim() || null,
       estado: text(input, "estado", "Ativa"),
     };
@@ -814,6 +835,22 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
       }
     }
 
+    if (resource === "/disciplinas" && method !== "DELETE" && row) {
+      const name = text(row, "nome").trim();
+      const code = text(row, "codigo").trim();
+      const state = text(row, "estado", "Ativa");
+
+      if (!name) {
+        return NextResponse.json({ error: "Introduz o nome da disciplina." }, { status: 400 });
+      }
+      if (state !== "Ativa" && state !== "Inativa") {
+        return NextResponse.json({ error: "O estado da disciplina deve ser Ativa ou Inativa." }, { status: 400 });
+      }
+      if (code.length > 40) {
+        return NextResponse.json({ error: "O código da disciplina deve ter no máximo 40 caracteres." }, { status: 400 });
+      }
+    }
+
     const tableMap: Record<string, string> = {
       "/anos-letivos": "anos_letivos",
       "/turmas": "turmas",
@@ -849,7 +886,9 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
       if (error) {
         const message = resource === "/anos-letivos"
           ? academicYearWriteError(error, method)
-          : error.message;
+          : resource === "/disciplinas"
+            ? disciplineWriteError(error, method)
+            : error.message;
         return NextResponse.json({ error: message }, { status: 400 });
       }
       return NextResponse.json({ ok: true, record: data });
@@ -868,7 +907,9 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
       if (error) {
         const message = resource === "/anos-letivos"
           ? academicYearWriteError(error, method)
-          : error.message;
+          : resource === "/disciplinas"
+            ? disciplineWriteError(error, method)
+            : error.message;
         return NextResponse.json({ error: message }, { status: 400 });
       }
       if (!data) return NextResponse.json({ error: "Registo não encontrado." }, { status: 404 });
@@ -883,7 +924,9 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
     if (error) {
       const message = resource === "/anos-letivos"
         ? academicYearWriteError(error, method)
-        : error.message;
+        : resource === "/disciplinas"
+          ? disciplineWriteError(error, method)
+          : error.message;
       return NextResponse.json({ error: message }, { status: 400 });
     }
     return NextResponse.json({ ok: true });
