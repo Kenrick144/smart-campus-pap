@@ -1499,20 +1499,34 @@ function FormInput({ resource, field, initialValue }: { resource: string; field:
   if (lookupKey) {
     if (resource === "/turmas" && field === "disciplina_ids") {
       const activeOptions = options.filter((option) => !option.label.includes("(inativa)"));
+      const selectedCount = selectedLookupIds.filter((id) => activeOptions.some((option) => option.id === id)).length;
       return <div className="multi-lookup-field">
-        <select
-          className="field-control multi-lookup-control"
-          name={field}
-          multiple
-          required
-          size={Math.min(7, Math.max(4, activeOptions.length))}
-          value={selectedLookupIds.filter((id) => activeOptions.some((option) => option.id === id))}
-          onChange={(event) => setSelectedLookupIds(Array.from(event.currentTarget.selectedOptions, (option) => option.value))}
-          aria-label="Disciplinas da turma"
-        >
-          {activeOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-        </select>
-        <small>Usa Ctrl (Windows) ou Cmd (Mac) para selecionar várias disciplinas.</small>
+        <div className="discipline-checkbox-list" role="group" aria-label="Disciplinas da turma">
+          {activeOptions.length ? activeOptions.map((option) => {
+            const checked = selectedLookupIds.includes(option.id);
+            return <label className={"discipline-checkbox-option" + (checked ? " is-selected" : "")} key={option.id}>
+              <input
+                type="checkbox"
+                name={field}
+                value={option.id}
+                checked={checked}
+                onChange={(event) => {
+                  setSelectedLookupIds((current) =>
+                    event.target.checked
+                      ? current.includes(option.id) ? current : [...current, option.id]
+                      : current.filter((id) => id !== option.id)
+                  );
+                }}
+              />
+              <span className="discipline-checkbox-mark" aria-hidden="true">{checked ? "✓" : ""}</span>
+              <span className="discipline-checkbox-copy">
+                <strong>{option.label.split(" · ")[0]}</strong>
+                <small>{option.label.split(" · ").slice(1).join(" · ").replace(" (inativa)", "")}</small>
+              </span>
+            </label>;
+          }) : <p className="discipline-checkbox-empty">Não existem disciplinas ativas. Cria ou ativa disciplinas antes de configurar a turma.</p>}
+        </div>
+        <small>{selectedCount === 0 ? "Seleciona uma ou mais disciplinas para esta turma." : selectedCount === 1 ? "1 disciplina selecionada." : String(selectedCount) + " disciplinas selecionadas."}</small>
       </div>;
     }
     if (resource === "/turmas" && field === "curso_id") {
