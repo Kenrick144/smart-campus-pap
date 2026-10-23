@@ -38,7 +38,6 @@ type User = {
   schoolYear?: string;
   studentNumber?: string;
   course?: string;
-  className?: string;
   enrollmentDate?: string;
   guardianName?: string;
   guardianRelationship?: string;
@@ -208,7 +207,6 @@ export default function Utilizadores() {
   const [schoolYear, setSchoolYear] = useState("");
   const [studentNumber, setStudentNumber] = useState("");
   const [course, setCourse] = useState("");
-  const [className, setClassName] = useState("");
   const [enrollmentDate, setEnrollmentDate] = useState("");
 
   const [guardianName, setGuardianName] = useState("");
@@ -277,7 +275,6 @@ function openForm() {
     setSchoolYear(user.schoolYear ?? "");
     setStudentNumber(user.studentNumber ?? "");
     setCourse(user.course ?? "");
-    setClassName(user.className ?? "");
     setEnrollmentDate(user.enrollmentDate ?? "");
 
     setGuardianName(user.guardianName ?? "");
@@ -311,7 +308,7 @@ function openForm() {
     setName(""); setEmail(""); setRole("Aluno"); setStatus("Ativo");
     setBirthDate(""); setPhone(""); setNif(""); setDocumentType("Cartão de Cidadão");
     setDocumentNumber(""); setNiss(""); setHealthNumber(""); setAddress("");
-    setSchoolYear(""); setStudentNumber(""); setCourse(""); setClassName(""); setEnrollmentDate("");
+    setSchoolYear(""); setStudentNumber(""); setCourse(""); setEnrollmentDate("");
     setGuardianName(""); setGuardianRelationship(""); setGuardianPhone(""); setGuardianEmail("");
     setGuardianNif(""); setGuardianDocumentType("Cartão de Cidadão"); setGuardianDocumentNumber("");
     setGuardianAddress(""); setGuardianAlternativePhone("");
@@ -683,7 +680,7 @@ function openForm() {
                         <div className="form-field"><label>Ano letivo *</label><input placeholder="2026/2027" value={schoolYear} onChange={e => setSchoolYear(e.target.value)} required /></div>
                         <div className="form-field"><label>Número de aluno *</label><input value={studentNumber} onChange={e => setStudentNumber(e.target.value)} required /></div>
                         <div className="form-field"><label>Curso *</label><input value={course} onChange={e => setCourse(e.target.value)} required /></div>
-                        <div className="form-field"><label>Turma{!editingUserId ? " *" : ""}</label><input value={className} onChange={e => setClassName(e.target.value)} required={!editingUserId} /></div>
+                        <div className="form-field form-field-full"><label>Associação à turma</label><p className="muted">Depois de guardar a conta, abre a secção Alunos e seleciona <strong>Associar turma</strong>. A associação é validada com as vagas disponíveis e fica registada no histórico académico.</p></div>
                         <div className="form-field"><label>Data de matrícula</label><input type="date" value={enrollmentDate} onChange={e => setEnrollmentDate(e.target.value)} /></div>
                       </div>
                     </section>
