@@ -665,7 +665,7 @@ async function authorizeWrite(
   role: Role,
   recordId?: string
 ) {
-  if (resource === "/anos-letivos" || resource === "/disciplinas" || resource === "/salas" || resource === "/turmas" ||
+  if (resource === "/anos-letivos" || resource === "/disciplinas" || resource === "/cursos" || resource === "/salas" || resource === "/turmas" ||
       resource === "/horarios" || resource === "/computadores") {
     return isAdmin(role);
   }
@@ -932,10 +932,19 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
     }
 
     if (resource === "/cursos" && method !== "DELETE" && row) {
-      if (!text(row, "nome").trim()) {
+      const nome = text(row, "nome").trim();
+      const descricao = text(row, "descricao").trim();
+      const estado = text(row, "estado", "Ativo");
+      if (!nome) {
         return NextResponse.json({ error: "Introduz o nome do curso." }, { status: 400 });
       }
-      if (text(row, "estado", "Ativo") !== "Ativo" && text(row, "estado") !== "Inativo") {
+      if (nome.length > 120) {
+        return NextResponse.json({ error: "O nome do curso deve ter no máximo 120 caracteres." }, { status: 400 });
+      }
+      if (descricao.length > 2000) {
+        return NextResponse.json({ error: "A descrição do curso deve ter no máximo 2000 caracteres." }, { status: 400 });
+      }
+      if (estado !== "Ativo" && estado !== "Inativo") {
         return NextResponse.json({ error: "O estado do curso deve ser Ativo ou Inativo." }, { status: 400 });
       }
     }
@@ -1109,9 +1118,11 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
           ? academicYearWriteError(error, method)
           : resource === "/disciplinas"
             ? disciplineWriteError(error, method)
-            : resource === "/turmas"
-              ? classWriteError(error, method)
-              : error.message;
+            : resource === "/cursos"
+              ? courseWriteError(error, method)
+              : resource === "/turmas"
+                ? classWriteError(error, method)
+                : error.message;
         return NextResponse.json({ error: message }, { status: 400 });
       }
       if (!data) return NextResponse.json({ error: "Registo não encontrado." }, { status: 404 });
