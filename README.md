@@ -1,26 +1,51 @@
 # Smart Campus
 
-Aplicação web responsiva para gestão escolar, assiduidade, QR Codes e equipamentos do campus.
+Aplicação Next.js para gestão escolar, autenticação por perfil, assiduidade, salas e equipamentos, usando o Supabase real.
 
-## Executar
+## Preparação
+
+1. Instala Node.js LTS.
+2. Copia `.env.example` para `.env.local`.
+3. Preenche as variáveis com os dados do projeto Supabase correto:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (ou a chave antiga `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
+   - `SUPABASE_SECRET_KEY` — chave secreta usada **apenas no servidor**; nunca a publiques no GitHub nem a coloques numa variável `NEXT_PUBLIC_*`.
+4. Confirma no Supabase que o utilizador existe em **Authentication** e que tem uma linha associada em `public.users`, com o mesmo `id`, `role` válido e `status = 'Ativo'`.
+5. Executa:
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Abra `http://localhost:3000`. A página inicial encaminha para o formulário de entrada.
+Abre `http://localhost:3000`.
 
-## Perfis e ecrãs
+## Deploy no Vercel
 
-No ecrã de entrada, escolha um perfil de demonstração: Administrador, Professor, Aluno ou Funcionário. Introduza um email e uma palavra-passe não vazios para abrir esse espaço. Os perfis restringem a navegação entre áreas. A seleção de perfil no cabeçalho existe apenas para explorar as interfaces.
+Para gerar as páginas e executar a aplicação, o projeto Vercel precisa das variáveis públicas `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. No preview da branch `integracao-supabase-real`, estas variáveis devem estar configuradas no ambiente **Preview**, associadas a essa branch. Depois de alterar variáveis de ambiente, é necessário criar um novo deployment para que sejam aplicadas.
 
-- **Administrador:** utilizadores, alunos, professores, turmas, disciplinas, presenças, horários, salas, computadores, QR Codes, relatórios, registos e configurações.
-- **Professor:** turmas, alunos, horários, marcação de presenças e relatórios.
-- **Aluno:** horário, leitura de QR, presenças pessoais e início de sessão num PC.
-- **Funcionário:** salas, horários e estado dos computadores.
-- **Estação de trabalho:** `/pc`; um professor ou funcionário pode gerar um código de seis dígitos em *Computadores*. O código expira ao fim de 15 minutos e liberta o equipamento quando a sessão termina.
+As rotas de servidor que usam o cliente administrativo também precisam de `SUPABASE_SECRET_KEY`, guardada como variável de ambiente do servidor (por exemplo, nos ambientes Preview/Production adequados). Não usar a chave secreta no browser nem num prefixo `NEXT_PUBLIC_`. Nunca guardar os valores das chaves no repositório.
 
-Os dados de demonstração são guardados no `localStorage` do navegador: não são partilhados entre dispositivos nem constituem uma base de dados segura. A autenticação de demonstração continua disponível sem credenciais reais, mas a aplicação agora está preparada para usar Supabase quando forem definidos os segredos de ambiente. Quando `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` estiverem configurados, o login tenta autenticar com o Supabase e, em seguida, lê o papel do utilizador a partir da tabela `profiles`. O projeto inclui também a estrutura inicial em `supabase/schema.sql`, que cria as tabelas principais, as políticas RLS e os registos iniciais essenciais. Antes de utilização institucional, é necessário configurar Supabase Auth, a base de dados relacional, políticas RLS por perfil e os segredos de ambiente; a seleção de perfil no cliente não substitui controlos de acesso no servidor.
+## Dados e segurança
 
-Os códigos QR de exemplo são gerados na aplicação e podem ser lidos pela câmara do dispositivo. A leitura requer permissão do navegador e HTTPS (ou `localhost`); também é possível introduzir o código manualmente. A aplicação inclui um manifest e registo de service worker para instalação como PWA; este guarda apenas recursos estáticos e não torna os dados partilhados nem a aplicação totalmente disponível offline.
+A aplicação usa Supabase Auth para iniciar/terminar sessão. O perfil é lido de `public.users`; não se infere o cargo a partir do email e não é permitido entrar com uma conta inativa. O servidor verifica de novo a identidade, o estado da conta e as permissões antes de ler ou alterar dados.
+
+A integração foi alinhada com o esquema do projeto Supabase Smart Campus: `users`, `alunos`, `professores`, `funcionarios`, `anos_letivos`, `turmas`, `salas`, `disciplinas`, `alunos_turmas`, `professores_turmas`, `disciplinas_turmas`, `professores_disciplinas_turmas`, `horarios`, `presencas`, `equipamentos`, `notas`, `avaliacoes`, `logs`, `avisos` e `avisos_leituras`.
+
+A aplicação não cria nem altera automaticamente o esquema da base de dados. Não executes SQL de criação de tabelas por cima da base existente sem rever a migração primeiro. **Atenção:** `supabase/schema.sql` ainda é o esquema legado do protótipo inicial (tabelas em inglês, como `profiles`, `students` e `classes`) e não corresponde à base de dados ativa. Não o executes no projeto atual. Os ficheiros em `supabase/migrations/` registam correções incrementais de segurança; ainda não constituem uma migração base completa para instalar o sistema numa base de dados vazia. A tabela `users` liga-se a Supabase Auth através do mesmo UUID. A gestão de utilizadores cria a conta Auth e os registos de perfil correspondentes através de uma rota de servidor.
+
+## Perfis
+
+- **Administrador:** gestão administrativa e acesso às áreas autorizadas.
+- **Administrador Adjunto:** gestão de utilizadores e dados de acordo com as permissões do servidor.
+- **Professor:** turmas atribuídas, alunos, horários e presenças autorizadas.
+- **Aluno:** os seus próprios dados, horários e presenças.
+- **Funcionário:** áreas operacionais autorizadas, incluindo salas e equipamentos.
+
+A interface oculta as opções que não pertencem ao perfil, mas a autorização efetiva é validada no servidor.
+
+## Funcionalidades ainda limitadas
+
+- A sessão temporária de utilização de um computador ainda não está ligada a uma tabela de sessões no Supabase; a aplicação informa-o e não altera o estado do equipamento através de dados de demonstração.
+- Algumas preferências gerais da página de configurações continuam guardadas localmente no navegador.
+- O funcionamento final depende das variáveis de ambiente corretas e das políticas/tabelas existentes no projeto Supabase. É necessário testar com contas reais de cada perfil antes da utilização institucional.
