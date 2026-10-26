@@ -1508,3 +1508,66 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
 }
 
+
+
+/* Ajustes finais: formulário de cursos mais personalizado e equilibrado */
+.course-modal {
+  position: relative;
+  background:
+    radial-gradient(ellipse 320px 190px at 100% 0%, rgba(116, 99, 232, .075), transparent 74%),
+    #fff;
+}
+.course-modal .modal-heading {
+  margin-bottom: 2px;
+}
+.course-modal .eyebrow {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 5px;
+  padding: 4px 8px;
+  border: 1px solid #e7e2ff;
+  border-radius: 6px;
+  background: #f5f2ff;
+  color: #6654d8;
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 1.05px;
+}
+.course-modal .course-modal-subtitle {
+  max-width: 360px;
+}
+.course-modal .form-grid {
+  grid-template-columns: minmax(0, 1.25fr) minmax(180px, .75fr);
+  align-items: start;
+}
+.course-modal .form-grid .form-wide {
+  grid-column: 1 / -1;
+}
+.course-field-hint {
+  margin-top: -2px;
+  color: #8791a5;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+.course-modal .modal-footer .button-primary span {
+  display: inline-flex;
+  width: 17px;
+  height: 17px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, .16);
+  font-size: 13px;
+}
+@media (max-width: 600px) {
+  .course-modal .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .course-modal .form-grid .form-wide {
+    grid-column: auto;
+  }
+  .course-field-hint {
+    font-size: 9px;
+  }
+}
