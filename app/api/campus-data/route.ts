@@ -14,6 +14,7 @@ const readableRoles: Record<string, Role[]> = {
   "/alunos": ["Administrador", "Administrador Adjunto", "Professor", "Aluno"],
   "/professor": ["Administrador", "Administrador Adjunto", "Professor"],
   "/turmas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno"],
+  "/cursos": ["Administrador", "Administrador Adjunto"],
   "/disciplinas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno"],
   "/presencas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno"],
   "/horarios": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
