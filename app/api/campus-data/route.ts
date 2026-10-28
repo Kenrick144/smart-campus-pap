@@ -304,7 +304,7 @@ async function enrich(
   if (resource === "/cursos") {
     return [...rows]
       .sort((a, b) => text(a, "nome").localeCompare(text(b, "nome"), "pt-PT"))
-      .map((row) => ({ id: text(row, "id"), nome: text(row, "nome"), descricao: text(row, "descricao"), estado: text(row, "estado", "Ativo") }));
+      .map((row) => ({ id: text(row, "id"), codigo: text(row, "codigo"), nome: text(row, "nome"), descricao: text(row, "descricao"), estado: text(row, "estado", "Ativo") }));
   }
 
   if (resource === "/turmas") {
