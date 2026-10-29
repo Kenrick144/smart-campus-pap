@@ -20,6 +20,7 @@ const readableRoles: Record<string, Role[]> = {
   "/horarios": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/salas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/computadores": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
+  "/equipamentos": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/qr-code": ["Administrador", "Administrador Adjunto", "Professor", "Aluno"],
   "/logs": ["Administrador", "Administrador Adjunto"],
 };
@@ -390,19 +391,37 @@ async function enrich(
       const state = text(row, "estado", "Operacional");
       return {
         id: text(row, "id"),
-        computador: text(row, "nome"),
+        nome: text(row, "nome"),
         sala: text(roomById.get(text(row, "sala_id")), "nome"),
-        tipo: text(row, "tipo"),
-        "número de inventário": text(row, "numero_inventario"),
+        tipo: "Computador",
+        numero_inventario: text(row, "numero_inventario"),
         marca: text(row, "marca"),
         modelo: text(row, "modelo"),
-        estado: state === "Operacional" ? "Livre" : state === "Avariado" ? "Manutenção" : state === "Em manutenção" ? "Manutenção" : state,
+        numero_serie: text(row, "numero_serie"),
+        estado: state === "Operacional" ? "Livre" : state === "Em manutenção" ? "Manutenção" : state,
         __estado_db: state,
         sala_id: text(row, "sala_id"),
-        numero_serie: text(row, "numero_serie"),
         observacoes: text(row, "observacoes"),
       };
     });
+  }
+
+  if (resource === "/equipamentos") {
+    const rooms = await readTable(admin, "salas");
+    const roomById = new Map(rooms.map((row) => [text(row, "id"), row]));
+    return rows.map((row) => ({
+      id: text(row, "id"),
+      nome: text(row, "nome"),
+      sala: text(roomById.get(text(row, "sala_id")), "nome"),
+      tipo: text(row, "tipo"),
+      numero_inventario: text(row, "numero_inventario"),
+      marca: text(row, "marca"),
+      modelo: text(row, "modelo"),
+      numero_serie: text(row, "numero_serie"),
+      estado: text(row, "estado", "Operacional"),
+      sala_id: text(row, "sala_id"),
+      observacoes: text(row, "observacoes"),
+    }));
   }
 
   if (resource === "/horarios") {
@@ -645,13 +664,25 @@ function payloadToRow(resource: string, input: Row): Row | null {
     const state = text(input, "estado", "Livre");
     return {
       sala_id: text(input, "sala_id").trim(),
-      tipo: text(input, "tipo", "Computador"),
       nome: text(input, "nome", text(input, "computador")).trim(),
       numero_inventario: text(input, "numero_inventario", text(input, "número de inventário")).trim() || null,
       marca: text(input, "marca").trim() || null,
       modelo: text(input, "modelo").trim() || null,
       numero_serie: text(input, "numero_serie", text(input, "número de série")).trim() || null,
       estado: state === "Livre" ? "Operacional" : state === "Manutenção" ? "Em manutenção" : state,
+      observacoes: text(input, "observacoes", text(input, "observações")).trim() || null,
+    };
+  }
+  if (resource === "/equipamentos") {
+    return {
+      sala_id: text(input, "sala_id").trim(),
+      tipo: text(input, "tipo").trim(),
+      nome: text(input, "nome", text(input, "equipamento")).trim(),
+      numero_inventario: text(input, "numero_inventario", text(input, "número de inventário")).trim() || null,
+      marca: text(input, "marca").trim() || null,
+      modelo: text(input, "modelo").trim() || null,
+      numero_serie: text(input, "numero_serie", text(input, "número de série")).trim() || null,
+      estado: text(input, "estado", "Operacional"),
       observacoes: text(input, "observacoes", text(input, "observações")).trim() || null,
     };
   }
@@ -667,7 +698,7 @@ async function authorizeWrite(
   recordId?: string
 ) {
   if (resource === "/anos-letivos" || resource === "/disciplinas" || resource === "/cursos" || resource === "/salas" || resource === "/turmas" ||
-      resource === "/horarios" || resource === "/computadores") {
+      resource === "/horarios" || resource === "/computadores" || resource === "/equipamentos") {
     return isAdmin(role);
   }
 
@@ -772,12 +803,24 @@ export async function GET(request: Request) {
     }
 
     if (resource === "/qr-code") {
-      const [rooms, equipment] = await Promise.all([readTable(admin, "salas"), readTable(admin, "equipamentos")]);
+      const [rooms, computers, equipment] = await Promise.all([
+        readTable(admin, "salas"),
+        readTable(admin, "computadores"),
+        readTable(admin, "equipamentos"),
+      ]);
       const records: RecordItem[] = [
         ...rooms.filter((row) => text(row, "estado") === "Ativa").map((row) => ({
           id: text(row, "id"),
           código: "SALA-" + text(row, "id"),
           tipo: "Sala",
+          destino: text(row, "nome"),
+          criado: text(row, "created_at"),
+          estado: "Ativo",
+        })),
+        ...computers.filter((row) => text(row, "estado") !== "Inativo").map((row) => ({
+          id: text(row, "id"),
+          código: "COMPUTADOR-" + text(row, "id"),
+          tipo: "Computador",
           destino: text(row, "nome"),
           criado: text(row, "created_at"),
           estado: "Ativo",
@@ -804,7 +847,8 @@ export async function GET(request: Request) {
       "/presencas": "presencas",
       "/horarios": "horarios",
       "/salas": "salas",
-      "/computadores": "equipamentos",
+      "/computadores": "computadores",
+      "/equipamentos": "equipamentos",
       "/logs": "logs",
     };
     const table = tableMap[resource];
@@ -866,7 +910,7 @@ export async function GET(request: Request) {
     }
 
     if (resource === "/salas" && !isAdmin(role)) rows = rows.filter((row) => text(row, "estado") === "Ativa");
-    if (resource === "/computadores" && !isAdmin(role)) rows = rows.filter((row) => text(row, "estado") !== "Inativo");
+    if ((resource === "/computadores" || resource === "/equipamentos") && !isAdmin(role)) rows = rows.filter((row) => text(row, "estado") !== "Inativo");
 
     const records = await enrich(resource, rows, admin, role, user.id);
     if (resource === "/alunos") {
@@ -1039,7 +1083,8 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
       "/salas": "salas",
       "/horarios": "horarios",
       "/presencas": "presencas",
-      "/computadores": "equipamentos",
+      "/computadores": "computadores",
+      "/equipamentos": "equipamentos",
     };
     const table = tableMap[resource];
     if (!table) return NextResponse.json({ error: "Área não suportada para escrita." }, { status: 400 });
