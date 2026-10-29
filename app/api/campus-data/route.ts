@@ -393,7 +393,6 @@ async function enrich(
         id: text(row, "id"),
         nome: text(row, "nome"),
         sala: text(roomById.get(text(row, "sala_id")), "nome"),
-        tipo: "Computador",
         numero_inventario: text(row, "numero_inventario"),
         marca: text(row, "marca"),
         modelo: text(row, "modelo"),
