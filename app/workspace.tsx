@@ -36,6 +36,7 @@ type CampusData = {
   teachers: RecordItem[];
   classes: RecordItem[];
   computers: RecordItem[];
+  equipments: RecordItem[];
   attendance: RecordItem[];
   rooms: RecordItem[];
   timetable: RecordItem[];
@@ -55,6 +56,7 @@ const navigation = [
   { label: "Horários", icon: "◷", href: "/horarios", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"] },
   { label: "Salas", icon: "⌂", href: "/salas", roles: ["Administrador", "Administrador Adjunto", "Funcionário"] },
   { label: "Computadores", icon: "▣", href: "/computadores", roles: ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"] },
+  { label: "Outros equipamentos", icon: "▧", href: "/equipamentos", roles: ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"] },
   { label: "Códigos QR", icon: "▦", href: "/qr-code", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno"] },
   { label: "Relatórios", icon: "▥", href: "/relatorios", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
   { label: "Registos de atividade", icon: "≡", href: "/logs", roles: ["Administrador", "Administrador Adjunto"] },
@@ -74,6 +76,7 @@ const pageNames: Record<string, string> = {
   "/horarios": "Horários",
   "/salas": "Salas",
   "/computadores": "Computadores",
+  "/equipamentos": "Outros equipamentos",
   "/qr-code": "Códigos QR",
   "/relatorios": "Relatórios",
   "/logs": "Registos de atividade",
@@ -87,9 +90,9 @@ const pageNames: Record<string, string> = {
 const roleRoutes: Record<Role, string[]> = {
   Administrador: Object.keys(pageNames),
   "Administrador Adjunto": Object.keys(pageNames),
-  Professor: ["/dashboard", "/alunos", "/professor", "/turmas", "/disciplinas", "/presencas", "/horarios", "/salas", "/computadores", "/qr-code", "/relatorios", "/avaliacoes", "/notas", "/avisos", "/pc", "/perfil"],
+  Professor: ["/dashboard", "/alunos", "/professor", "/turmas", "/disciplinas", "/presencas", "/horarios", "/salas", "/computadores", "/equipamentos", "/qr-code", "/relatorios", "/avaliacoes", "/notas", "/avisos", "/pc", "/perfil"],
   Aluno: ["/aluno", "/horarios", "/presencas", "/qr-code", "/notas", "/avaliacoes", "/avisos", "/pc", "/perfil"],
-  "Funcionário": ["/dashboard", "/funcionario", "/horarios", "/salas", "/computadores", "/avisos", "/pc", "/perfil"],
+  "Funcionário": ["/dashboard", "/funcionario", "/horarios", "/salas", "/computadores", "/equipamentos", "/avisos", "/pc", "/perfil"],
 };
 
 const roles: Role[] = ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"];
@@ -102,7 +105,8 @@ const formFields: Record<string, string[]> = {
   "/presencas": ["aluno_id", "horario_id", "data", "estado", "observacoes"],
   "/horarios": ["turma_id", "disciplina_turma_id", "professor_id", "sala_id", "dia_semana", "hora_inicio", "hora_fim", "observacoes"],
   "/salas": ["nome", "edificio", "piso", "capacidade", "tipo", "estado", "observacoes"],
-  "/computadores": ["sala_id", "tipo", "nome", "numero_inventario", "marca", "modelo", "numero_serie", "estado", "observacoes"],
+  "/computadores": ["sala_id", "nome", "numero_inventario", "marca", "modelo", "numero_serie", "estado", "observacoes"],
+  "/equipamentos": ["sala_id", "tipo", "nome", "numero_inventario", "marca", "modelo", "numero_serie", "estado", "observacoes"],
 };
 
 const primaryActions: Record<string, string> = {
@@ -113,7 +117,8 @@ const primaryActions: Record<string, string> = {
   "/presencas": "Registar presença",
   "/horarios": "Novo horário",
   "/salas": "Adicionar sala",
-  "/computadores": "Adicionar equipamento",
+  "/computadores": "Adicionar computador",
+  "/equipamentos": "Adicionar equipamento",
 };
 
 const roleDestinations: Record<Role, string> = {
@@ -161,6 +166,7 @@ export default function Workspace() {
     teachers: [],
     classes: [],
     computers: [],
+    equipments: [],
     attendance: [],
     rooms: [],
     timetable: [],
@@ -173,7 +179,7 @@ export default function Workspace() {
   );
   const dataRoutes = [
     "/alunos", "/professor", "/turmas", "/cursos", "/anos-letivos", "/disciplinas",
-    "/presencas", "/horarios", "/salas", "/computadores", "/qr-code", "/logs",
+    "/presencas", "/horarios", "/salas", "/computadores", "/equipamentos", "/qr-code", "/logs",
   ];
 
   async function refreshWorkspaceData(currentRole: Role, route: string) {
@@ -182,10 +188,10 @@ export default function Workspace() {
       "Administrador Adjunto": dataRoutes,
       Professor: [
         "/alunos", "/professor", "/turmas", "/disciplinas", "/presencas",
-        "/horarios", "/salas", "/computadores", "/qr-code",
+        "/horarios", "/salas", "/computadores", "/equipamentos", "/qr-code",
       ],
       Aluno: ["/alunos", "/presencas", "/horarios", "/computadores", "/qr-code"],
-      "Funcionário": ["/horarios", "/salas", "/computadores"],
+      "Funcionário": ["/horarios", "/salas", "/computadores", "/equipamentos"],
     };
 
     const allowed = new Set(pathsByRole[currentRole]);
@@ -202,6 +208,7 @@ export default function Workspace() {
       teachers: byPath.get("/professor") ?? [],
       classes: byPath.get("/turmas") ?? [],
       computers: byPath.get("/computadores") ?? [],
+      equipments: byPath.get("/equipamentos") ?? [],
       attendance: byPath.get("/presencas") ?? [],
       rooms: byPath.get("/salas") ?? [],
       timetable: byPath.get("/horarios") ?? [],
@@ -849,7 +856,8 @@ function DashboardWelcomeHero({ role, profileName }: { role: Role; profileName: 
     ],
     "Funcionário": [
       { href: "/salas", title: "Salas", subtitle: "Ver espaços ativos", icon: "⌂", tone: "violet" },
-      { href: "/computadores", title: "Equipamentos", subtitle: "Estado do inventário", icon: "▣", tone: "blue" },
+      { href: "/computadores", title: "Computadores", subtitle: "Parque informático", icon: "▣", tone: "blue" },
+      { href: "/equipamentos", title: "Outros equipamentos", subtitle: "Inventário do campus", icon: "▧", tone: "violet" },
       { href: "/horarios", title: "Horários", subtitle: "Consultar aulas", icon: "◷", tone: "amber" },
       { href: "/pc", title: "Estação de trabalho", subtitle: "Acesso aos PCs", icon: "⌘", tone: "green" },
     ],
@@ -1038,7 +1046,7 @@ function AdminDashboard({ period, setPeriod, campusData }: { period: string; set
             : null}
       </article>
       <article className="surface pc-status-card">
-        <div className="surface-heading"><div><h2>Estado dos equipamentos</h2><p>Inventário real do campus</p></div><Link className="text-link" href="/computadores">Ver todos ↗</Link></div>
+        <div className="surface-heading"><div><h2>Estado dos computadores</h2><p>Parque informático</p></div><Link className="text-link" href="/computadores">Ver todos ↗</Link></div>
         <div className="pc-summary">
           <div className="donut-chart" style={{ background: "conic-gradient(" + pcCounts.map((item, index) => {
             const previous = pcCounts.slice(0, index).reduce((sum, part) => sum + part.count, 0);
@@ -1047,7 +1055,7 @@ function AdminDashboard({ period, setPeriod, campusData }: { period: string; set
             const start = computerCount ? previous / computerCount * 360 : 0;
             const finish = computerCount ? next / computerCount * 360 : 360;
             return color + " " + start + "deg " + finish + "deg";
-          }).join(",") + ")" }}><div><strong>{campusData.computers.length}</strong><small>equipamentos</small></div></div>
+          }).join(",") + ")" }}><div><strong>{campusData.computers.length}</strong><small>computadores</small></div></div>
           <div className="pc-legend">{pcCounts.map((item) => <StatusLine key={item.status} name={item.status} count={String(item.count)} color={item.tone} />)}</div>
         </div>
         <div className="pc-footnote"><span className="live-pulse" /> Estado consultado no Supabase</div>
@@ -1346,7 +1354,7 @@ function DataPage({
       </div>
     )}
     <div className="toolbar"><div className="result-count"><strong>{allRecords.length}</strong> registos <span>·</span> {pathname === "/anos-letivos" ? (activeAcademicYearName ? "ano letivo " + activeAcademicYearName : "sem ano letivo ativo") : activeAcademicYearName ? "ano letivo " + activeAcademicYearName : "gestão do campus"}</div><div className="toolbar-actions">{statuses.length > 0 && <select className="select-control" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filtrar por estado"><option>Todos os estados</option>{statuses.map((status) => <option key={status}>{status}</option>)}</select>}<button className="button button-secondary" onClick={() => downloadCsv(`${pathname.slice(1)}.csv`, allRecords)}>↓ Exportar CSV</button></div></div>
-    <section className="surface table-surface"><div className="table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{pathname === "/anos-letivos" ? ({ nome: "Ano letivo", data_inicio: "Data de início", data_fim: "Data de fim", ativo: "Estado" } as Record<string, string>)[column] ?? column : pathname === "/cursos" ? ({ codigo: "Código", nome: "Curso", descricao: "Descrição", estado: "Estado" } as Record<string, string>)[column] ?? column : pathname === "/turmas" ? ({ turma: "Turma", "ano letivo": "Ano letivo", "ano escolar": "Ano escolar", curso: "Curso", disciplinas: "Disciplinas", capacidade: "Capacidade", "professor coordenador": "Professor coordenador", estado: "Estado" } as Record<string, string>)[column] ?? column : pathname === "/disciplinas" ? ({ nome: "Nome", codigo: "Código", descricao: "Descrição", estado: "Estado" } as Record<string, string>)[column] ?? column : column}</th>)}{isAttendance && <th>Presença</th>}{(hasAction || showStudentManagementAction) && <th>Ações</th>}</tr></thead><tbody>{records.map((record) => { const index = allRecords.indexOf(record); return <tr key={`${Object.values(record).join("-")}-${index}`}>{columns.map((column) => <td key={column}>{pathname === "/anos-letivos" && column === "ativo" ? <span className={`pill ${record.ativo === "true" ? "pill-green" : "pill-slate"}`}>{record.ativo === "true" ? "Ativo" : "Inativo"}</span> : pathname === "/anos-letivos" && (column === "data_inicio" || column === "data_fim") ? formatAcademicDate(record[column]) : column === "código" && pathname === "/qr-code" ? <span className="qr-code-cell">{record[column]}<QrImage value={record[column]} /></span> : column === "estado" ? <span className={`pill ${statusTone(record[column])}`}>{record[column]}</span> : column === "email" ? <a className="email-link" href={`mailto:${record[column]}`}>{record[column]}</a> : column === "utilizador" && record[column] === "—" ? <span className="muted">Disponível</span> : record[column]}</td>)}{isAttendance && <td>{role === "Professor" || role === "Administrador" || role === "Administrador Adjunto" ? <select className="inline-select" aria-label={`Estado da presença de ${record.aluno}`} value={record.estado} onChange={(event) => onStatus(index, event.target.value)}><option>Presente</option><option>Atrasado</option><option>Ausente</option><option>Falta justificada</option></select> : <span className={`pill ${statusTone(record.estado)}`}>{record.estado}</span>}</td>}{(hasAction || showStudentManagementAction) && <td><div className="row-actions">{showStudentManagementAction ? <><button type="button" className="button button-secondary" disabled={studentClassLoading || (record.estado || "").toLocaleLowerCase("pt-PT") !== "ativo"} title={(record.estado || "").toLocaleLowerCase("pt-PT") !== "ativo" ? "Ativa a conta do aluno antes de associar uma turma." : "Associar ou transferir o aluno para uma turma"} onClick={() => void openStudentClassDialog(record)}>Associar turma</button><Link className="button button-secondary" href={`/utilizadores?editar=${encodeURIComponent(record.id)}`}>Editar ficha</Link></> : <><button className="button button-secondary" onClick={() => onEdit(index)}>Editar</button>{pathname === "/turmas" && canManage && <button className="button button-secondary" onClick={() => onReuse(record)}>Reutilizar</button>}{!(role === "Professor" && pathname === "/presencas") && <button className="button button-secondary" onClick={() => onDelete(index)}>Eliminar</button>}</>}</div></td>}</tr>; })}</tbody></table>{records.length === 0 && <div className="empty-state"><span>⌕</span><strong>{search || statusFilter !== "Todos os estados" ? "Não encontrámos resultados" : pathname === "/alunos" ? "Ainda não existem alunos para apresentar" : "Ainda não existem registos"}</strong><p>{search || statusFilter !== "Todos os estados" ? "Altere os filtros e tente novamente." : pathname === "/alunos" ? role === "Professor" ? "Não existem alunos nas turmas atribuídas à tua conta." : "Crie uma conta com perfil Aluno para a respetiva ficha aparecer aqui." : "Adicione o primeiro registo para começar."}</p></div>}</div><div className="table-footer"><span>A mostrar <strong>{records.length}</strong> de <strong>{allRecords.length}</strong> registos</span><div><button disabled>← Anterior</button><button className="current-page">1</button><button disabled>Seguinte →</button></div></div></section>
+    <section className="surface table-surface"><div className="table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{pathname === "/anos-letivos" ? ({ nome: "Ano letivo", data_inicio: "Data de início", data_fim: "Data de fim", ativo: "Estado" } as Record<string, string>)[column] ?? column : pathname === "/cursos" ? ({ codigo: "Código", nome: "Curso", descricao: "Descrição", estado: "Estado" } as Record<string, string>)[column] ?? column : pathname === "/turmas" ? ({ turma: "Turma", "ano letivo": "Ano letivo", "ano escolar": "Ano escolar", curso: "Curso", disciplinas: "Disciplinas", capacidade: "Capacidade", "professor coordenador": "Professor coordenador", estado: "Estado" } as Record<string, string>)[column] ?? column : pathname === "/disciplinas" ? ({ nome: "Nome", codigo: "Código", descricao: "Descrição", estado: "Estado" } as Record<string, string>)[column] ?? column : pathname === "/computadores" || pathname === "/equipamentos" ? ({ nome: pathname === "/computadores" ? "Computador" : "Equipamento", sala: "Sala", tipo: "Tipo", numero_inventario: "N.º de inventário", numero_serie: "N.º de série", marca: "Marca", modelo: "Modelo", estado: "Estado", observacoes: "Observações" } as Record<string, string>)[column] ?? column : column}</th>)}{isAttendance && <th>Presença</th>}{(hasAction || showStudentManagementAction) && <th>Ações</th>}</tr></thead><tbody>{records.map((record) => { const index = allRecords.indexOf(record); return <tr key={`${Object.values(record).join("-")}-${index}`}>{columns.map((column) => <td key={column}>{pathname === "/anos-letivos" && column === "ativo" ? <span className={`pill ${record.ativo === "true" ? "pill-green" : "pill-slate"}`}>{record.ativo === "true" ? "Ativo" : "Inativo"}</span> : pathname === "/anos-letivos" && (column === "data_inicio" || column === "data_fim") ? formatAcademicDate(record[column]) : column === "código" && pathname === "/qr-code" ? <span className="qr-code-cell">{record[column]}<QrImage value={record[column]} /></span> : column === "estado" ? <span className={`pill ${statusTone(record[column])}`}>{record[column]}</span> : column === "email" ? <a className="email-link" href={`mailto:${record[column]}`}>{record[column]}</a> : column === "utilizador" && record[column] === "—" ? <span className="muted">Disponível</span> : record[column]}</td>)}{isAttendance && <td>{role === "Professor" || role === "Administrador" || role === "Administrador Adjunto" ? <select className="inline-select" aria-label={`Estado da presença de ${record.aluno}`} value={record.estado} onChange={(event) => onStatus(index, event.target.value)}><option>Presente</option><option>Atrasado</option><option>Ausente</option><option>Falta justificada</option></select> : <span className={`pill ${statusTone(record.estado)}`}>{record.estado}</span>}</td>}{(hasAction || showStudentManagementAction) && <td><div className="row-actions">{showStudentManagementAction ? <><button type="button" className="button button-secondary" disabled={studentClassLoading || (record.estado || "").toLocaleLowerCase("pt-PT") !== "ativo"} title={(record.estado || "").toLocaleLowerCase("pt-PT") !== "ativo" ? "Ativa a conta do aluno antes de associar uma turma." : "Associar ou transferir o aluno para uma turma"} onClick={() => void openStudentClassDialog(record)}>Associar turma</button><Link className="button button-secondary" href={`/utilizadores?editar=${encodeURIComponent(record.id)}`}>Editar ficha</Link></> : <><button className="button button-secondary" onClick={() => onEdit(index)}>Editar</button>{pathname === "/turmas" && canManage && <button className="button button-secondary" onClick={() => onReuse(record)}>Reutilizar</button>}{!(role === "Professor" && pathname === "/presencas") && <button className="button button-secondary" onClick={() => onDelete(index)}>Eliminar</button>}</>}</div></td>}</tr>; })}</tbody></table>{records.length === 0 && <div className="empty-state"><span>⌕</span><strong>{search || statusFilter !== "Todos os estados" ? "Não encontrámos resultados" : pathname === "/alunos" ? "Ainda não existem alunos para apresentar" : "Ainda não existem registos"}</strong><p>{search || statusFilter !== "Todos os estados" ? "Altere os filtros e tente novamente." : pathname === "/alunos" ? role === "Professor" ? "Não existem alunos nas turmas atribuídas à tua conta." : "Crie uma conta com perfil Aluno para a respetiva ficha aparecer aqui." : "Adicione o primeiro registo para começar."}</p></div>}</div><div className="table-footer"><span>A mostrar <strong>{records.length}</strong> de <strong>{allRecords.length}</strong> registos</span><div><button disabled>← Anterior</button><button className="current-page">1</button><button disabled>Seguinte →</button></div></div></section>
     {studentClassTarget && pathname === "/alunos" && (
       <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !studentClassSaving) setStudentClassTarget(null); }}>
         <section className="modal-card student-class-modal" role="dialog" aria-modal="true" aria-labelledby="student-class-title">
@@ -1416,6 +1424,7 @@ function DataPage({
       </div>
     )}
     {pathname === "/computadores" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Estado do parque informático</h2><p>Alterar o estado de um computador</p></div><Link className="text-link" href="/pc">Abrir interface do PC ↗</Link></div><div className="pc-state-grid">{["Livre", "Manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => record.estado === state).length}</strong></span>)}</div><div className="code-generator"><div><strong>{temporaryCodeActive ? temporaryCode?.code : "Sem código ativo"}</strong><small>A geração de códigos temporários ainda não está ligada à base de dados.</small></div><button className="button button-primary" onClick={onGenerateCode}>Gerar código temporário</button></div></section>}
+    {pathname === "/equipamentos" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Estado dos outros equipamentos</h2><p>Inventário separado dos computadores</p></div></div><div className="pc-state-grid">{["Operacional", "Em manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => record.estado === state).length}</strong></span>)}</div></section>}
     {pathname === "/qr-code" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Leitura rápida</h2><p>Introduza ou leia um código de sala ativo para registar a presença do utilizador atual.</p></div></div><form className="scan-row" onSubmit={(event) => { event.preventDefault(); onScan(); }}><input className="field-control" value={qrCode} onChange={(event) => setQrCode(event.target.value)} placeholder="Código do QR da sala" aria-label="Código QR da sala" /><button className="button button-primary">▦ Ler código</button><QrScanner onDetected={onScan} /></form></section>}
   </>;
 }
@@ -1443,7 +1452,8 @@ function descriptionFor(pathname: string) {
     "/presencas": "Acompanhe e registe a assiduidade dos alunos por turma.",
     "/horarios": "Consulte e organize o horário semanal de aulas.",
     "/salas": "Gira os espaços, a capacidade e os equipamentos disponíveis.",
-    "/computadores": "Monitorize a disponibilidade dos computadores em tempo real.",
+    "/computadores": "Gira o inventário dos computadores, o número de série, a sala e o estado de funcionamento.",
+    "/equipamentos": "Gira os projetores, monitores, impressoras, quadros interativos e os restantes equipamentos do campus, separadamente dos computadores.",
     "/qr-code": "Crie e gira os códigos QR para salas e computadores.",
     "/logs": "Histórico de ações e eventos registados na plataforma.",
   };
@@ -1464,7 +1474,11 @@ function RecordModal({ title, resource, fields, initialValues, onClose, onSubmit
     ? ({ nome: "Nome do curso", descricao: "Descrição (opcional)", estado: "Estado" } as Record<string, string>)[field] ?? field
     : resource === "/disciplinas"
       ? ({ nome: "Nome", codigo: "Código (automático)", descricao: "Descrição", estado: "Estado" } as Record<string, string>)[field] ?? field
-      : resource === "/turmas"
+      : resource === "/computadores"
+        ? ({ nome: "Nome do computador", sala_id: "Sala", numero_inventario: "Número de inventário", marca: "Marca", modelo: "Modelo", numero_serie: "Número de série", estado: "Estado", observacoes: "Observações" } as Record<string, string>)[field] ?? field.replaceAll("_", " ")
+        : resource === "/equipamentos"
+          ? ({ nome: "Nome do equipamento", sala_id: "Sala", tipo: "Tipo de equipamento", numero_inventario: "Número de inventário", marca: "Marca", modelo: "Modelo", numero_serie: "Número de série", estado: "Estado", observacoes: "Observações" } as Record<string, string>)[field] ?? field.replaceAll("_", " ")
+          : resource === "/turmas"
         ? ({ nome: "Nome da turma", ano_letivo_id: "Ano letivo", ano_escolar: "Ano escolar", curso_id: "Curso", capacidade: "Capacidade máxima", professor_coordenador_id: "Professor coordenador (opcional)", disciplina_ids: "Disciplinas da turma", estado: "Estado" } as Record<string, string>)[field] ?? field
         : field.replaceAll("_", " ")}<FormInput resource={resource} field={field} initialValue={initialValues?.[field]} />{resource === "/cursos" && field === "nome" && <small className="course-field-hint">Usa o nome oficial do curso, como Informática de Gestão.</small>}</label>)}</div><div className="modal-footer"><button type="button" className="button button-secondary" onClick={onClose}>Cancelar</button><button type="submit" className="button button-primary">{resource === "/cursos" ? <>Guardar curso <span aria-hidden="true">↗</span></> : "Guardar registo"}</button></div></form></section></div>;
 }
@@ -1603,6 +1617,7 @@ function FormInput({ resource, field, initialValue }: { resource: string; field:
       "/salas": ["Ativa", "Inativa", "Em manutenção"],
       "/presencas": ["Presente", "Atrasado", "Ausente", "Falta justificada"],
       "/computadores": ["Livre", "Manutenção", "Avariado", "Inativo"],
+      "/equipamentos": ["Operacional", "Em manutenção", "Avariado", "Inativo"],
     };
     const choices = optionsByResource[resource] ?? ["Ativo", "Inativo"];
     return <select {...common}><option value="">Selecionar...</option>{choices.map((option) => <option key={option}>{option}</option>)}</select>;
@@ -1611,7 +1626,7 @@ function FormInput({ resource, field, initialValue }: { resource: string; field:
   if (field === "tipo") {
     const choices = resource === "/salas"
       ? ["Sala de aula", "Laboratório", "Sala de informática", "Sala de reuniões", "Outro"]
-      : ["Computador", "Projetor", "Monitor", "Impressora", "Quadro interativo", "Outro"];
+      : resource === "/equipamentos" ? ["Projetor", "Monitor", "Impressora", "Quadro interativo", "Outro"] : ["Computador", "Projetor", "Monitor", "Impressora", "Quadro interativo", "Outro"];
     return <select {...common}><option value="">Selecionar...</option>{choices.map((option) => <option key={option}>{option}</option>)}</select>;
   }
 
