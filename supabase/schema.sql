@@ -1,3 +1,11 @@
+-- AVISO: ESQUEMA LEGADO DO PROTOTIPO INICIAL — NAO EXECUTAR NA BASE ATIVA SMART CAMPUS.
+-- Este ficheiro usa tabelas antigas com nomes em ingles (profiles, students, teachers,
+-- classes, etc.). A aplicacao atual e a base Supabase ativa usam o esquema em portugues,
+-- incluindo users, alunos, professores, funcionarios, turmas, horarios e presencas.
+-- As migracoes em supabase/migrations/ sao apenas correcoes incrementais de seguranca;
+-- nao sao uma instalacao base completa para uma base de dados vazia.
+-- Manter este ficheiro apenas como referencia historica ate existir uma baseline validada.
+--
 create extension if not exists "pgcrypto";
 
 create type public.user_role as enum ('Administrador', 'Professor', 'Aluno', 'Funcionário');
