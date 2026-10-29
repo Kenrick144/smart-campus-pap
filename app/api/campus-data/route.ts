@@ -372,16 +372,47 @@ async function enrich(
   }
 
   if (resource === "/salas") {
-    return rows.map((row) => ({
-      id: text(row, "id"),
-      sala: text(row, "nome"),
-      edifício: text(row, "edificio"),
-      piso: text(row, "piso"),
-      capacidade: text(row, "capacidade"),
-      tipo: text(row, "tipo"),
-      estado: text(row, "estado", "Ativa"),
-      observações: text(row, "observacoes"),
-    }));
+    const [computers, equipment] = await Promise.all([
+      readTable(admin, "computadores"),
+      readTable(admin, "equipamentos"),
+    ]);
+
+    const computerCountByRoom = new Map<string, number>();
+    for (const computer of computers) {
+      const roomId = text(computer, "sala_id");
+      if (roomId) computerCountByRoom.set(roomId, (computerCountByRoom.get(roomId) ?? 0) + 1);
+    }
+
+    const equipmentTypesByRoom = new Map<string, Map<string, number>>();
+    for (const item of equipment) {
+      const roomId = text(item, "sala_id");
+      if (!roomId) continue;
+      const type = text(item, "tipo", "Outro");
+      const counts = equipmentTypesByRoom.get(roomId) ?? new Map<string, number>();
+      counts.set(type, (counts.get(type) ?? 0) + 1);
+      equipmentTypesByRoom.set(roomId, counts);
+    }
+
+    return rows.map((row) => {
+      const roomId = text(row, "id");
+      const equipmentSummary = [...(equipmentTypesByRoom.get(roomId) ?? new Map<string, number>()).entries()]
+        .sort(([a], [b]) => a.localeCompare(b, "pt-PT"))
+        .map(([type, count]) => type + ": " + count)
+        .join(" · ");
+
+      return {
+        id: roomId,
+        sala: text(row, "nome"),
+        edifício: text(row, "edificio"),
+        piso: text(row, "piso"),
+        capacidade: text(row, "capacidade"),
+        tipo: text(row, "tipo"),
+        "N.º de computadores": String(computerCountByRoom.get(roomId) ?? 0),
+        "Equipamentos por tipo": equipmentSummary || "Nenhum",
+        estado: text(row, "estado", "Ativa"),
+        observações: text(row, "observacoes"),
+      };
+    });
   }
 
   if (resource === "/computadores") {
