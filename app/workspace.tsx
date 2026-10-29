@@ -898,9 +898,7 @@ function DashboardWelcomeHero({ role, profileName }: { role: Role; profileName: 
 function AdminDashboard({ period, setPeriod, campusData }: { period: string; setPeriod: (value: string) => void; campusData: CampusData }) {
   const equipmentState = (computer: RecordItem) =>
     (computer.__estado_db || computer.estado || "").trim().toLocaleLowerCase("pt-PT");
-  const computerEquipment = campusData.computers.filter(
-    (computer) => (computer.tipo || "").trim().toLocaleLowerCase("pt-PT") === "computador"
-  );
+  const computerEquipment = campusData.computers;
   const freeComputers = computerEquipment.filter((computer) =>
     ["operacional", "livre"].includes(equipmentState(computer))
   ).length;
