@@ -56,7 +56,7 @@ const navigation = [
   { label: "Horários", icon: "◷", href: "/horarios", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"] },
   { label: "Salas", icon: "⌂", href: "/salas", roles: ["Administrador", "Administrador Adjunto", "Funcionário"] },
   { label: "Computadores", icon: "▣", href: "/computadores", roles: ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"] },
-  { label: "Outros equipamentos", icon: "▧", href: "/equipamentos", roles: ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"] },
+  { label: "Equipamentos", icon: "▧", href: "/equipamentos", roles: ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"] },
   { label: "Códigos QR", icon: "▦", href: "/qr-code", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno"] },
   { label: "Relatórios", icon: "▥", href: "/relatorios", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
   { label: "Registos de atividade", icon: "≡", href: "/logs", roles: ["Administrador", "Administrador Adjunto"] },
@@ -76,7 +76,7 @@ const pageNames: Record<string, string> = {
   "/horarios": "Horários",
   "/salas": "Salas",
   "/computadores": "Computadores",
-  "/equipamentos": "Outros equipamentos",
+  "/equipamentos": "Equipamentos",
   "/qr-code": "Códigos QR",
   "/relatorios": "Relatórios",
   "/logs": "Registos de atividade",
@@ -857,7 +857,7 @@ function DashboardWelcomeHero({ role, profileName }: { role: Role; profileName: 
     "Funcionário": [
       { href: "/salas", title: "Salas", subtitle: "Ver espaços ativos", icon: "⌂", tone: "violet" },
       { href: "/computadores", title: "Computadores", subtitle: "Parque informático", icon: "▣", tone: "blue" },
-      { href: "/equipamentos", title: "Outros equipamentos", subtitle: "Inventário do campus", icon: "▧", tone: "violet" },
+      { href: "/equipamentos", title: "Equipamentos", subtitle: "Inventário do campus", icon: "▧", tone: "violet" },
       { href: "/horarios", title: "Horários", subtitle: "Consultar aulas", icon: "◷", tone: "amber" },
       { href: "/pc", title: "Estação de trabalho", subtitle: "Acesso aos PCs", icon: "⌘", tone: "green" },
     ],
@@ -1422,7 +1422,7 @@ function DataPage({
       </div>
     )}
     {pathname === "/computadores" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Estado do parque informático</h2><p>Alterar o estado de um computador</p></div><Link className="text-link" href="/pc">Abrir interface do PC ↗</Link></div><div className="pc-state-grid">{["Livre", "Manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => record.estado === state).length}</strong></span>)}</div><div className="code-generator"><div><strong>{temporaryCodeActive ? temporaryCode?.code : "Sem código ativo"}</strong><small>A geração de códigos temporários ainda não está ligada à base de dados.</small></div><button className="button button-primary" onClick={onGenerateCode}>Gerar código temporário</button></div></section>}
-    {pathname === "/equipamentos" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Estado dos outros equipamentos</h2><p>Inventário separado dos computadores</p></div></div><div className="pc-state-grid">{["Operacional", "Em manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => record.estado === state).length}</strong></span>)}</div></section>}
+    {pathname === "/equipamentos" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Estado dos equipamentos</h2><p>Inventário separado dos computadores</p></div></div><div className="pc-state-grid">{["Operacional", "Em manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => record.estado === state).length}</strong></span>)}</div></section>}
     {pathname === "/qr-code" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Leitura rápida</h2><p>Introduza ou leia um código de sala ativo para registar a presença do utilizador atual.</p></div></div><form className="scan-row" onSubmit={(event) => { event.preventDefault(); onScan(); }}><input className="field-control" value={qrCode} onChange={(event) => setQrCode(event.target.value)} placeholder="Código do QR da sala" aria-label="Código QR da sala" /><button className="button button-primary">▦ Ler código</button><QrScanner onDetected={onScan} /></form></section>}
   </>;
 }
@@ -1451,7 +1451,7 @@ function descriptionFor(pathname: string) {
     "/horarios": "Consulte e organize o horário semanal de aulas.",
     "/salas": "Gira os espaços, a capacidade e os equipamentos disponíveis.",
     "/computadores": "Gira o inventário dos computadores, o número de série, a sala e o estado de funcionamento.",
-    "/equipamentos": "Gira os projetores, monitores, impressoras, quadros interativos e os restantes equipamentos do campus, separadamente dos computadores.",
+    "/equipamentos": "Gira os projetores, monitores, impressoras, quadros interativos e outros equipamentos do campus, num inventário separado dos computadores.",
     "/qr-code": "Crie e gira os códigos QR para salas e computadores.",
     "/logs": "Histórico de ações e eventos registados na plataforma.",
   };
