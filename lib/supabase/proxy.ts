@@ -11,7 +11,7 @@ type Role =
 const roleRoutes: Record<Role, string[]> = {
   Administrador: [
     "/dashboard", "/utilizadores", "/alunos", "/professor", "/turmas", "/cursos", "/anos-letivos",
-    "/disciplinas", "/presencas", "/horarios", "/salas", "/computadores",
+    "/disciplinas", "/presencas", "/horarios", "/salas", "/computadores", "/equipamentos",
     "/qr-code", "/relatorios", "/logs", "/configuracoes", "/avisos",
     "/avaliacoes", "/notas", "/aluno", "/funcionario", "/pc", "/perfil",
   ],
@@ -23,11 +23,11 @@ const roleRoutes: Record<Role, string[]> = {
   ],
   Professor: [
     "/dashboard", "/alunos", "/turmas", "/disciplinas", "/presencas",
-    "/horarios", "/computadores", "/qr-code", "/relatorios", "/avaliacoes",
+    "/horarios", "/computadores", "/equipamentos", "/qr-code", "/relatorios", "/avaliacoes",
     "/notas", "/avisos", "/pc", "/perfil",
   ],
   "Funcionário": [
-    "/dashboard", "/funcionario", "/horarios", "/salas", "/computadores",
+    "/dashboard", "/funcionario", "/horarios", "/salas", "/computadores", "/equipamentos",
     "/avisos", "/pc", "/perfil",
   ],
   Aluno: ["/aluno", "/horarios", "/presencas", "/qr-code", "/notas", "/avaliacoes", "/avisos", "/pc", "/perfil"],
