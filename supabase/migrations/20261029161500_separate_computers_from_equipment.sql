@@ -48,7 +48,7 @@ ALTER TABLE public.equipamentos
 
 ALTER TABLE public.equipamentos
   ADD CONSTRAINT equipamentos_tipo_check
-  CHECK (tipo = ANY (ARRAY['Projetor'::text, 'Monitor'::text, 'Impressora'::text, 'Quadro interativo'::text, 'Outro'::text]);
+  CHECK (tipo = ANY (ARRAY['Projetor'::text, 'Monitor'::text, 'Impressora'::text, 'Quadro interativo'::text, 'Outro'::text]));
 
 CREATE INDEX IF NOT EXISTS computadores_sala_id_idx ON public.computadores (sala_id);
 CREATE INDEX IF NOT EXISTS equipamentos_sala_id_idx ON public.equipamentos (sala_id);
