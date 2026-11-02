@@ -1730,3 +1730,54 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     width: 100%;
   }
 }
+
+
+/* Acesso seguro a computadores */
+.student-pc-access { display: grid; gap: 13px; }
+.student-pc-access .surface-heading { align-items: center; margin-bottom: 0; }
+.student-pc-access .surface-heading h2 { margin-bottom: 3px; }
+.student-pc-access .surface-heading p { margin: 0; }
+.student-pc-icon { display: grid; width: 38px; height: 38px; flex: none; place-items: center; border: 1px solid #e6e1ff; border-radius: 11px; background: #f4f1ff; color: #6556dc; font-size: 19px; }
+.student-pc-code { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px; border: 1px solid #d9efe3; border-radius: 12px; background: #f0faf4; }
+.student-pc-code>div { display: grid; gap: 5px; }
+.student-pc-code small { color: #527663; font-size: 9px; font-weight: 750; letter-spacing: .7px; }
+.student-pc-code strong { color: #176b43; font-family: var(--font-display); font-size: 27px; letter-spacing: 3px; }
+.student-pc-code span { color: #6e8d7b; font-size: 10px; }
+.student-pc-existing,.student-pc-empty { display: grid; justify-items: start; gap: 6px; padding: 14px; border: 1px solid #e8eaf0; border-radius: 11px; background: #fafbfe; }
+.student-pc-existing p { margin: 0; color: #667187; font-size: 11px; line-height: 1.5; }
+.student-pc-existing small,.student-pc-empty span { color: #8791a2; font-size: 10px; line-height: 1.5; }
+.student-pc-empty strong { color: #3f4b60; font-size: 12px; }
+.student-pc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.student-pc-actions .button { min-height: 37px; }
+.student-pc-refresh { border: 0; background: transparent; cursor: pointer; font-size: 10px; }
+.student-pc-refresh:disabled { cursor: wait; opacity: .55; }
+.student-pc-feedback,.student-pc-error { margin: 0; font-size: 10px; line-height: 1.5; }
+.student-pc-feedback { color: #278052; }
+.student-pc-error { color: #bd4751; }
+.student-pc-history { padding-top: 9px; border-top: 1px solid #edf0f4; }
+.student-pc-history summary { color: #5e6980; cursor: pointer; font-size: 10px; font-weight: 650; }
+.student-pc-history-list { display: grid; gap: 7px; margin-top: 10px; }
+.student-pc-history-list>div { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #798397; font-size: 10px; }
+.student-pc-privacy { color: #929aab; font-size: 9px; line-height: 1.5; }
+.pc-device-manager { display: grid; gap: 14px; }
+.pc-device-provision { display: flex; align-items: end; gap: 12px; }
+.pc-device-provision label { display: grid; flex: 1; gap: 7px; color: #4e586a; font-size: 11px; font-weight: 650; }
+.pc-device-provision .field-control { min-height: 40px; }
+.pc-device-token { display: grid; gap: 9px; padding: 14px; border: 1px solid #e4e0ff; border-radius: 11px; background: #f8f7ff; }
+.pc-device-token strong { color: #4f46a8; font-size: 11px; }
+.pc-device-token code { display: block; overflow-wrap: anywhere; padding: 10px; border: 1px solid #e9e6fb; border-radius: 7px; background: white; color: #3a4260; font-size: 11px; line-height: 1.5; }
+.pc-device-token small { color: #7e879a; font-size: 9px; line-height: 1.5; }
+.pc-device-list { display: grid; gap: 0; }
+.pc-device-row { display: flex; align-items: center; gap: 11px; padding: 10px 0; border-top: 1px solid #eef0f5; }
+.pc-device-row>span:first-child { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.pc-device-row strong { overflow-wrap: anywhere; color: #354158; font-size: 11px; }
+.pc-device-row small { color: #9099a9; font-size: 9px; }
+.pc-device-row .button { min-height: 29px; padding: 0 9px; font-size: 9px; }
+@media (max-width: 600px) {
+  .student-pc-code,.pc-device-provision { align-items: stretch; flex-direction: column; }
+  .student-pc-code .button,.pc-device-provision .button { width: 100%; }
+  .student-pc-actions { align-items: stretch; flex-direction: column; }
+  .student-pc-actions .button { width: 100%; }
+  .pc-device-row { flex-wrap: wrap; }
+  .pc-device-row>span:first-child { flex-basis: calc(100% - 90px); }
+}
