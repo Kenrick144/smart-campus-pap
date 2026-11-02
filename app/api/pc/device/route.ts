@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPcAuthContext, hashDeviceToken, hashTemporaryCode, writePcLog } from "../_lib";
+import { hashDeviceToken, hashTemporaryCode, writePcLog } from "../_lib";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
