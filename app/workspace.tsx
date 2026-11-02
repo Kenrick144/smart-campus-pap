@@ -1423,12 +1423,13 @@ function DataPage({
     )}
     {pathname === "/computadores" && <>
       <section className="surface lower-panel">
-        <div className="surface-heading"><div><h2>Estado do parque informático</h2><p>Estado físico dos computadores · a disponibilidade Livre/Ocupado será calculada pelas sessões</p></div><Link className="text-link" href="/pc">Abrir interface do PC ↗</Link></div>
-        <div className="pc-state-grid">{["Operacional", "Em manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => record.estado === state).length}</strong></span>)}</div>
+        <div className="surface-heading"><div><h2>Estado físico do parque informático</h2><p>Condição dos equipamentos registados no inventário.</p></div><Link className="text-link" href="/pc">Abrir interface do PC ↗</Link></div>
+        <div className="pc-state-grid">{["Operacional", "Em manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => (record.__estado_db || record.estado) === state).length}</strong></span>)}</div>
       </section>
+      <ComputerSessionOverview role={role} />
       {(role === "Administrador" || role === "Administrador Adjunto") && <PcDeviceManager computers={allRecords} />}
     </>}
-    {pathname === "/equipamentos" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Estado dos equipamentos</h2><p>Inventário separado dos computadores</p></div></div><div className="pc-state-grid">{["Operacional", "Em manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => record.estado === state).length}</strong></span>)}</div></section>}
+    {pathname === "/equipamentos" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Estado dos equipamentos</h2><p>Inventário separado dos computadores</p></div></div><div className="pc-state-grid">{["Operacional", "Em manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => (record.__estado_db || record.estado) === state).length}</strong></span>)}</div></section>}
     {pathname === "/qr-code" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Leitura rápida</h2><p>Introduza ou leia um código de sala ativo para registar a presença do utilizador atual.</p></div></div><form className="scan-row" onSubmit={(event) => { event.preventDefault(); onScan(); }}><input className="field-control" value={qrCode} onChange={(event) => setQrCode(event.target.value)} placeholder="Código do QR da sala" aria-label="Código QR da sala" /><button className="button button-primary">▦ Ler código</button><QrScanner onDetected={onScan} /></form></section>}
   </>;
 }
@@ -1657,6 +1658,63 @@ function FormInput({ resource, field, initialValue }: { resource: string; field:
 
 
 
+
+function ComputerSessionOverview({ role }: { role: Role }) {
+  const [records, setRecords] = useState<Array<{
+    id: string; name: string; room: string; inventoryNumber: string;
+    physicalState: string; availability: string; studentName: string | null; startedAt: string | null;
+  }>>([]);
+  const [totals, setTotals] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const showStudentName = role === "Administrador" || role === "Administrador Adjunto";
+
+  async function loadOverview() {
+    setError("");
+    try {
+      const response = await fetch("/api/pc/overview", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível atualizar a disponibilidade.");
+      setRecords(result.records ?? []);
+      setTotals(result.totals ?? {});
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Não foi possível atualizar a disponibilidade.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadOverview();
+    const interval = window.setInterval(() => void loadOverview(), 30000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  return (
+    <section className="surface lower-panel pc-live-overview">
+      <div className="surface-heading">
+        <div><h2>Disponibilidade em tempo real</h2><p>Livre e ocupado são calculados pelas sessões ativas, não pelo estado físico.</p></div>
+        <button type="button" className="button button-secondary" onClick={() => void loadOverview()} disabled={loading}>Atualizar</button>
+      </div>
+      <div className="pc-state-grid">{["Livre", "Ocupado", "Em manutenção", "Avariado", "Inativo"].map((state) => (
+        <span className={"pc-state " + statusTone(state)} key={state}><i />{state}<strong>{totals[state] ?? 0}</strong></span>
+      ))}</div>
+      {error && <p className="student-pc-error" role="alert">{error}</p>}
+      <div className="pc-live-list">
+        {records.map((record) => (
+          <div className="pc-live-row" key={record.id}>
+            <span className="pc-live-name"><strong>{record.name}</strong><small>{record.room}{record.inventoryNumber ? " · " + record.inventoryNumber : ""}</small></span>
+            {record.availability === "Ocupado" && <span className="pc-live-student">{showStudentName ? record.studentName : "Em utilização"}</span>}
+            <span className={"pill " + statusTone(record.availability)}>{record.availability}</span>
+          </div>
+        ))}
+        {!loading && records.length === 0 && <p className="muted">Ainda não existem computadores registados.</p>}
+      </div>
+      <small className="student-pc-privacy">A disponibilidade atualiza automaticamente a cada 30 segundos. Uma sessão sem comunicação há mais de 2 minutos é terminada por segurança.</small>
+    </section>
+  );
+}
+
 function PcDeviceManager({ computers }: { computers: RecordItem[] }) {
   const [devices, setDevices] = useState<Array<{
     id: string; computerId: string; computerName: string; inventoryNumber: string;
@@ -1755,7 +1813,7 @@ function PcDeviceManager({ computers }: { computers: RecordItem[] }) {
           Computador a preparar
           <select className="field-control" value={selectedComputerId} onChange={(event) => setSelectedComputerId(event.target.value)}>
             <option value="">Selecionar computador...</option>
-            {computers.filter((computer) => computer.id && computer.estado === "Operacional").map((computer) => (
+            {computers.filter((computer) => computer.id && (computer.__estado_db === "Operacional" || computer.estado === "Operacional" || computer.estado === "Livre")).map((computer) => (
               <option value={computer.id} key={computer.id}>{computer.nome || computer.computador}{computer.numero_inventario ? " · " + computer.numero_inventario : ""}</option>
             ))}
           </select>
