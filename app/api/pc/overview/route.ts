@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPcAuthContext } from "../_lib";
+import { getPcAuthContext, isPcAdmin } from "../_lib";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,7 +67,7 @@ export async function GET() {
       inventoryNumber: computer.numero_inventario ?? "",
       physicalState: computer.estado,
       availability: state,
-      studentName: session ? studentById.get(session.aluno_id) ?? "Aluno" : null,
+      studentName: session && isPcAdmin(context.role) ? studentById.get(session.aluno_id) ?? "Aluno" : null,
       startedAt: session?.started_at ?? null,
       heartbeatAt: session?.heartbeat_at ?? null,
     };
