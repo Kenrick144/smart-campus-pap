@@ -1421,7 +1421,13 @@ function DataPage({
         </section>
       </div>
     )}
-    {pathname === "/computadores" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Estado do parque informático</h2><p>Alterar o estado de um computador</p></div><Link className="text-link" href="/pc">Abrir interface do PC ↗</Link></div><div className="pc-state-grid">{["Livre", "Manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => record.estado === state).length}</strong></span>)}</div><div className="code-generator"><div><strong>{temporaryCodeActive ? temporaryCode?.code : "Sem código ativo"}</strong><small>A geração de códigos temporários ainda não está ligada à base de dados.</small></div><button className="button button-primary" onClick={onGenerateCode}>Gerar código temporário</button></div></section>}
+    {pathname === "/computadores" && <>
+      <section className="surface lower-panel">
+        <div className="surface-heading"><div><h2>Estado do parque informático</h2><p>Estado físico dos computadores · a disponibilidade Livre/Ocupado será calculada pelas sessões</p></div><Link className="text-link" href="/pc">Abrir interface do PC ↗</Link></div>
+        <div className="pc-state-grid">{["Operacional", "Em manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => record.estado === state).length}</strong></span>)}</div>
+      </section>
+      {(role === "Administrador" || role === "Administrador Adjunto") && <PcDeviceManager computers={allRecords} />}
+    </>}
     {pathname === "/equipamentos" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Estado dos equipamentos</h2><p>Inventário separado dos computadores</p></div></div><div className="pc-state-grid">{["Operacional", "Em manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => record.estado === state).length}</strong></span>)}</div></section>}
     {pathname === "/qr-code" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Leitura rápida</h2><p>Introduza ou leia um código de sala ativo para registar a presença do utilizador atual.</p></div></div><form className="scan-row" onSubmit={(event) => { event.preventDefault(); onScan(); }}><input className="field-control" value={qrCode} onChange={(event) => setQrCode(event.target.value)} placeholder="Código do QR da sala" aria-label="Código QR da sala" /><button className="button button-primary">▦ Ler código</button><QrScanner onDetected={onScan} /></form></section>}
   </>;
@@ -1459,9 +1465,9 @@ function descriptionFor(pathname: string) {
 }
 
 function statusTone(status: string) {
-  if (["Presente", "Ativo", "Ativa", "Livre", "Disponível"].includes(status)) return "pill-green";
-  if (["Atrasado", "Reservado", "Ocupada"].includes(status)) return "pill-amber";
-  if (["Ausente", "Inativo", "Inativa", "Ocupado"].includes(status)) return "pill-red";
+  if (["Presente", "Ativo", "Ativa", "Livre", "Disponível", "Operacional"].includes(status)) return "pill-green";
+  if (["Atrasado", "Reservado", "Ocupada", "Em manutenção"].includes(status)) return "pill-amber";
+  if (["Ausente", "Inativo", "Inativa", "Ocupado", "Avariado"].includes(status)) return "pill-red";
   return "pill-slate";
 }
 
@@ -1649,6 +1655,139 @@ function FormInput({ resource, field, initialValue }: { resource: string; field:
 
 
 
+
+
+function PcDeviceManager({ computers }: { computers: RecordItem[] }) {
+  const [devices, setDevices] = useState<Array<{
+    id: string; computerId: string; computerName: string; inventoryNumber: string;
+    state: string; lastSeenAt: string | null; revokedAt: string | null; connected: boolean;
+  }>>([]);
+  const [selectedComputerId, setSelectedComputerId] = useState("");
+  const [provisionedToken, setProvisionedToken] = useState<{ computerName: string; token: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [error, setError] = useState("");
+
+  async function loadDevices() {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/pc/devices", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível consultar as ligações.");
+      setDevices(result.devices ?? []);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Não foi possível consultar as ligações.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadDevices();
+  }, []);
+
+  async function prepareDevice() {
+    if (!selectedComputerId) return;
+    setSaving(true);
+    setError("");
+    setFeedback("");
+    setProvisionedToken(null);
+    try {
+      const response = await fetch("/api/pc/devices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ computerId: selectedComputerId }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível preparar o computador.");
+      setProvisionedToken({ computerName: result.computerName, token: result.token });
+      setFeedback("Credencial criada. Copia-a agora: não voltará a ser apresentada.");
+      await loadDevices();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Não foi possível preparar o computador.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function revokeDevice(computerId: string) {
+    setSaving(true);
+    setError("");
+    setFeedback("");
+    try {
+      const response = await fetch("/api/pc/devices", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ computerId }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível revogar a ligação.");
+      setFeedback("Ligação revogada.");
+      setProvisionedToken(null);
+      await loadDevices();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Não foi possível revogar a ligação.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function copyToken() {
+    if (!provisionedToken) return;
+    try {
+      await navigator.clipboard.writeText(provisionedToken.token);
+      setFeedback("Token copiado. Guarda-o na configuração do PC Agent.");
+    } catch {
+      setFeedback("Seleciona e copia o token manualmente.");
+    }
+  }
+
+  return (
+    <section className="surface lower-panel pc-device-manager">
+      <div className="surface-heading">
+        <div><h2>Ligações dos computadores</h2><p>Preparar uma identidade segura para cada PC físico.</p></div>
+        <button type="button" className="button button-secondary" onClick={() => void loadDevices()} disabled={loading || saving}>Atualizar</button>
+      </div>
+      <div className="pc-device-provision">
+        <label>
+          Computador a preparar
+          <select className="field-control" value={selectedComputerId} onChange={(event) => setSelectedComputerId(event.target.value)}>
+            <option value="">Selecionar computador...</option>
+            {computers.filter((computer) => computer.id && computer.estado === "Operacional").map((computer) => (
+              <option value={computer.id} key={computer.id}>{computer.nome || computer.computador}{computer.numero_inventario ? " · " + computer.numero_inventario : ""}</option>
+            ))}
+          </select>
+        </label>
+        <button type="button" className="button button-primary" onClick={() => void prepareDevice()} disabled={!selectedComputerId || saving}>
+          {saving ? "A preparar..." : "Preparar ligação do PC"}
+        </button>
+      </div>
+      {provisionedToken && (
+        <div className="pc-device-token">
+          <strong>Token de instalação · {provisionedToken.computerName}</strong>
+          <code>{provisionedToken.token}</code>
+          <button type="button" className="button button-secondary" onClick={() => void copyToken()}>Copiar token</button>
+          <small>Este token identifica apenas este computador. Não o partilhes nem o coloques no inventário ou em código público.</small>
+        </div>
+      )}
+      {feedback && <p className="student-pc-feedback" role="status">{feedback}</p>}
+      {error && <p className="student-pc-error" role="alert">{error}</p>}
+      <div className="pc-device-list">
+        {devices.map((device) => (
+          <div className="pc-device-row" key={device.id}>
+            <span><strong>{device.computerName}</strong><small>{device.inventoryNumber || "Sem número de inventário"}</small></span>
+            <span className={"pill " + (device.revokedAt ? "pill-red" : device.connected ? "pill-green" : "pill-slate")}>{device.revokedAt ? "Revogado" : device.connected ? "Ligado" : device.lastSeenAt ? "Sem comunicação" : "Agente não ligado"}</span>
+            {!device.revokedAt && <button type="button" className="button button-secondary" onClick={() => void revokeDevice(device.computerId)} disabled={saving}>Revogar</button>}
+          </div>
+        ))}
+        {!loading && devices.length === 0 && <p className="muted">Ainda não foram preparadas ligações para os computadores.</p>}
+      </div>
+      <small className="student-pc-privacy">O token é guardado apenas sob a forma de hash no servidor. A ligação só ficará operacional depois de instalar o Smart Campus PC Agent no computador.</small>
+    </section>
+  );
+}
 
 function StudentPcAccess() {
   const [activeCode, setActiveCode] = useState<{ id: string; expiresAt: string } | null>(null);
