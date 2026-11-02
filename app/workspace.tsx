@@ -1649,6 +1649,146 @@ function FormInput({ resource, field, initialValue }: { resource: string; field:
 
 
 
+
+function StudentPcAccess() {
+  const [activeCode, setActiveCode] = useState<{ id: string; expiresAt: string } | null>(null);
+  const [displayedCode, setDisplayedCode] = useState("");
+  const [history, setHistory] = useState<Array<{ id: string; createdAt: string; expiresAt: string; status: string }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [error, setError] = useState("");
+
+  async function refreshCodes() {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/pc/codes", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível consultar os códigos.");
+      setActiveCode(result.activeCode ? { id: result.activeCode.id, expiresAt: result.activeCode.expiresAt } : null);
+      setHistory(result.history ?? []);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Não foi possível consultar os códigos.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refreshCodes();
+  }, []);
+
+  async function generateCode() {
+    setSaving(true);
+    setError("");
+    setFeedback("");
+    try {
+      const response = await fetch("/api/pc/codes", { method: "POST" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível gerar o código.");
+      setDisplayedCode(result.code);
+      setActiveCode({ id: result.id, expiresAt: result.expiresAt });
+      setFeedback("Código criado. Apresenta-o no computador que vais utilizar.");
+      await refreshCodes();
+      setActiveCode({ id: result.id, expiresAt: result.expiresAt });
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Não foi possível gerar o código.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function cancelCode() {
+    if (!activeCode) return;
+    setSaving(true);
+    setError("");
+    setFeedback("");
+    try {
+      const response = await fetch("/api/pc/codes", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: activeCode.id }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível cancelar o código.");
+      setDisplayedCode("");
+      setActiveCode(null);
+      setFeedback("Código cancelado.");
+      await refreshCodes();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Não foi possível cancelar o código.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function copyCode() {
+    if (!displayedCode) return;
+    try {
+      await navigator.clipboard.writeText(displayedCode);
+      setFeedback("Código copiado.");
+    } catch {
+      setFeedback("Não foi possível copiar automaticamente. Seleciona o código e copia-o.");
+    }
+  }
+
+  const hasActiveCode = Boolean(activeCode && new Date(activeCode.expiresAt).getTime() > Date.now());
+
+  return (
+    <article className="surface student-pc-access">
+      <div className="surface-heading">
+        <div><h2>Acesso aos computadores</h2><p>Gera o teu código pessoal para utilizar um PC da escola.</p></div>
+        <span className="student-pc-icon" aria-hidden="true">▣</span>
+      </div>
+      {displayedCode && hasActiveCode ? (
+        <div className="student-pc-code">
+          <div>
+            <small>O TEU CÓDIGO TEMPORÁRIO</small>
+            <strong>{displayedCode}</strong>
+            <span>Expira às {new Date(activeCode!.expiresAt).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}</span>
+          </div>
+          <button type="button" className="button button-secondary" onClick={() => void copyCode()}>Copiar código</button>
+        </div>
+      ) : hasActiveCode ? (
+        <div className="student-pc-existing">
+          <span className="pill pill-green">Código ativo</span>
+          <p>Já existe um código ativo. Por segurança, o número completo só é mostrado no momento em que é gerado. Cancela-o para criar outro.</p>
+          <small>Expira às {new Date(activeCode!.expiresAt).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}</small>
+        </div>
+      ) : (
+        <div className="student-pc-empty">
+          <strong>Sem código ativo</strong>
+          <span>O código é válido durante 10 minutos e só pode ser utilizado uma vez.</span>
+        </div>
+      )}
+      <div className="student-pc-actions">
+        <button type="button" className="button button-primary" onClick={() => void generateCode()} disabled={saving || loading || hasActiveCode}>
+          {saving ? "A processar..." : "Gerar código temporário"}
+        </button>
+        {hasActiveCode && <button type="button" className="button button-secondary" onClick={() => void cancelCode()} disabled={saving}>Cancelar código</button>}
+        <button type="button" className="text-link student-pc-refresh" onClick={() => void refreshCodes()} disabled={loading || saving}>Atualizar</button>
+      </div>
+      {feedback && <p className="student-pc-feedback" role="status">{feedback}</p>}
+      {error && <p className="student-pc-error" role="alert">{error}</p>}
+      {history.length > 0 && (
+        <details className="student-pc-history">
+          <summary>Histórico dos últimos códigos</summary>
+          <div className="student-pc-history-list">
+            {history.slice(0, 5).map((item) => (
+              <div key={item.id}>
+                <span>{new Date(item.createdAt).toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" })}</span>
+                <span className={"pill " + (item.status === "Ativo" ? "pill-green" : item.status === "Utilizado" ? "pill-blue" : "pill-slate")}>{item.status}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+      <small className="student-pc-privacy">Nunca partilhes o teu código. O Smart Campus não guarda o código em texto simples.</small>
+    </article>
+  );
+}
+
 function StudentPage({
   name,
   qrCode,
@@ -1686,6 +1826,7 @@ function StudentPage({
       </article>
 
       <div className="student-side">
+        <StudentPcAccess />
         <article className="surface next-class">
           <div className="surface-heading"><div><h2>Próxima aula</h2><p>Horário associado à tua conta</p></div><Link href="/horarios" className="text-link">Ver horário ↗</Link></div>
           {nextLesson ? <div className="next-class-main"><div className="time-badge">{nextLesson.hora.split("–")[0].trim()}<small>{nextLesson.hora.split("–")[1]?.trim() ?? ""}</small></div><div><h3>{nextLesson.disciplina || "Aula"}</h3><p>{nextLesson.professor || "Professor não definido"} · {nextLesson.turma || "Turma"}</p><p>⌂ {nextLesson.sala || "Sala não definida"}</p></div></div> : <p className="muted">Ainda não há horários associados à tua conta.</p>}
