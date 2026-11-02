@@ -11,7 +11,6 @@ import CampusShell from "./campus-shell";
 
 type Role = "Aluno" | "Professor" | "Funcionário" | "Administrador Adjunto" | "Administrador";
 type RecordItem = Record<string, string>;
-type TemporaryCode = { code: string; expiresAt: number };
 type StudentClassOption = {
   id: string;
   nome: string;
@@ -154,11 +153,7 @@ export default function Workspace() {
   const [formTitleOverride, setFormTitleOverride] = useState("");
   const [notice, setNotice] = useState("");
   const [qrCode, setQrCode] = useState("");
-  const [pcCode, setPcCode] = useState("");
-  const [temporaryCode] = useState<TemporaryCode | null>(null);
-  const [temporaryCodeActive] = useState(false);
   const [pcRecords, setPcRecords] = useState<RecordItem[]>([]);
-  const [activeComputer] = useState("");
   const [period, setPeriod] = useState("Esta semana");
   const [campusData, setCampusData] = useState<CampusData>({
     academicYears: [],
@@ -501,18 +496,6 @@ export default function Workspace() {
     }
   }
 
-  function startComputer() {
-    setNotice("A sessão de utilização de computadores ainda não está ligada a um registo de sessão no Supabase. Nenhum equipamento foi alterado.");
-  }
-
-  function endComputerSession() {
-    setNotice("A sessão de computador ainda não está ligada ao registo de utilização no Supabase.");
-  }
-
-  function generateTemporaryCode() {
-    setNotice("Os códigos temporários ainda não têm uma tabela de sessões no Supabase. Nenhum código de demonstração foi criado.");
-  }
-
   async function loadNotifications() {
     setNotificationsLoading(true);
     setNotificationsError("");
@@ -604,7 +587,7 @@ export default function Workspace() {
           ) : pathname === "/funcionario" ? (
             <StaffPage profileName={profileName} campusData={campusData} />
           ) : pathname === "/pc" ? (
-            <PcPage code={pcCode} setCode={setPcCode} onStart={startComputer} onEnd={endComputerSession} computers={pcRecords} activeComputer={activeComputer} />
+            <PcPage />
           ) : pathname === "/relatorios" ? (
             <ReportsPage period={period} setPeriod={setPeriod} attendance={campusData.attendance} computers={pcRecords} logs={campusData.logs} />
           ) : pathname === "/configuracoes" ? (
@@ -620,8 +603,6 @@ export default function Workspace() {
               search={search}
               statusFilter={statusFilter}
               setStatusFilter={setStatusFilter}
-              temporaryCode={temporaryCode}
-              temporaryCodeActive={temporaryCodeActive}
               onAdd={() => { setEditingIndex(null); setFormInitialOverride(null); setFormTitleOverride(""); setShowForm(true); }}
               onEdit={(index) => { setEditingIndex(index); setFormInitialOverride(null); setFormTitleOverride(""); setShowForm(true); }}
               onReuse={(record) => {
@@ -638,7 +619,6 @@ export default function Workspace() {
               }}
               onDelete={deleteRecord}
               onStatus={updateAttendance}
-              onGenerateCode={generateTemporaryCode}
               onScan={markPresence}
               qrCode={qrCode}
               setQrCode={setQrCode}
@@ -1150,14 +1130,11 @@ function DataPage({
   search,
   statusFilter,
   setStatusFilter,
-  temporaryCode,
-  temporaryCodeActive,
   onAdd,
   onEdit,
   onReuse,
   onDelete,
   onStatus,
-  onGenerateCode,
   onScan,
   qrCode,
   setQrCode,
@@ -1172,14 +1149,11 @@ function DataPage({
   search: string;
   statusFilter: string;
   setStatusFilter: (status: string) => void;
-  temporaryCode: TemporaryCode | null;
-  temporaryCodeActive: boolean;
   onAdd: () => void;
   onEdit: (index: number) => void;
   onReuse: (record: RecordItem) => void;
   onDelete: (index: number) => void;
   onStatus: (index: number, status: string) => void;
-  onGenerateCode: () => void;
   onScan: (value?: string) => void;
   qrCode: string;
   setQrCode: (value: string) => void;
@@ -1959,6 +1933,7 @@ function StudentPcAccess() {
           <span>O código é válido durante 10 minutos e só pode ser utilizado uma vez.</span>
         </div>
       )}
+      <p className="student-pc-install-note">A geração de códigos já está ligada ao servidor. Para iniciar a utilização num PC físico, a escola terá de instalar e ligar o Smart Campus PC Agent nesse computador.</p>
       <div className="student-pc-actions">
         <button type="button" className="button button-primary" onClick={() => void generateCode()} disabled={saving || loading || hasActiveCode}>
           {saving ? "A processar..." : "Gerar código temporário"}
@@ -2075,10 +2050,37 @@ function StaffPage({ profileName, campusData, showHeading = true }: { profileNam
 }
 
 
-function PcPage({ code, setCode, onStart, onEnd, computers, activeComputer }: { code: string; setCode: (value: string) => void; onStart: () => void; onEnd: () => void; computers: RecordItem[]; activeComputer: string }) {
-  const active = computers.find((computer) => computer.computador === activeComputer);
-  const sala = active?.sala ?? "Sala 101";
-  return <><PageHeading eyebrow="SMART CAMPUS · ESTAÇÃO DE TRABALHO" title={activeComputer || "Estação de trabalho"} description={`${sala} · Campus principal`} /><section className="pc-station"><article className="surface station-main"><div className="station-state"><div className="checkmark">{active ? "✓" : "•"}</div><h2>{active ? "Em utilização" : "Disponível"}</h2><p>{active ? `${activeComputer} está associado a ${active.utilizador}.` : "Selecione um computador livre para iniciar a utilização."}</p></div>{active ? <div className="station-form"><button className="button button-secondary button-full" onClick={onEnd}>Terminar utilização</button></div> : <div className="station-form"><div className="eyebrow">INICIAR SESSÃO</div><h3>Introduza o código temporário</h3><p>Peça um código ativo ao professor ou funcionário do campus.</p><form onSubmit={(event) => {event.preventDefault(); onStart();}}><input className="field-control" inputMode="numeric" maxLength={6} value={code} onChange={(event) => setCode(event.target.value)} placeholder="Código de 6 dígitos" aria-label="Código temporário" required /><button className="button button-primary button-full">Começar a utilizar</button></form><small>O código expira 15 minutos após ser gerado.</small></div>}</article><article className="surface station-list"><div className="surface-heading"><div><h2>Estado dos computadores</h2><p>Disponibilidade atual</p></div><span className="live-pulse" /></div>{computers.map((computer) => <div className="station-pc" key={computer.computador}><strong>{computer.computador}</strong><span className={`pill ${statusTone(computer.estado)}`}>{computer.estado}</span></div>)}</article></section></>;
+function PcPage() {
+  return <>
+    <PageHeading eyebrow="SMART CAMPUS · ESTAÇÃO DE TRABALHO" title="Estação de trabalho" description="Este ecrã será utilizado pelo PC Agent instalado em cada computador da escola." />
+    <section className="pc-station">
+      <article className="surface station-main pc-agent-pending">
+        <div className="station-state">
+          <div className="checkmark station-agent-icon">▣</div>
+          <h2>À espera da ligação do PC Agent</h2>
+          <p>O código do aluno já é gerado e validado pelo servidor. Falta instalar o agente neste computador para completar o início da sessão física.</p>
+        </div>
+        <div className="station-form">
+          <div className="eyebrow">CONFIGURAÇÃO NECESSÁRIA</div>
+          <h3>Registar este computador</h3>
+          <p>Na área Computadores, a administração prepara uma credencial individual. Essa credencial será configurada no Smart Campus PC Agent instalado no Windows 11 Pro.</p>
+          <ul>
+            <li>Identidade exclusiva associada ao inventário.</li>
+            <li>Validação de código temporário no servidor.</li>
+            <li>Heartbeat da sessão e libertação automática após perda de comunicação.</li>
+          </ul>
+        </div>
+      </article>
+      <article className="surface station-list">
+        <div className="surface-heading"><div><h2>Regras de utilização</h2><p>Depois da instalação do agente</p></div><span className="live-pulse" /></div>
+        <div className="pc-agent-steps">
+          <div><b>1</b><span><strong>Gerar código</strong><small>O aluno gera o código na sua área pessoal.</small></span></div>
+          <div><b>2</b><span><strong>Validar no PC</strong><small>O agente verifica o código, o computador e o estado físico.</small></span></div>
+          <div><b>3</b><span><strong>Terminar sessão</strong><small>O PC fica livre e a sessão fica registada no histórico.</small></span></div>
+        </div>
+      </article>
+    </section>
+  </>;
 }
 
 function dateIsInPeriod(value: string, period: string) {
