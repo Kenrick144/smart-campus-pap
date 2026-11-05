@@ -1,3 +1,5 @@
+> **Nota sobre o PC Agent:** o fluxo de `/pc` descrito abaixo continua a ser demonstração local. A fundação de API usa códigos de 6 dígitos com validade de 10 minutos; não confundir o comportamento de demonstração com produção. A arquitetura aprovada de QR permanente, Windows 11 Pro controlado, identidades individuais e OneDrive está em [docs/PC-AGENT-ARCHITECTURE.md](docs/PC-AGENT-ARCHITECTURE.md). A migração Supabase ainda requer validação contra o schema real.
+
 # Smart Campus
 
 Aplicação web responsiva para gestão escolar, assiduidade, QR Codes e equipamentos do campus.
