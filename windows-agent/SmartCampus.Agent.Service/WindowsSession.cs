@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace SmartCampus.Agent.Service;
@@ -6,7 +7,6 @@ public sealed class WindowsSession
 {
     private const int WTSUserName = 5;
     private const int WTSDomainName = 7;
-    private const int WTS_CURRENT_SESSION = -1;
 
     public WindowsIdentityInfo? GetActiveConsoleIdentity()
     {
@@ -20,9 +20,25 @@ public sealed class WindowsSession
 
     public bool Logoff(uint sessionId) => WTSLogoffSession(IntPtr.Zero, sessionId, false);
 
+    public bool Shutdown()
+    {
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = "shutdown.exe",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                ArgumentList = { "/s", "/t", "0" }
+            });
+            return process is not null;
+        }
+        catch { return false; }
+    }
+
     private static string? Query(uint sessionId, int infoClass)
     {
-        if (!WTSQuerySessionInformation(IntPtr.Zero, sessionId, infoClass, out var buffer, out var bytes) || buffer == IntPtr.Zero)
+        if (!WTSQuerySessionInformation(IntPtr.Zero, sessionId, infoClass, out var buffer, out _) || buffer == IntPtr.Zero)
             return null;
         try { return Marshal.PtrToStringUni(buffer); }
         finally { WTSFreeMemory(buffer); }
