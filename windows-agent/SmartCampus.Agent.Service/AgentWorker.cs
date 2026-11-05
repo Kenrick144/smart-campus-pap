@@ -62,8 +62,10 @@ public sealed class AgentWorker(
             PipeResponse result;
             try
             {
+                string? pipeClientName = null;
+                pipe.RunAsClient(() => { using var clientIdentity = WindowsIdentity.GetCurrent(); pipeClientName = clientIdentity.Name; });
                 var command = JsonSerializer.Deserialize<PipeCommand>(line) ?? throw new InvalidDataException("Pedido vazio.");
-                result = await HandleCommandAsync(command, token);
+                result = await HandleCommandAsync(command, pipeClientName, token);
             }
             catch (Exception exception)
             {
@@ -75,13 +77,15 @@ public sealed class AgentWorker(
         }
     }
 
-    private async Task<PipeResponse> HandleCommandAsync(PipeCommand command, CancellationToken token)
+    private async Task<PipeResponse> HandleCommandAsync(PipeCommand command, string? pipeClientName, CancellationToken token)
     {
         await _sessionLock.WaitAsync(token);
         try
         {
             var identity = windows.GetActiveConsoleIdentity();
             if (identity is null) return new PipeResponse(false, "Não foi detetada uma sessão Windows interativa.");
+            if (!string.Equals(pipeClientName, identity.QualifiedName, StringComparison.OrdinalIgnoreCase))
+                return new PipeResponse(false, "Apenas o utilizador da sessão Windows atual pode controlar esta sessão.");
             var allowedDomain = configuration.Settings.AllowedDomain;
             if (!string.Equals(identity.Domain, allowedDomain, StringComparison.OrdinalIgnoreCase))
                 return new PipeResponse(false, "Inicia sessão no Windows com a tua conta institucional.");
