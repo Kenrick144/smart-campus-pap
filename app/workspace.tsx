@@ -24,17 +24,17 @@ type CampusData = {
 };
 
 const navigation = [
-  { label: "Painel principal", icon: "◫", href: "/dashboard", roles: ["Administrador", "Professor", "Funcionário"] },
-  { label: "Utilizadores", icon: "♙", href: "/utilizadores", roles: ["Administrador"] },
-  { label: "Alunos", icon: "◎", href: "/alunos", roles: ["Administrador", "Professor"] },
+  { label: "Painel principal", icon: "◫", href: "/dashboard", roles: ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"] },
+  { label: "Utilizadores", icon: "♙", href: "/utilizadores", roles: ["Administrador", "Administrador Adjunto"] },
+  { label: "Alunos", icon: "◎", href: "/alunos", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
   { label: "Professores", icon: "♧", href: "/professor", roles: ["Administrador"] },
   { label: "Turmas", icon: "▤", href: "/turmas", roles: ["Administrador", "Professor"] },
   { label: "Disciplinas", icon: "▧", href: "/disciplinas", roles: ["Administrador", "Professor"] },
   { label: "Presenças", icon: "✓", href: "/presencas", roles: ["Administrador", "Professor"] },
   { label: "Horários", icon: "◷", href: "/horarios", roles: ["Administrador", "Professor", "Aluno", "Funcionário"] },
-  { label: "Salas", icon: "⌂", href: "/salas", roles: ["Administrador", "Funcionário"] },
+  { label: "Salas", icon: "⌂", href: "/salas", roles: ["Administrador", "Administrador Adjunto", "Funcionário"] },
   { label: "Computadores", icon: "▣", href: "/computadores", roles: ["Administrador", "Professor", "Funcionário"] },
-  { label: "Códigos QR", icon: "▦", href: "/qr-code", roles: ["Administrador", "Professor", "Aluno"] },
+  { label: "Códigos QR", icon: "▦", href: "/qr-code", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno"] },
   { label: "Relatórios", icon: "▥", href: "/relatorios", roles: ["Administrador", "Professor"] },
   { label: "Registos de atividade", icon: "≡", href: "/logs", roles: ["Administrador"] },
   { label: "Configurações", icon: "⚙", href: "/configuracoes", roles: ["Administrador"] },
@@ -67,7 +67,7 @@ const roleRoutes: Record<Role, string[]> = {
   Funcionário: ["/dashboard", "/funcionario", "/horarios", "/salas", "/computadores"],
 };
 
-const roles: Role[] = ["Administrador", "Professor", "Aluno", "Funcionário"];
+const roles: Role[] = ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"];
 
 const initialData: Record<string, RecordItem[]> = {
   "/utilizadores": [
@@ -163,7 +163,7 @@ const roleDestinations: Record<Role, string> = {
   Funcionário: "/funcionario",
 };
 
-export default function Workspace() {
+export default function Workspace({ children }: { children?: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [role, setRole] = useState<Role>("Administrador");
@@ -249,7 +249,7 @@ export default function Workspace() {
     );
   }, [records, search, statusFilter]);
   function changeRole(nextRole: Role) {
-    const demoName = nextRole === "Aluno" ? "João Silva" : nextRole === "Professor" ? "Maria Santos" : nextRole === "Funcionário" ? "Carlos Almeida" : "Alexandra Costa";
+    const demoName = nextRole === "Aluno" ? "João Silva" : nextRole === "Professor" ? "Maria Santos" : nextRole === "Funcionário" ? "Carlos Almeida" : nextRole === "Administrador Adjunto" ? "Administrador Adjunto" : "Alexandra Costa";
     const currentSession = readDemoSession() ?? { role, name: profileName, remember: true };
     const nextSession: DemoSession = {
       ...currentSession,
@@ -447,7 +447,7 @@ export default function Workspace() {
         </nav>
         <div className="sidebar-bottom">
           <Link className="help-card" href="/configuracoes"><span className="help-icon">?</span><span><strong>Precisa de ajuda?</strong><small>Consulte o guia do campus</small></span><span>↗</span></Link>
-          <button className="profile-card" onClick={signOut}><span className="avatar avatar-purple">{role === "Administrador" ? "AC" : role === "Professor" ? "MS" : role === "Aluno" ? "JS" : "CA"}</span><span className="profile-text"><strong>{profileName}</strong><small>{role}</small></span><span className="profile-menu">⋯</span></button>
+          <button className="profile-card" onClick={signOut}><span className="avatar avatar-purple">{role === "Administrador" ? "AC" : role === "Administrador Adjunto" ? "AA" : role === "Professor" ? "MS" : role === "Aluno" ? "JS" : "CA"}</span><span className="profile-text"><strong>{profileName}</strong><small>{role}</small></span><span className="profile-menu">⋯</span></button>
         </div>
       </aside>
 
@@ -499,6 +499,7 @@ export default function Workspace() {
               setQrCode={setQrCode}
             />
           )}
+          {pathname === "/computadores" && children}
         </div>
       </section>
 
@@ -518,7 +519,7 @@ function PageHeading({ eyebrow, title, description, action }: { eyebrow?: string
 }
 
 function Dashboard({ role, profileName, period, setPeriod, campusData }: { role: Role; profileName: string; period: string; setPeriod: (value: string) => void; campusData: CampusData }) {
-  const isAdmin = role === "Administrador";
+  const isAdmin = role === "Administrador" || role === "Administrador Adjunto";
   return <>
     <PageHeading eyebrow="RESUMO DIÁRIO DO CAMPUS" title={`Bom dia, ${profileName.split(" ")[0]} 👋`} description={isAdmin ? "Aqui está o resumo do que está a acontecer no campus hoje." : role === "Professor" ? "Consulte as suas turmas, horários e presenças num só lugar." : "Veja o estado das salas e equipamentos do campus."} action={<button className="button button-secondary" onClick={() => window.print()}>↓ <span>Exportar resumo</span></button>} />
     {isAdmin ? <AdminDashboard period={period} setPeriod={setPeriod} campusData={campusData} /> : role === "Professor" ? <TeacherDashboard /> : <StaffPage />}
