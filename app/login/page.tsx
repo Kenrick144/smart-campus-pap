@@ -6,7 +6,7 @@ import Link from "next/link";
 import { readDemoSession, writeDemoSession } from "../lib/session";
 import { getSupabaseErrorMessage, isSupabaseConfigured, supabase } from "../lib/supabase";
 
-const profiles = ["Administrador", "Professor", "Aluno", "Funcionário"] as const;
+const profiles = ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"] as const;
 type Profile = (typeof profiles)[number];
 
 const roleDestinations: Record<Profile, string> = {
@@ -16,12 +16,12 @@ const roleDestinations: Record<Profile, string> = {
   Funcionário: "/funcionario",
 };
 
-function normalizeProfile(value: string | undefined): Profile {
+function normalizeProfile(value: string | undefined): Profile | null {
   switch (value?.toLocaleLowerCase("pt-PT")) {
     case "administrador":
     case "admin":
       return "Administrador";
-    case "professor":
+    case "administrador adjunto":\n      return "Administrador Adjunto";\n    case "professor":
       return "Professor";
     case "aluno":
       return "Aluno";
@@ -90,50 +90,36 @@ export default function LoginPage() {
           return;
         }
 
-        const normalizedEmail = email.trim().toLocaleLowerCase("pt-PT");
-        const { data: userData } = await supabase.auth.getUser();
+        const { data: userData, error: userError } = await supabase.auth.getUser();
         const currentUser = userData?.user;
-
-        let { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("full_name, role")
-          .ilike("email", normalizedEmail)
-          .maybeSingle();
-
-        if (profileError) {
-          console.error("Não foi possível carregar o perfil do utilizador.", profileError);
-        }
-
-        if (!profile?.role && currentUser?.id) {
-          const fallbackRole = inferRoleFromEmail(normalizedEmail);
-          const suggestedName = normalizedEmail.split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (value) => value.toLocaleUpperCase("pt-PT"));
-          const { data: createdProfile, error: insertError } = await supabase
-            .from("profiles")
-            .insert({
-              id: currentUser.id,
-              full_name: suggestedName,
-              email: normalizedEmail,
-              role: fallbackRole,
-            })
-            .select("full_name, role")
-            .single();
-
-          if (insertError) {
-            console.error("Não foi possível criar o perfil do utilizador.", insertError);
-            setError("A conta foi autenticada, mas não foi possível associar o perfil do utilizador.");
-            return;
-          }
-
-          profile = createdProfile;
-        }
-
-        if (!profile?.role) {
-          setError("Esta conta ainda não está associada a nenhum perfil de utilizador.");
+        if (userError || !currentUser?.id) {
+          setError("Não foi possível confirmar a identidade da conta autenticada.");
           return;
         }
 
-        resolvedRole = normalizeProfile(profile.role);
-        resolvedName = typeof profile.full_name === "string" && profile.full_name.trim() ? profile.full_name : demoNames[resolvedRole];
+        const { data: profile, error: profileError } = await supabase
+          .from("users")
+          .select("name, role, status")
+          .eq("id", currentUser.id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error("Não foi possível carregar o perfil institucional.", profileError);
+          setError("Não foi possível consultar o perfil institucional. Contacta o administrador.");
+          return;
+        }
+        if (!profile || profile.status !== "Ativo") {
+          setError("A conta não tem um perfil institucional ativo no Smart Campus.");
+          return;
+        }
+
+        const accountRole = normalizeProfile(profile.role);
+        if (!accountRole) {
+          setError("O perfil desta conta não tem permissões de acesso à plataforma.");
+          return;
+        }
+        resolvedRole = accountRole;
+        resolvedName = typeof profile.name === "string" && profile.name.trim() ? profile.name : demoNames[accountRole];
       } catch (authFailure) {
         setError(getSupabaseErrorMessage(authFailure));
         return;
