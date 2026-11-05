@@ -57,3 +57,14 @@ A migração `202611050001_pc_qr_user_code.sql` é aditiva e dirigida ao schema 
 - O agente Windows .NET 8 ainda não existe.
 - O logout Windows institucional e a verificação de sincronização OneDrive ainda exigem implementação no agente.
 - O fluxo existente de demonstração em localStorage não deve ser usado como prova de integração real.
+
+## Enrollment e impressão do QR
+
+O painel `/computadores` inclui o registo administrativo inicial:
+- Só Administrador e Administrador Adjunto podem consultar ou registar computadores.
+- Cada PC recebe um segredo aleatório individual; o servidor persiste apenas o hash SHA-256.
+- O segredo bruto é apresentado uma única vez e não faz parte do QR.
+- O QR contém apenas o URL público `/pc/{qr_public_id}` e pode ser impresso como etiqueta.
+- A operação depende da migração que cria `computadores.qr_public_id`; enquanto esta não estiver aplicada, a API devolve HTTP 503. Não aplicar a migração sem revisão e autorização.
+
+A instalação e armazenamento DPAPI da credencial ainda pertencem à fase do Windows Agent.
