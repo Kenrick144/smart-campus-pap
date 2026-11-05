@@ -76,3 +76,15 @@ Já foram acrescentados à branch:
 ## Rollout
 
 Não aplicar qualquer migração ao projeto ativo sem backup, revisão de SQL e aprovação explícita. Não fazer merge do PR Draft #2 até migração, API, testes e piloto estarem validados.
+
+## Enrollment administrativo — implementação inicial
+
+Implementado na branch `feature/pc-agent-foundation`:
+- `GET /api/pc/enrollment`: lista salas e computadores, apenas para utilizadores autenticados com perfil `Administrador` ou `Administrador Adjunto`.
+- `POST /api/pc/enrollment`: cria o registo em `computadores`, gera um segredo aleatório de 256 bits, guarda apenas o SHA-256 em `pc_device_credentials` e devolve o segredo bruto uma única vez.
+- O endpoint valida o JWT com Supabase Auth e confirma o perfil/estado diretamente em `public.users`; não confia em role enviada pelo browser nem em metadados editáveis.
+- O painel foi integrado em `/computadores`, permite selecionar sala, registar nome/inventário/marca/modelo, listar PCs, mostrar o QR permanente e imprimir a etiqueta QR.
+- A credencial não é colocada no QR. O instalador futuro do agente deverá guardá-la localmente com DPAPI.
+- Se a coluna `qr_public_id` ainda não existir, a API bloqueia o registo com HTTP 503 e indica que a migração está pendente.
+
+**Limites atuais:** o segredo é apresentado uma única vez no resultado da operação, mas ainda não existe instalador Windows/DPAPI para o guardar automaticamente. Não há ainda rotação de credencial, auditoria administrativa dedicada ou teste funcional com uma conta institucional real. A migração `202611050001_pc_qr_user_code.sql` continua por aplicar; não executar contra produção sem backup, revisão e autorização.
