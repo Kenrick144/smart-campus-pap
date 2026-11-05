@@ -98,3 +98,22 @@ A migração `202611020001_pc_agent_foundation.sql` não deve ser aplicada:
 - Não aplicar a migração inicial.
 - Não fazer merge do PR.
 - A branch de trabalho continua `feature/pc-agent-foundation`.
+
+
+## Resultado dos Supabase Advisors (2026-11-05)
+
+Consulta read-only aos advisors do projeto ativo:
+
+### Segurança
+- 4 tabelas com RLS ativo mas sem policies: `codigos_temporarios`, `pc_device_credentials`, `sessoes_computador` e `cursos`. Para as três tabelas do PC Agent, isto bloqueia o acesso direto via Data API por omissão; o agente deve operar por rotas server-side e credenciais privilegiadas nunca podem chegar ao browser.
+- Aviso: proteção de palavras-passe comprometidas (HaveIBeenPwned) está desativada no Supabase Auth. Recomenda-se avaliar e ativar no projeto.
+- Remediação do linter RLS: https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy
+- Proteção de palavras-passe: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+
+### Desempenho
+- O advisor reporta 19 foreign keys sem índice de cobertura, várias em tabelas escolares. Devem ser priorizadas por consulta/carga real, sem criar índices indiscriminadamente.
+- Foram sinalizadas policies que reavaliam chamadas `auth.*` por linha e múltiplas policies permissivas em algumas tabelas. São recomendações de otimização; não foram alteradas nesta tarefa.
+- A revisão de índices/RLS global da escola fica fora do âmbito imediato do PC Agent, mas deve ser tratada antes de produção.
+- Remediação para auth initplan: https://supabase.com/docs/guides/database/database-linter?lint=0003_auth_rls_initplan
+
+Nenhuma recomendação dos advisors foi aplicada. A auditoria continua exclusivamente de leitura.
