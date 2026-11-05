@@ -88,7 +88,14 @@ public sealed class AgentWorker(
 
             if (string.Equals(command.Action, "start", StringComparison.OrdinalIgnoreCase))
             {
-                if (_activeSession is not null && !string.Equals(identity.QualifiedName, _windowsUser, StringComparison.OrdinalIgnoreCase))\n                {\n                    await api.EndAsync(_activeSession.SessionId, "timeout", token);\n                    _activeSession = null;\n                    _windowsUser = null;\n                    stateStore.Clear();\n                }\n                if (_activeSession is not null) return new PipeResponse(false, "Este computador já tem uma sessão Smart Campus ativa.");
+                if (_activeSession is not null && !string.Equals(identity.QualifiedName, _windowsUser, StringComparison.OrdinalIgnoreCase))
+                {
+                    await api.EndAsync(_activeSession.SessionId, "timeout", token);
+                    _activeSession = null;
+                    _windowsUser = null;
+                    stateStore.Clear();
+                }
+                if (_activeSession is not null) return new PipeResponse(false, "Este computador já tem uma sessão Smart Campus ativa.");
                 if (command.Code is null || command.Code.Length != 6 || command.Code.Any(c => c is < '0' or > '9'))
                     return new PipeResponse(false, "Introduz um código de seis dígitos.");
                 var session = await api.StartAsync(command.Code, token);
@@ -108,7 +115,9 @@ public sealed class AgentWorker(
 
             if (string.Equals(command.Action, "logout", StringComparison.OrdinalIgnoreCase))
             {
-                if (_activeSession is null) return new PipeResponse(false, "Não existe sessão Smart Campus ativa.");\n                if (!string.Equals(identity.QualifiedName, _windowsUser, StringComparison.OrdinalIgnoreCase))\n                    return new PipeResponse(false, "A sessão ativa pertence a outro utilizador Windows. Contacta o responsável IT.");
+                if (_activeSession is null) return new PipeResponse(false, "Não existe sessão Smart Campus ativa.");
+                if (!string.Equals(identity.QualifiedName, _windowsUser, StringComparison.OrdinalIgnoreCase))
+                    return new PipeResponse(false, "A sessão ativa pertence a outro utilizador Windows. Contacta o responsável IT.");
                 var ended = await api.EndAsync(_activeSession.SessionId, "desligado", token);
                 if (!ended) return new PipeResponse(false, "A sessão Smart Campus já não está ativa.");
                 var loggedOff = windows.Logoff(identity.SessionId);
