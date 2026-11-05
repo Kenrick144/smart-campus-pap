@@ -88,3 +88,19 @@ Implementado na branch `feature/pc-agent-foundation`:
 - Se a coluna `qr_public_id` ainda não existir, a API bloqueia o registo com HTTP 503 e indica que a migração está pendente.
 
 **Limites atuais:** o segredo é apresentado uma única vez no resultado da operação, mas ainda não existe instalador Windows/DPAPI para o guardar automaticamente. Não há ainda rotação de credencial, auditoria administrativa dedicada ou teste funcional com uma conta institucional real. A migração `202611050001_pc_qr_user_code.sql` continua por aplicar; não executar contra produção sem backup, revisão e autorização.
+
+## Windows Agent — primeira implementação .NET 8
+
+Foi criada uma solução inicial em `windows-agent/SmartCampus.Agent.sln`:
+- Serviço Windows LocalSystem, sem UI na Session 0.
+- Launcher WinForms separado para código de seis dígitos e logout.
+- Ferramenta de provisioning para proteger o segredo do dispositivo com DPAPI LocalMachine e ACL NTFS.
+- Cliente HTTPS para start/end/heartbeat; heartbeat a cada 30 segundos.
+- Named Pipe local com verificação de que o cliente é o utilizador da sessão de consola Windows.
+- Estado da sessão persistido cifrado com DPAPI para recuperação após reinício do serviço.
+- Logout termina primeiro a sessão Smart Campus e depois solicita logout da sessão de consola através de WTS.
+- Scripts PowerShell de instalação/remoção e workflow Windows .NET 8.
+
+Guia de build e instalação: [PC-AGENT-WINDOWS.md](./PC-AGENT-WINDOWS.md).
+
+**Não considerar pronto para produção:** ainda falta CI verde de compilação .NET, teste num PC Windows real, confirmação do domínio institucional com IT e associação forte entre a identidade Windows/Entra ID e a conta Smart Campus. O suporte a RDP/multi-sessão e retry/backoff exponencial também está pendente. A migração Supabase não foi aplicada.
