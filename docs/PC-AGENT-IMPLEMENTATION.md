@@ -1,63 +1,65 @@
-> **Architecture update (2026-11-05):** The approved C+E, QR Code, Microsoft 365 and OneDrive decisions, Windows identity boundary, pilot plan and acceptance criteria are now documented in [PC-AGENT-ARCHITECTURE.md](./PC-AGENT-ARCHITECTURE.md). Treat that document as the source of truth where this foundation note is less specific. In particular, do not apply the proposed SQL migration until the live schema is inspected; the Smart Campus code does not replace Windows/Microsoft credentials; and the physical QR identifies a computer but does not grant access.
+# Smart Campus PC Agent — estado de implementação
 
-# Smart Campus PC Agent — implementation foundation
+> **Estado em 2026-11-05:** fundação documental e rotas iniciais existem na branch, mas ainda não constituem um agente Windows funcional. A auditoria ao Supabase encontrou incompatibilidades críticas; a migração SQL desta branch está marcada como **NÃO APLICAR**.
 
-## Confirmed product decisions
+## Decisões finais confirmadas
 
-- Supported workstation OS: Windows 11 Pro.
-- Sign-in roles: students, teachers and staff.
-- Temporary access code: six digits, single-use, expires after **10 minutes**.
-- Approved applications to expose in the managed workstation experience: Microsoft Edge, Microsoft Word, Microsoft Excel and Visual Studio Code.
-- The administrator and deputy administrator manage device enrollment and policy; they do not need a student access code.
+- Windows 11 Pro.
+- QR permanente físico, único por computador.
+- Autenticação Windows com conta institucional individual.
+- O código Smart Campus autoriza apenas a sessão do PC; não substitui o login Windows.
+- No fim, terminar sessão Windows e libertar o PC.
+- Nunca eliminar documentos pessoais ou OneDrive com sincronização pendente.
+- Aplicações pretendidas: Microsoft Edge, Word, Excel e Visual Studio Code.
+- Perfis que devem poder usar PCs: Aluno, Professor e Funcionário.
+- Administrador e Administrador Adjunto gerem o enrollment e as políticas conforme permissões server-side.
 
-## What this change delivers
+## Estado real do trabalho
 
-1. A server-only Supabase service-role client. The service-role key is never sent to the browser.
-2. `POST /api/pc/codes`: authenticated users with an allowed profile can request a one-time code. The API checks the Supabase Auth bearer token, checks the profile in `profiles`, enforces a limit of five codes per user in 15 minutes, stores only a SHA-256 hash and returns the plaintext code once.
-3. `POST /api/pc/agent/start`: a workstation agent authenticates with its per-device key and submits its computer UUID plus the six-digit code. The database function validates the device, code expiry, single-use state and active-session constraint in one transaction.
-4. `POST /api/pc/agent/end`: the enrolled workstation ends its own active session. The database returns the computer to `Livre`.
-5. The migration adds device metadata and the server-managed code/session tables without dropping or renaming existing tables.
+### Já existe na branch
+1. Cliente Supabase administrativo server-only.
+2. Rotas iniciais para códigos e início/fim de sessão do agente.
+3. Documentação de arquitetura e implementação.
+4. PR Draft #2 e issues de acompanhamento.
 
-## Required environment
+### Encontrado no Supabase ativo
+A auditoria de leitura identificou as tabelas `users`, `computadores`, `codigos_temporarios`, `sessoes_computador` e `pc_device_credentials`. Existem as funções `issue_pc_temporary_code` e `start_pc_session`. O schema real usa `users`, não `profiles`; computadores, códigos e sessões já existem e não devem ser duplicados.
 
-Set these values in the deployment environment:
+Relatório completo: [PC-AGENT-SUPABASE-AUDIT.md](./PC-AGENT-SUPABASE-AUDIT.md).
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` (existing browser client)
-- `SUPABASE_SERVICE_ROLE_KEY` (**server only; never prefix with NEXT_PUBLIC_**)
+## Bloqueios técnicos conhecidos
 
-## Database rollout
+- A migração `202611020001_pc_agent_foundation.sql` pressupõe `computers` e `profiles`, cria tabelas duplicadas e referencia colunas inexistentes. **Não aplicar.**
+- `/api/pc/codes` consulta `profiles`, não associa o código ao computador e não usa a função transacional existente.
+- As funções atuais de código/sessão só suportam Aluno; é necessário generalizar o modelo com segurança para Professor e Funcionário.
+- Não existe ainda um QR permanente integrado ao registo de computador.
+- A credencial do dispositivo já tem uma tabela própria (`pc_device_credentials`); reutilizá-la em vez de criar outra.
+- As rotas atuais chamam RPCs que não correspondem às funções reais da base ativa.
+- Não existe ainda Windows Agent .NET nem integração real com Windows sign-in, logout ou OneDrive.
+- A UI `/pc` continua em modo demo local e não está ligada a estas APIs.
 
-Apply `supabase/migrations/202611020001_pc_agent_foundation.sql` to the existing Supabase project after taking a backup. Do not rerun the legacy `supabase/schema.sql` against an established database.
+## Próximas fases obrigatórias
 
-For each school PC, generate a unique random device key (at least 32 bytes), store the raw key in the Windows Agent's protected local configuration, and store only its lowercase SHA-256 hex digest in `computers.agent_secret_hash`. Do not reuse a key between computers. Restrict database access to administrators/authorized IT staff when enrolling devices.
+1. **Modelo de dados aditivo:** identificador público imutável para QR; associar cada código ao computador solicitado; generalizar proprietário e sessão para os três perfis autorizados sem perder validações específicas de matrícula do Aluno.
+2. **Segurança Supabase:** rever grants e EXECUTE, políticas RLS, advisors, concorrência e rollback. Não usar SECURITY DEFINER público como atalho.
+3. **API:** usar `users` e funções transacionais reais; validar Supabase Auth, estado do utilizador, perfil, computador, credencial de agente, expiração, single-use e associação código/PC.
+4. **QR e enrollment:** gerar URL HTTPS pública com ID opaco; enrollment administrativo gera segredo único por PC, guarda hash no servidor e segredo local protegido por DPAPI.
+5. **Windows Agent:** .NET 8 Windows Service + launcher interativo em sessão de utilizador; serviço não deve mostrar UI diretamente (Session 0).
+6. **Autenticação institucional:** iniciar na sessão Windows institucional já autenticada; confirmar Entra ID/tenant/licenças e política com IT da escola.
+7. **Logout seguro:** terminar sessão Windows através de mecanismo suportado; verificar sincronização OneDrive antes de qualquer limpeza; não apagar documentos do utilizador.
+8. **Controlo de aplicações:** testar Assigned Access/AppLocker/WDAC em PC piloto e obter aprovação de IT.
+9. **Integração UI e piloto:** remover fluxo demo/localStorage apenas depois de APIs reais, testes e plano de rollback estarem prontos.
 
-## Windows agent design (next implementation step)
+## Critérios de aceitação
 
-Build a signed .NET 8 Windows Worker Service and install it as a Windows Service. It should:
+- QR permanente não dá acesso por si só e não contém segredos.
+- Código de 6 dígitos, uso único, validade de 600 segundos, vinculado a um único PC.
+- Aluno, Professor e Funcionário são autorizados apenas quando o respetivo estado e regras escolares são válidos.
+- Uma sessão ativa por computador; consumo do código e criação da sessão são atómicos.
+- O agente só aceita a credencial do seu próprio dispositivo, armazenada localmente com DPAPI.
+- O logout termina a sessão Windows sem apagar documentos nem dados OneDrive pendentes.
+- Logs não incluem códigos, tokens, passwords ou dados pessoais desnecessários.
 
-- identify itself with the enrolled `computer_id` and device key;
-- present a six-digit code at the Windows sign-in/launcher screen and call the start endpoint;
-- use Windows account/session controls rather than attempting to replace Windows authentication with a web page;
-- launch only the approved applications (Edge, Word, Excel and VS Code) according to the school's Microsoft 365 and software licences;
-- send periodic heartbeats and end the server session on sign-out, idle timeout or administrator action;
-- keep the device key in Windows-protected storage (DPAPI), never in source code or logs.
+## Rollout
 
-The API foundation in this branch is not, by itself, a complete Windows kiosk/lockdown implementation. Enforce application restrictions with Windows policies (Assigned Access/AppLocker/WDAC as appropriate) after testing on a pilot PC. Avoid terminating unrelated processes or locking down school PCs until IT has approved the policy.
-
-## Important integration follow-ups
-
-- Connect the existing Smart Campus code-generation UI to `POST /api/pc/codes`, passing the active Supabase access token.
-- Remove the demo `localStorage` code path from production flows.
-- Replace the current client-side `changeRole` profile switch with server-authenticated role resolution.
-- Rework the generic whole-table delete/reinsert persistence in `app/lib/supabase-data.ts` before enabling concurrent production edits.
-- Complete RLS policies for the existing school tables and the five exact roles before production deployment.
-- Enroll PCs and provision their individual device-key hashes before agent authentication can succeed.
-
-## Security notes
-
-- Codes are stored as hashes, expire after ten minutes, and are consumed once.
-- Device keys are checked by hash; each device must have a different secret.
-- Session creation locks the computer and code rows and has a unique partial index preventing two active sessions on the same PC.
-- The service-role secret is used only by server route handlers.
-- Do not expose the full database error to end users in production; replace it with safe public error codes once the client UI is integrated.
+Não aplicar qualquer migração ao projeto ativo sem backup, revisão de SQL e aprovação explícita. Não fazer merge do PR Draft #2 até migração, API, testes e piloto estarem validados.
