@@ -80,6 +80,13 @@ begin
     raise exception 'COMPUTER_NOT_AVAILABLE' using errcode = 'P0001';
   end if;
 
+  if exists (
+    select 1 from public.sessoes_computador s
+    where s.computador_id = p_computador_id and s.ended_at is null
+  ) then
+    raise exception 'COMPUTER_IN_USE' using errcode = 'P0001';
+  end if;
+
   select u.role into v_role
   from public.users u
   where u.id = p_user_id and u.status = 'Ativo';
