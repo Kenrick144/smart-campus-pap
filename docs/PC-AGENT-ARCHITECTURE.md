@@ -4,22 +4,22 @@
 
 - Sistema operativo dos postos: Windows 11 Pro.
 - Modelo: modo de utilização controlado (C) + identidade/perfil individual por utilizador (E).
-- Identificação obrigatória do posto: QR Code permanente, único por computador.
+- Identificação obrigatória do posto: QR Code permanente, único por computador, em autocolante físico.
 - Autorização da sessão Smart Campus: código de 6 dígitos, uso único, validade de 10 minutos.
 - Perfis autorizados a utilizar PCs: Aluno, Professor e Funcionário.
 - Gestão/enrollment: Administrador e Administrador Adjunto, de acordo com permissões server-side.
 - Aplicações pretendidas: Microsoft Edge, Word, Excel e Visual Studio Code.
-- Documentos: armazenamento local pessoal + OneDrive.
+- Documentos: armazenamento local pessoal + OneDrive individual; nunca apagar documentos OneDrive que não estejam sincronizados.
 - Microsoft 365 disponível na escola; plano/licenças, tenant, Entra ID e políticas de dispositivo ainda por confirmar.
 - Quantidade inicial de computadores: desconhecida. A solução deve ser configurável por dispositivo e começar com um piloto.
 
 ## 2. Princípio de identidade: três camadas distintas
 
-1. **Identidade Smart Campus** — Supabase Auth identifica o utilizador da aplicação; o perfil é lido de fonte server-side confiável.
-2. **Identidade Windows/Microsoft 365** — Windows e OneDrive precisam de uma identidade Windows/Microsoft por utilizador para criar perfis separados e sincronizar os ficheiros pessoais.
+1. **Identidade Smart Campus** — Supabase Auth identifica o utilizador; o perfil e as permissões são confirmados no servidor através de `public.users`, nunca por um seletor de perfil no browser.
+2. **Identidade Windows/Microsoft 365** — cada utilizador inicia sessão com a sua própria conta institucional Windows/Microsoft. O MVP pressupõe que a escola disponibiliza um método institucional compatível (por exemplo, Microsoft Entra ID); tenant, licenças e políticas têm de ser confirmados com IT.
 3. **Identidade do dispositivo** — cada PC Agent possui um identificador e segredo exclusivos, guardado no Windows com DPAPI; o servidor guarda apenas o hash do segredo.
 
-O código Smart Campus autoriza a sessão de utilização do posto. Não é uma palavra-passe Microsoft, não é uma credencial Windows e não deve ser usado como tal. Com o requisito "autenticação: code", o utilizador não precisa de uma segunda palavra-passe dentro do fluxo Smart Campus depois de já estar autenticado na aplicação; contudo, o Windows continua a precisar de uma sessão de utilizador segura. Para contas Windows individuais, a primeira versão deve usar a identidade institucional já aprovada pela escola (idealmente Microsoft Entra ID/Windows sign-in, se o tenant e licenças o permitirem). Não guardar palavras-passe Windows no Smart Campus nem no agente. Um Credential Provider personalizado para substituir o login Windows por um código de seis dígitos fica fora do MVP e exige desenho de segurança próprio.
+**Decisão final do utilizador:** autenticação Windows institucional individual. O código temporário Smart Campus apenas autoriza o uso daquele computador e não substitui nem desbloqueia a autenticação Windows. Não guardar palavras-passe Windows no Smart Campus nem no agente. A implementação do MVP deve começar numa sessão Windows institucional já autenticada; um Credential Provider personalizado não faz parte desta fase.
 
 ## 3. QR Code e autorização
 
@@ -167,3 +167,11 @@ A migração atual `202611020001_pc_agent_foundation.sql` pressupõe colunas em 
 5. "Microsoft 365 disponível" não confirma licença OneDrive para cada utilizador, Entra ID/Intune nem políticas de dispositivos.
 6. O método de autenticação Windows individual precisa de ser confirmado com a escola; código Smart Campus não substitui credenciais Windows.
 7. Número de computadores é desconhecido; implementar enrollment por dispositivo e configuração sem pressupor quantidade.
+
+
+## 10. Decisões finais confirmadas (2026-11-05)
+
+- **QR:** permanente e físico, colado no computador. Deve conter URL HTTPS e identificador público opaco; não contém segredo, token do agente nem código de acesso.
+- **Autenticação Windows:** conta institucional individual. Para o MVP, o utilizador já deve ter uma sessão Windows institucional autenticada antes de autorizar o PC no Smart Campus.
+- **Fim da utilização:** terminar sessão Windows e fechar a sessão Smart Campus. Não apagar perfil, pasta OneDrive nem ficheiros pessoais enquanto houver sincronização pendente.
+- **Base de dados:** consultar obrigatoriamente [PC-AGENT-SUPABASE-AUDIT.md](./PC-AGENT-SUPABASE-AUDIT.md). A migração inicial desta branch está marcada como não aplicável ao schema ativo e não pode ser executada.
