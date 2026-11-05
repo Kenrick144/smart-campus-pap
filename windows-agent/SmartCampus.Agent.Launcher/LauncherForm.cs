@@ -63,7 +63,7 @@ public sealed class LauncherForm : Form
                 _logout.Enabled = true;
             }
             if (result.Ok && action == "logout") Close();
-            if (!result.Ok) _start.Enabled = true;
+            if (!result.Ok)\n            {\n                _start.Enabled = action == "start";\n                _logout.Enabled = action == "logout";\n            }
         }
         catch (Exception exception)
         {
