@@ -93,12 +93,22 @@ export default function PcEnrollmentPanel() {
 
   async function printQr(qrUrl: string, label: string) {
     const printWindow = window.open("", "_blank");
-    if (!printWindow) { setError("Permite janelas de pop-up para imprimir o QR."); return; }
+    if (!printWindow) {
+      setError("Permite janelas de pop-up para imprimir o QR.");
+      return;
+    }
     try {
       const image = await QRCode.toDataURL(qrUrl, { width: 480, margin: 2, errorCorrectionLevel: "H" });
-      printWindow.document.write(`<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>QR - ${label}</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:32px}img{width:320px;height:320px}h1{font-size:22px}p{font-size:13px;color:#555}</style></head><body><h1>${label}</h1><img src="${image}" alt="Código QR permanente"><p>Smart Campus · Identificação do computador</p><script>window.onload=()=>window.print()<\\/script></body></html>`);
+      const entities: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+      const safeLabel = label.replace(/[&<>"']/g, (character) => entities[character] ?? character);
+      const html = "<!doctype html><html lang=\"pt\"><head><meta charset=\"utf-8\"><title>QR - " + safeLabel + "</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:32px}img{width:320px;height:320px}h1{font-size:22px}p{font-size:13px;color:#555}</style></head><body><h1>" + safeLabel + "</h1><img src=\"" + image + "\" alt=\"Código QR permanente\"><p>Smart Campus · Identificação do computador</p></body></html>";
+      printWindow.onload = () => printWindow.print();
+      printWindow.document.write(html);
       printWindow.document.close();
-    } catch { printWindow.close(); setError("Não foi possível gerar a versão para impressão."); }
+    } catch {
+      printWindow.close();
+      setError("Não foi possível gerar a versão para impressão.");
+    }
   }
 
   async function copySecret() {
