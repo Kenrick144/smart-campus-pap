@@ -346,4 +346,9 @@ grant execute on function public.issue_pc_temporary_code(uuid, uuid, text, times
 grant execute on function public.pc_agent_start_session(uuid, text, text) to service_role;
 grant execute on function public.pc_agent_end_session(uuid, uuid, text, text) to service_role;
 
+-- Disable the legacy student-only RPC signatures. All application calls must
+-- use the new per-computer, all-eligible-user RPCs above.
+revoke all on function public.issue_pc_temporary_code(uuid, text, timestamptz) from public, anon, authenticated, service_role;
+revoke all on function public.start_pc_session(uuid, text) from public, anon, authenticated, service_role;
+
 commit;
