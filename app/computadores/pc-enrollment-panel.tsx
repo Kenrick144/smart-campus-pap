@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { QrImage } from "@/app/qr-tools";
+import QRCode from "qrcode";
 import { supabase, isSupabaseConfigured } from "@/app/lib/supabase";
 
 type Room = { id: string; nome: string };
@@ -90,7 +91,7 @@ export default function PcEnrollmentPanel() {
     }
   }
 
-  async function copySecret() {
+  async function printQr(qrUrl: string, label: string) {\n    const printWindow = window.open("", "_blank");\n    if (!printWindow) { setError("Permite janelas de pop-up para imprimir o QR."); return; }\n    try {\n      const image = await QRCode.toDataURL(qrUrl, { width: 480, margin: 2, errorCorrectionLevel: "H" });\n      printWindow.document.write(`<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>QR - ${label}</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:32px}img{width:320px;height:320px}h1{font-size:22px}p{font-size:13px;color:#555}</style></head><body><h1>${label}</h1><img src="${image}" alt="Código QR permanente"><p>Smart Campus · Identificação do computador</p><script>window.onload=()=>window.print()<\\/script></body></html>`);\n      printWindow.document.close();\n    } catch { printWindow.close(); setError("Não foi possível gerar a versão para impressão."); }\n  }\n\n  async function copySecret() {
     if (!enrollment) return;
     try {
       await navigator.clipboard.writeText(enrollment.device_secret);
@@ -121,7 +122,7 @@ export default function PcEnrollmentPanel() {
       {!loading && rooms.length === 0 && <p className="pc-muted">Não existem salas registadas. Cria primeiro uma sala.</p>}
 
       {enrollment && <div className="pc-enrollment-result">
-        <div><h3>{enrollment.computer.nome}</h3><p>QR permanente — imprime e cola no computador.</p><QrImage value={enrollment.qr_url} /><a href={enrollment.qr_url} target="_blank" rel="noreferrer">{enrollment.qr_url}</a></div>
+        <div><h3>{enrollment.computer.nome}</h3><p>QR permanente — imprime e cola no computador.</p><QrImage value={enrollment.qr_url} /><a href={enrollment.qr_url} target="_blank" rel="noreferrer">{enrollment.qr_url}</a><button type="button" className="pc-print" onClick={() => void printQr(enrollment.qr_url, enrollment.computer.nome)}>Imprimir QR</button></div>
         <div className="pc-secret"><strong>Credencial do agente — mostrar apenas agora</strong><code>{enrollment.device_secret}</code><button type="button" onClick={() => void copySecret()}>Copiar credencial</button><small>{enrollment.secret_notice} Guarda-a no PC através do instalador do agente, protegido por DPAPI. Não a coloques no QR.</small></div>
       </div>}
 
@@ -146,7 +147,7 @@ export default function PcEnrollmentPanel() {
         .pc-enrollment-result{display:grid;grid-template-columns:1fr 1.5fr;gap:18px;margin-top:20px;padding:18px;border:1px solid #cbd5e1;border-radius:12px}
         .pc-enrollment-result h3{margin:0 0 5px}.pc-enrollment-result p,.pc-secret small{font-size:12px;color:#667085}.pc-enrollment-result a{display:block;overflow-wrap:anywhere;font-size:12px}
         .pc-secret{display:grid;gap:10px;align-content:start}.pc-secret code{padding:12px;background:#f1f5f9;border-radius:8px;overflow-wrap:anywhere;color:#111827}
-        .pc-secret button{justify-self:start}.pc-list-heading{margin-top:24px}.pc-list-heading h3{font-size:16px}.pc-list-heading span,.pc-computer-row span{font-size:12px;color:#667085}
+        .pc-secret button{justify-self:start}.pc-print{margin-top:10px;border:1px solid #d7dce5;background:#fff;border-radius:9px;padding:8px 12px;cursor:pointer}.pc-list-heading{margin-top:24px}.pc-list-heading h3{font-size:16px}.pc-list-heading span,.pc-computer-row span{font-size:12px;color:#667085}
         .pc-computer-list{display:grid;gap:10px}.pc-computer-row{padding:12px 0;border-top:1px solid #edf0f4}.pc-computer-row>div:first-child{display:grid;gap:4px}
         .pc-tag{padding:5px 8px;border-radius:999px;background:#fff7ed;color:#9a3412!important}.pc-tag-ok{background:#ecfdf3;color:#176b3a!important}
         .pc-mini-qr{display:flex;align-items:center;gap:8px}.pc-mini-qr :global(.qr-preview){width:48px;height:48px}
