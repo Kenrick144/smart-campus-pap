@@ -62,8 +62,13 @@ public sealed class AgentWorker(
             try
             {
                 string? pipeClientName = null;
-                pipe.RunAsClient(() => { using var clientIdentity = WindowsIdentity.GetCurrent(); pipeClientName = clientIdentity.Name; });
-                var command = JsonSerializer.Deserialize<PipeCommand>(line) ?? throw new InvalidDataException("Pedido vazio.");
+                pipe.RunAsClient(() =>
+                {
+                    using var clientIdentity = WindowsIdentity.GetCurrent();
+                    pipeClientName = clientIdentity.Name;
+                });
+                var command = JsonSerializer.Deserialize<PipeCommand>(line)
+                    ?? throw new InvalidDataException("Pedido vazio.");
                 result = await HandleCommandAsync(command, pipeClientName, token);
             }
             catch (Exception exception)
@@ -82,7 +87,8 @@ public sealed class AgentWorker(
         try
         {
             var identity = windows.GetActiveConsoleIdentity();
-            if (identity is null) return new PipeResponse(false, "Não foi detetada uma sessão Windows interativa.");
+            if (identity is null)
+                return new PipeResponse(false, "Não foi detetada uma sessão Windows interativa.");
             if (!string.Equals(pipeClientName, identity.QualifiedName, StringComparison.OrdinalIgnoreCase))
                 return new PipeResponse(false, "Apenas o utilizador da sessão Windows atual pode controlar esta sessão.");
             var allowedDomain = configuration.Settings.AllowedDomain;
@@ -98,9 +104,11 @@ public sealed class AgentWorker(
                     _windowsUser = null;
                     stateStore.Clear();
                 }
-                if (_activeSession is not null) return new PipeResponse(false, "Este computador já tem uma sessão Smart Campus ativa.");
+                if (_activeSession is not null)
+                    return new PipeResponse(false, "Este computador já tem uma sessão Smart Campus ativa.");
                 if (command.Code is null || command.Code.Length != 6 || command.Code.Any(c => c is < '0' or > '9'))
                     return new PipeResponse(false, "Introduz um código de seis dígitos.");
+
                 var session = await api.StartAsync(command.Code, token);
                 if (session is null || string.IsNullOrWhiteSpace(session.SessionId))
                     return new PipeResponse(false, "O servidor não devolveu uma sessão válida.");
@@ -113,22 +121,46 @@ public sealed class AgentWorker(
                 _activeSession = session;
                 _windowsUser = identity.QualifiedName;
                 logger.LogInformation("Smart Campus session started for role {Role}.", session.UserRole);
-                return new PipeResponse(true, $"Sessão iniciada para {session.UserName}.", session);
+                return new PipeResponse(true, $"Sessão iniciada para {session.UserName}.");
             }
 
             if (string.Equals(command.Action, "logout", StringComparison.OrdinalIgnoreCase))
             {
-                if (_activeSession is null) return new PipeResponse(false, "Não existe sessão Smart Campus ativa.");
-                if (!string.Equals(identity.QualifiedName, _windowsUser, StringComparison.OrdinalIgnoreCase))
-                    return new PipeResponse(false, "A sessão ativa pertence a outro utilizador Windows. Contacta o responsável IT.");
-                var ended = await api.EndAsync(_activeSession.SessionId, "desligado", token);
-                if (!ended) return new PipeResponse(false, "A sessão Smart Campus já não está ativa.");
+                if (_activeSession is not null)
+                {
+                    if (!string.Equals(identity.QualifiedName, _windowsUser, StringComparison.OrdinalIgnoreCase))
+                        return new PipeResponse(false, "A sessão ativa pertence a outro utilizador Windows. Contacta o responsável IT.");
+                    var ended = await api.EndAsync(_activeSession.SessionId, "desligado", token);
+                    if (!ended)
+                        return new PipeResponse(false, "Não foi possível confirmar o fim da sessão Smart Campus.");
+                    _activeSession = null;
+                    _windowsUser = null;
+                    stateStore.Clear();
+                }
+
                 var loggedOff = windows.Logoff(identity.SessionId);
-                _activeSession = null;
-                _windowsUser = null;
-                stateStore.Clear();
-                if (!loggedOff) return new PipeResponse(false, "A sessão Smart Campus terminou, mas o Windows não confirmou o logout. Contacta o responsável IT.");
-                return new PipeResponse(true, "Sessão terminada. O Windows vai fechar a sessão institucional.");
+                if (!loggedOff)
+                    return new PipeResponse(false, "O Windows não confirmou o logout. Contacta o responsável IT.");
+                return new PipeResponse(true, "Sessão Windows terminada.");
+            }
+
+            if (string.Equals(command.Action, "shutdown", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_activeSession is not null)
+                {
+                    if (!string.Equals(identity.QualifiedName, _windowsUser, StringComparison.OrdinalIgnoreCase))
+                        return new PipeResponse(false, "A sessão ativa pertence a outro utilizador Windows. Contacta o responsável IT.");
+                    var ended = await api.EndAsync(_activeSession.SessionId, "desligado", token);
+                    if (!ended)
+                        return new PipeResponse(false, "Não foi possível confirmar o fim da sessão Smart Campus.");
+                    _activeSession = null;
+                    _windowsUser = null;
+                    stateStore.Clear();
+                }
+
+                if (!windows.Shutdown())
+                    return new PipeResponse(false, "O Windows não conseguiu iniciar o encerramento.");
+                return new PipeResponse(true, "O computador vai desligar.");
             }
 
             return new PipeResponse(false, "Comando desconhecido.");
@@ -174,5 +206,5 @@ public sealed class AgentWorker(
     }
 
     private sealed record PipeCommand(string Action, string? Code);
-    private sealed record PipeResponse(bool Ok, string Message, AgentSession? Session = null);
+    private sealed record PipeResponse(bool Ok, string Message);
 }
