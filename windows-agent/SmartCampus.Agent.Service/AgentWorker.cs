@@ -3,7 +3,6 @@ using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
-using System.IO.Pipes.AccessControl;
 using Microsoft.Extensions.Hosting;
 
 namespace SmartCampus.Agent.Service;
