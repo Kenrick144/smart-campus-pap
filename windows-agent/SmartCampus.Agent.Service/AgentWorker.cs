@@ -12,7 +12,8 @@ public sealed class AgentWorker(
     ILogger<AgentWorker> logger,
     AgentConfiguration configuration,
     SmartCampusApiClient api,
-    WindowsSession windows) : BackgroundService
+    WindowsSession windows,
+    AgentStateStore stateStore) : BackgroundService
 {
     private const string PipeName = "SmartCampusAgent";
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
@@ -24,6 +25,13 @@ public sealed class AgentWorker(
         try
         {
             _ = configuration.Settings;
+            var persisted = stateStore.Load();
+            if (persisted is not null)
+            {
+                _activeSession = persisted.Session;
+                _windowsUser = persisted.WindowsUser;
+                logger.LogInformation("Recovered a previously active Smart Campus session for Windows user {WindowsUser}.", _windowsUser);
+            }
             logger.LogInformation("Smart Campus PC Agent started for computer {ComputerId}.", configuration.Settings.ComputerId);
             await Task.WhenAll(ListenForCommandsAsync(stoppingToken), HeartbeatLoopAsync(stoppingToken));
         }
@@ -86,6 +94,12 @@ public sealed class AgentWorker(
                 var session = await api.StartAsync(command.Code, token);
                 if (session is null || string.IsNullOrWhiteSpace(session.SessionId))
                     return new PipeResponse(false, "O servidor não devolveu uma sessão válida.");
+                try { stateStore.Save(session, identity.QualifiedName); }
+                catch
+                {
+                    await api.EndAsync(session.SessionId, "erro", token);
+                    throw;
+                }
                 _activeSession = session;
                 _windowsUser = identity.QualifiedName;
                 logger.LogInformation("Smart Campus session started for Windows user {WindowsUser} with role {Role}.", _windowsUser, session.UserRole);
@@ -100,6 +114,7 @@ public sealed class AgentWorker(
                 var loggedOff = windows.Logoff(identity.SessionId);
                 _activeSession = null;
                 _windowsUser = null;
+                stateStore.Clear();
                 if (!loggedOff) return new PipeResponse(false, "A sessão Smart Campus terminou, mas o Windows não confirmou o logout. Contacta o responsável IT.");
                 return new PipeResponse(true, "Sessão terminada. O Windows vai fechar a sessão institucional.");
             }
@@ -125,6 +140,7 @@ public sealed class AgentWorker(
                     logger.LogWarning("Windows session changed or ended; Smart Campus session closed.");
                     _activeSession = null;
                     _windowsUser = null;
+                    stateStore.Clear();
                     continue;
                 }
 
@@ -134,6 +150,7 @@ public sealed class AgentWorker(
                     logger.LogWarning("Server reports no active Smart Campus session.");
                     _activeSession = null;
                     _windowsUser = null;
+                    stateStore.Clear();
                 }
             }
             catch (Exception exception)
