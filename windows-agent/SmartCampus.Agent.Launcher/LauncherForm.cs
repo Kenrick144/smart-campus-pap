@@ -63,16 +63,17 @@ public sealed class LauncherForm : Form
                 _logout.Enabled = true;
             }
             if (result.Ok && action == "logout") Close();
-            if (!result.Ok)\n            {\n                _start.Enabled = action == "start";\n                _logout.Enabled = action == "logout";\n            }
+            if (!result.Ok)
+            {
+                _start.Enabled = action == "start";
+                _logout.Enabled = action == "logout";
+            }
         }
         catch (Exception exception)
         {
             _status.Text = "Não foi possível contactar o serviço Smart Campus. Confirma que o agente está instalado e em execução. " + exception.Message;
-            _start.Enabled = true;
-        }
-        finally
-        {
-            if (!IsDisposed && !_logout.Enabled && _start.Enabled == false) _start.Enabled = true;
+            _start.Enabled = action == "start";
+            _logout.Enabled = action == "logout";
         }
     }
 
