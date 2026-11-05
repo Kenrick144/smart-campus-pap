@@ -33,7 +33,7 @@ const navigation = [
   { label: "Presenças", icon: "✓", href: "/presencas", roles: ["Administrador", "Professor"] },
   { label: "Horários", icon: "◷", href: "/horarios", roles: ["Administrador", "Professor", "Aluno", "Funcionário"] },
   { label: "Salas", icon: "⌂", href: "/salas", roles: ["Administrador", "Administrador Adjunto", "Funcionário"] },
-  { label: "Computadores", icon: "▣", href: "/computadores", roles: ["Administrador", "Professor", "Funcionário"] },
+  { label: "Computadores", icon: "▣", href: "/computadores", roles: ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"] },
   { label: "Códigos QR", icon: "▦", href: "/qr-code", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno"] },
   { label: "Relatórios", icon: "▥", href: "/relatorios", roles: ["Administrador", "Professor"] },
   { label: "Registos de atividade", icon: "≡", href: "/logs", roles: ["Administrador"] },
@@ -62,6 +62,7 @@ const pageNames: Record<string, string> = {
 
 const roleRoutes: Record<Role, string[]> = {
   Administrador: Object.keys(pageNames),
+  "Administrador Adjunto": ["/dashboard", "/salas", "/computadores", "/horarios"],
   Professor: ["/dashboard", "/alunos", "/turmas", "/disciplinas", "/presencas", "/horarios", "/computadores", "/qr-code", "/relatorios"],
   Aluno: ["/aluno", "/horarios", "/qr-code"],
   Funcionário: ["/dashboard", "/funcionario", "/horarios", "/salas", "/computadores"],
@@ -158,6 +159,7 @@ const primaryActions: Record<string, string> = {
 
 const roleDestinations: Record<Role, string> = {
   Administrador: "/dashboard",
+  "Administrador Adjunto": "/dashboard",
   Professor: "/dashboard",
   Aluno: "/aluno",
   Funcionário: "/funcionario",
