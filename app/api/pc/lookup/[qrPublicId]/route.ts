@@ -14,19 +14,29 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ qr
     const admin = getSupabaseAdmin();
     const { data: computer, error } = await admin
       .from("computadores")
-      .select("nome, estado, salas(nome)")
+      .select("id, nome, estado, salas(nome)")
       .eq("qr_public_id", qrPublicId)
       .maybeSingle();
 
     if (error) throw error;
     if (!computer) return NextResponse.json({ error: "Computador não encontrado." }, { status: 404 });
 
+    const { count, error: sessionError } = await admin
+      .from("sessoes_computador")
+      .select("id", { count: "exact", head: true })
+      .eq("computador_id", computer.id)
+      .is("ended_at", null);
+
+    if (sessionError) throw sessionError;
+    const available = computer.estado === "Operacional" && (count ?? 0) === 0;
+
     return NextResponse.json({
       computer: {
         name: computer.nome,
         room: computer.salas,
         inventory_state: computer.estado,
-        available_for_use: computer.estado === "Operacional",
+        available_for_use: available,
+        availability: available ? "Livre" : computer.estado !== "Operacional" ? "Indisponível" : "Ocupado",
       },
     }, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
