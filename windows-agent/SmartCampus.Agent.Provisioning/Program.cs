@@ -43,7 +43,7 @@ if (secret.Length != 64 || !secret.All(Uri.IsHexDigit))
 
 var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "SmartCampus");
 Directory.CreateDirectory(root);
-RunIcacls(root, "/inheritance:r", "/grant:r", "SYSTEM:(OI)(CI)F", "BUILTIN\\\\Administrators:(OI)(CI)F");
+RunIcacls(root, "/inheritance:r", "/grant:r", "SYSTEM:(OI)(CI)F", "BUILTIN\\Administrators:(OI)(CI)F");
 var secretPath = Path.Combine(root, "agent.secret");
 var configPath = Path.Combine(root, "agent.json");
 var clearBytes = Encoding.UTF8.GetBytes(secret);
