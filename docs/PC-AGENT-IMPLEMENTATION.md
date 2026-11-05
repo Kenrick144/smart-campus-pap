@@ -38,6 +38,19 @@ Relatório completo: [PC-AGENT-SUPABASE-AUDIT.md](./PC-AGENT-SUPABASE-AUDIT.md).
 - Não existe ainda Windows Agent .NET nem integração real com Windows sign-in, logout ou OneDrive.
 - A UI `/pc` continua em modo demo local e não está ligada a estas APIs.
 
+## Implementação QR → código (branch feature, ainda sem migração aplicada)
+
+Já foram acrescentados à branch:
+- Migração aditiva `202611050001_pc_qr_user_code.sql`: identificador QR público permanente, associação do código ao computador e suporte user_id para Aluno/Professor/Funcionário.
+- `GET /api/pc/lookup/{qrPublicId}`: consulta pública do posto, incluindo ocupação ativa.
+- `POST /api/pc/codes`: valida Supabase Auth, resolve o QR, valida perfil e emite código de seis dígitos, 10 minutos, uso único, ligado ao computador.
+- `POST /api/pc/agent/start`: valida credencial do dispositivo e código para o mesmo computador numa função transacional.
+- `POST /api/pc/agent/end`: valida o dispositivo e termina a sessão Smart Campus.
+- Página `/pc/{qrPublicId}`: apresenta o computador e permite gerar/copiar o código.
+- Documento de fluxo: [PC-AGENT-QR-FLOW.md](./PC-AGENT-QR-FLOW.md).
+
+**Atenção:** estes ficheiros estão apenas na branch. A migração não foi aplicada; o fluxo não pode ser usado em produção até à revisão SQL, staging e configuração de enrollment de credenciais individuais.
+
 ## Próximas fases obrigatórias
 
 1. **Modelo de dados aditivo:** identificador público imutável para QR; associar cada código ao computador solicitado; generalizar proprietário e sessão para os três perfis autorizados sem perder validações específicas de matrícula do Aluno.
