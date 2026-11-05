@@ -1,3 +1,12 @@
+-- ⚠️ DO NOT APPLY — SUPERSEDED / NOT VALIDATED AGAINST THE LIVE SCHEMA.
+-- Read docs/PC-AGENT-SUPABASE-AUDIT.md before any database rollout.
+-- The active Smart Campus database uses public.computadores, public.users,
+-- public.codigos_temporarios, public.sessoes_computador and
+-- public.pc_device_credentials. This draft assumes different names and would
+-- create duplicate structures / fail against the current database.
+-- Kept temporarily for historical review only; replace with an additive,
+-- schema-verified migration before production use.
+
 -- Smart Campus PC Agent foundation
 -- Adds device identity and server-managed, single-use access codes.
 
