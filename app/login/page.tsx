@@ -62,6 +62,7 @@ export default function LoginPage() {
 
     const demoNames: Record<Profile, string> = {
       Administrador: "Alexandra Costa",
+      "Administrador Adjunto": "Administrador Adjunto",
       Professor: "Maria Santos",
       Aluno: "João Silva",
       Funcionário: "Carlos Almeida",
