@@ -13,7 +13,8 @@ Remove-Item $shortcutPath -Force -ErrorAction SilentlyContinue
 Remove-Item $InstallDirectory -Recurse -Force -ErrorAction SilentlyContinue
 
 if ($RemoveDeviceSecrets) {
-    Write-Warning "Confirma primeiro que a credencial foi revogada no painel Smart Campus."
+    $confirmation = Read-Host "Escreve REVOGADA apenas depois de revogar a credencial no painel Smart Campus"
+    if ($confirmation -cne "REVOGADA") { throw "Remoção dos segredos cancelada." }
     Remove-Item "$env:ProgramData\SmartCampus" -Recurse -Force -ErrorAction SilentlyContinue
 } else {
     Write-Host "Configuração e segredo DPAPI preservados em ProgramData. Revoga a credencial no Smart Campus antes de os remover."
