@@ -163,7 +163,7 @@ const roleDestinations: Record<Role, string> = {
   Funcionário: "/funcionario",
 };
 
-export default function Workspace() {
+export default function Workspace({ children }: { children?: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [role, setRole] = useState<Role>("Administrador");
@@ -499,6 +499,7 @@ export default function Workspace() {
               setQrCode={setQrCode}
             />
           )}
+          {pathname === "/computadores" && children}
         </div>
       </section>
 
