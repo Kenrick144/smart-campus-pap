@@ -53,9 +53,10 @@ A migração `202611050001_pc_qr_user_code.sql` é aditiva e dirigida ao schema 
 
 ## Limitações atuais
 
-- A rota pública de lookup e APIs server-side estão preparadas, mas a página visual `/pc/[qrPublicId]` e o QR PNG/SVG para impressão ainda não foram ligados à UI.
-- O agente Windows .NET 8 ainda não existe.
-- O logout Windows institucional e a verificação de sincronização OneDrive ainda exigem implementação no agente.
+- A página visual `/pc/[qrPublicId]`, o painel de enrollment e a impressão do QR já estão na branch feature.
+- Existe uma primeira solução Windows .NET 8 com serviço, launcher, provisioning DPAPI e endpoints start/end/heartbeat; ainda não foi compilada/testada num PC Windows real.
+- A ligação inequívoca entre a identidade Windows/Entra ID e a conta Smart Campus ainda não está implementada. O agente valida apenas o domínio Windows permitido, pelo que não deve ser usado em produção até esta associação ser resolvida.
+- O agente não apaga ficheiros OneDrive, mas o comportamento de sincronização pendente e logout ainda precisa de teste no PC piloto.
 - O fluxo existente de demonstração em localStorage não deve ser usado como prova de integração real.
 
 ## Enrollment e impressão do QR
@@ -67,4 +68,4 @@ O painel `/computadores` inclui o registo administrativo inicial:
 - O QR contém apenas o URL público `/pc/{qr_public_id}` e pode ser impresso como etiqueta.
 - A operação depende da migração que cria `computadores.qr_public_id`; enquanto esta não estiver aplicada, a API devolve HTTP 503. Não aplicar a migração sem revisão e autorização.
 
-A instalação e armazenamento DPAPI da credencial ainda pertencem à fase do Windows Agent.
+A instalação e armazenamento DPAPI da credencial estão implementados como base técnica em `windows-agent/`; faltam CI verde, validação do domínio com IT, associação Windows/Entra ID ao utilizador Smart Campus e testes no PC piloto.
