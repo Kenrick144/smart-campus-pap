@@ -1,3 +1,5 @@
+> **Architecture update (2026-11-05):** The approved C+E, QR Code, Microsoft 365 and OneDrive decisions, Windows identity boundary, pilot plan and acceptance criteria are now documented in [PC-AGENT-ARCHITECTURE.md](./PC-AGENT-ARCHITECTURE.md). Treat that document as the source of truth where this foundation note is less specific. In particular, do not apply the proposed SQL migration until the live schema is inspected; the Smart Campus code does not replace Windows/Microsoft credentials; and the physical QR identifies a computer but does not grant access.
+
 # Smart Campus PC Agent — implementation foundation
 
 ## Confirmed product decisions
