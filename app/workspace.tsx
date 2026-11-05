@@ -412,6 +412,7 @@ export default function Workspace({ children }: { children?: React.ReactNode }) 
 
   function signOut() {
     clearDemoSession();
+    void supabase?.auth.signOut();
     router.push("/login");
   }
 
@@ -460,7 +461,7 @@ export default function Workspace({ children }: { children?: React.ReactNode }) 
             <label className="top-search"><span>⌕</span><input aria-label="Pesquisar" placeholder="Pesquisar..." value={search} onChange={(event) => setSearch(event.target.value)} /><kbd>⌘ K</kbd></label>
             <button className="icon-button notifications" aria-label="Notificações">♧<i /></button>
             <span className="top-divider" />
-            <label className="role-picker"><span className="sr-only">Perfil de demonstração</span><select value={role} onChange={(event) => changeRole(event.target.value as Role)}>{roles.map((item) => <option key={item}>{item}</option>)}</select></label>
+            {!isSupabaseConfigured && <label className="role-picker"><span className="sr-only">Perfil de demonstração</span><select value={role} onChange={(event) => changeRole(event.target.value as Role)}>{roles.map((item) => <option key={item}>{item}</option>)}</select></label>}
             <span className="avatar avatar-purple top-avatar">{role === "Administrador" ? "AC" : role === "Professor" ? "MS" : role === "Aluno" ? "JS" : "CA"}</span>
           </div>
         </header>
