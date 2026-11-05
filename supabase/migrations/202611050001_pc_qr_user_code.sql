@@ -80,6 +80,11 @@ begin
     raise exception 'COMPUTER_NOT_AVAILABLE' using errcode = 'P0001';
   end if;
 
+  update public.sessoes_computador
+    set ended_at = now(), ended_reason = 'timeout'
+    where computador_id = p_computador_id and ended_at is null
+      and heartbeat_at < now() - interval '2 minutes';
+
   if exists (
     select 1 from public.sessoes_computador s
     where s.computador_id = p_computador_id and s.ended_at is null
