@@ -11,6 +11,7 @@ type Profile = (typeof profiles)[number];
 
 const roleDestinations: Record<Profile, string> = {
   Administrador: "/dashboard",
+  "Administrador Adjunto": "/dashboard",
   Professor: "/dashboard",
   Aluno: "/aluno",
   Funcionário: "/funcionario",
@@ -21,7 +22,9 @@ function normalizeProfile(value: string | undefined): Profile | null {
     case "administrador":
     case "admin":
       return "Administrador";
-    case "administrador adjunto":\n      return "Administrador Adjunto";\n    case "professor":
+    case "administrador adjunto":
+      return "Administrador Adjunto";
+    case "professor":
       return "Professor";
     case "aluno":
       return "Aluno";
@@ -29,16 +32,8 @@ function normalizeProfile(value: string | undefined): Profile | null {
     case "funcionario":
       return "Funcionário";
     default:
-      return "Administrador";
+      return null;
   }
-}
-
-function inferRoleFromEmail(email: string): Profile {
-  const normalized = email.trim().toLocaleLowerCase("pt-PT");
-  if (normalized.includes("admin")) return "Administrador";
-  if (normalized.includes("professor")) return "Professor";
-  if (normalized.includes("funcionario") || normalized.includes("funcionário")) return "Funcionário";
-  return "Aluno";
 }
 
 export default function LoginPage() {
