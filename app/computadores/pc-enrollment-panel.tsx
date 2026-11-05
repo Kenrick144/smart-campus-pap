@@ -91,7 +91,17 @@ export default function PcEnrollmentPanel() {
     }
   }
 
-  async function printQr(qrUrl: string, label: string) {\n    const printWindow = window.open("", "_blank");\n    if (!printWindow) { setError("Permite janelas de pop-up para imprimir o QR."); return; }\n    try {\n      const image = await QRCode.toDataURL(qrUrl, { width: 480, margin: 2, errorCorrectionLevel: "H" });\n      printWindow.document.write(`<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>QR - ${label}</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:32px}img{width:320px;height:320px}h1{font-size:22px}p{font-size:13px;color:#555}</style></head><body><h1>${label}</h1><img src="${image}" alt="Código QR permanente"><p>Smart Campus · Identificação do computador</p><script>window.onload=()=>window.print()<\\/script></body></html>`);\n      printWindow.document.close();\n    } catch { printWindow.close(); setError("Não foi possível gerar a versão para impressão."); }\n  }\n\n  async function copySecret() {
+  async function printQr(qrUrl: string, label: string) {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) { setError("Permite janelas de pop-up para imprimir o QR."); return; }
+    try {
+      const image = await QRCode.toDataURL(qrUrl, { width: 480, margin: 2, errorCorrectionLevel: "H" });
+      printWindow.document.write(`<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>QR - ${label}</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:32px}img{width:320px;height:320px}h1{font-size:22px}p{font-size:13px;color:#555}</style></head><body><h1>${label}</h1><img src="${image}" alt="Código QR permanente"><p>Smart Campus · Identificação do computador</p><script>window.onload=()=>window.print()<\\/script></body></html>`);
+      printWindow.document.close();
+    } catch { printWindow.close(); setError("Não foi possível gerar a versão para impressão."); }
+  }
+
+  async function copySecret() {
     if (!enrollment) return;
     try {
       await navigator.clipboard.writeText(enrollment.device_secret);
