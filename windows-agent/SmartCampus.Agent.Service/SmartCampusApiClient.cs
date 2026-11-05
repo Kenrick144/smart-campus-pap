@@ -29,11 +29,11 @@ public sealed class SmartCampusApiClient(AgentConfiguration configuration, Devic
         using var request = CreateRequest(HttpMethod.Post, "/api/pc/agent/heartbeat");
         request.Content = JsonContent.Create(new { computer_id = settings.ComputerId, session_id = sessionId });
         using var response = await _http.SendAsync(request, cancellationToken);
-        if (response.StatusCode == System.Net.HttpStatusCode.Conflict) return false;
+        if (response.StatusCode is System.Net.HttpStatusCode.Conflict or System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.NotFound) return false;
         if (!response.IsSuccessStatusCode)
         {
-            logger.LogWarning("Heartbeat rejected with HTTP {StatusCode}.", (int)response.StatusCode);
-            return true;
+            logger.LogWarning("Heartbeat rejected with HTTP {StatusCode}; the agent will retry.", (int)response.StatusCode);
+            return (int)response.StatusCode >= 500;
         }
         var payload = await response.Content.ReadFromJsonAsync<HeartbeatResponse>(cancellationToken: cancellationToken);
         return payload?.Active == true;
