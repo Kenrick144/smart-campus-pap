@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
       if (message.includes("USER_HAS_ACTIVE_SESSION")) {
         return NextResponse.json({ error: "Já tens uma sessão ativa num computador." }, { status: 409 });
       }
-      if (message.includes("COMPUTER_NOT_AVAILABLE")) {
-        return NextResponse.json({ error: "Este computador não está disponível." }, { status: 409 });
+      if (message.includes("COMPUTER_NOT_AVAILABLE") || message.includes("COMPUTER_IN_USE")) {
+        return NextResponse.json({ error: "Este computador não está disponível neste momento." }, { status: 409 });
       }
       if (message.includes("STUDENT_NOT_ENROLLED") || message.includes("TEACHER_NOT_ACTIVE") || message.includes("STAFF_NOT_ACTIVE")) {
         return NextResponse.json({ error: "O teu registo escolar não está ativo ou autorizado." }, { status: 403 });
