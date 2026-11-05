@@ -175,3 +175,18 @@ A migração atual `202611020001_pc_agent_foundation.sql` pressupõe colunas em 
 - **Autenticação Windows:** conta institucional individual. Para o MVP, o utilizador já deve ter uma sessão Windows institucional autenticada antes de autorizar o PC no Smart Campus.
 - **Fim da utilização:** terminar sessão Windows e fechar a sessão Smart Campus. Não apagar perfil, pasta OneDrive nem ficheiros pessoais enquanto houver sincronização pendente.
 - **Base de dados:** consultar obrigatoriamente [PC-AGENT-SUPABASE-AUDIT.md](./PC-AGENT-SUPABASE-AUDIT.md). A migração inicial desta branch está marcada como não aplicável ao schema ativo e não pode ser executada.
+
+## 12. Estado da implementação Windows (2026-11-05)
+
+Existe uma primeira solução .NET 8 na pasta `windows-agent/`:
+- Windows Service separado do launcher interativo (sem UI na Session 0).
+- Launcher WinForms para introduzir o código temporário.
+- Provisioning que protege o segredo do dispositivo com DPAPI LocalMachine e ACL NTFS.
+- Cliente HTTPS para start/end/heartbeat; estado de sessão cifrado para recuperação após reinício.
+- Named Pipe local com verificação de que o cliente é o utilizador da sessão de consola.
+- Logout explícito termina primeiro a sessão Smart Campus e depois solicita logout da sessão Windows via WTS.
+- Scripts PowerShell e guia de instalação em [PC-AGENT-WINDOWS.md](./PC-AGENT-WINDOWS.md).
+
+**Bloqueio de produção:** o agente confirma o domínio Windows permitido, mas ainda não prova que a conta Windows/Entra ID é a mesma pessoa que a conta Smart Campus. A escola tem de confirmar tenant, domínio e um identificador institucional fiável (por exemplo, Entra Object ID) para fazer essa associação. O agente também precisa de teste em PC real, incluindo OneDrive com sincronização pendente e logout.
+
+A migração Supabase continua por aplicar. Não instalar em computadores de alunos nem fazer merge até esta associação, CI, staging e piloto estarem aprovados.
