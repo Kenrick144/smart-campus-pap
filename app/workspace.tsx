@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { appendDemoLog, downloadCsv, readDemoRecords, readDemoValue, writeDemoRecords, writeDemoValue } from "./lib/demo-data";
 import { clearDemoSession, DemoRole, DemoSession, readDemoSession, writeDemoSession } from "./lib/session";
-import { readSupabaseRecords, writeSupabaseRecords } from "./lib/supabase-data";
+import { readSupabaseRecords, readSupabaseRecordsWithStatus, writeSupabaseRecords } from "./lib/supabase-data";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import { QrImage, QrScanner } from "./qr-tools";
 
@@ -21,6 +21,24 @@ type CampusData = {
   rooms: RecordItem[];
   timetable: RecordItem[];
   logs: RecordItem[];
+};
+
+type DashboardStatus = {
+  loading: boolean;
+  source: "demo" | "supabase" | "partial" | "error";
+  error: string;
+  updatedAt: string | null;
+};
+
+const emptyCampusData: CampusData = {
+  students: [],
+  teachers: [],
+  classes: [],
+  computers: [],
+  attendance: [],
+  rooms: [],
+  timetable: [],
+  logs: [],
 };
 
 const navigation = [
@@ -183,6 +201,14 @@ export default function Workspace() {
   const [pcRecords, setPcRecords] = useState<RecordItem[]>(initialData["/computadores"]);
   const [activeComputer, setActiveComputer] = useState("");
   const [period, setPeriod] = useState("Esta semana");
+  const [dashboardData, setDashboardData] = useState<CampusData>(emptyCampusData);
+  const [dashboardStatus, setDashboardStatus] = useState<DashboardStatus>({
+    loading: false,
+    source: isSupabaseConfigured ? "supabase" : "demo",
+    error: "",
+    updatedAt: null,
+  });
+  const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
   const title = pageNames[pathname] ?? "Painel principal";
 
   useEffect(() => {
@@ -228,6 +254,64 @@ export default function Workspace() {
     });
     return () => { active = false; };
   }, [pathname, router]);
+
+  useEffect(() => {
+    if (!sessionReady || pathname !== "/dashboard") return;
+
+    let active = true;
+    setDashboardStatus((current) => ({ ...current, loading: true, error: "" }));
+
+    const sources = [
+      ["students", "/alunos"],
+      ["teachers", "/professor"],
+      ["classes", "/turmas"],
+      ["computers", "/computadores"],
+      ["attendance", "/presencas"],
+      ["rooms", "/salas"],
+      ["timetable", "/horarios"],
+      ["logs", "/logs"],
+    ] as const;
+
+    async function loadDashboardSnapshot() {
+      const results = await Promise.all(sources.map(async ([key, route]) => {
+        const fallback = readDemoRecords(route, initialData[route] ?? []);
+        const result = await readSupabaseRecordsWithStatus(route, fallback);
+        return { key, result };
+      }));
+
+      if (!active) return;
+
+      const nextData: CampusData = { ...emptyCampusData };
+      const failed = results.filter(({ result }) => result.source === "error");
+      for (const { key, result } of results) nextData[key] = result.records;
+
+      const source: DashboardStatus["source"] = failed.length
+        ? (results.some(({ result }) => result.source === "supabase") ? "partial" : "error")
+        : (isSupabaseConfigured ? "supabase" : "demo");
+      const error = failed.map(({ key, result }) => `${key}: ${result.error ?? "erro de leitura"}`).join(" · ");
+
+      setDashboardData(nextData);
+      setDashboardStatus({
+        loading: false,
+        source,
+        error,
+        updatedAt: new Date().toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" }),
+      });
+    }
+
+    void loadDashboardSnapshot().catch((error: unknown) => {
+      if (!active) return;
+      console.error("Não foi possível atualizar o painel principal.", error);
+      setDashboardStatus({
+        loading: false,
+        source: "error",
+        error: error instanceof Error ? error.message : "Falha ao carregar os dados do painel.",
+        updatedAt: null,
+      });
+    });
+
+    return () => { active = false; };
+  }, [sessionReady, pathname, dashboardRefreshKey]);
 
   useEffect(() => {
     if (!recordsPath || recordsPath !== pathname) return;
@@ -415,17 +499,6 @@ export default function Workspace() {
 
   if (!sessionReady || recordsPath !== pathname) return <main className="login-screen" aria-busy="true"><p>A carregar o espaço de trabalho...</p></main>;
 
-  const campusData: CampusData = {
-    students: readDemoRecords("/alunos", initialData["/alunos"]),
-    teachers: readDemoRecords("/professor", initialData["/professor"]),
-    classes: readDemoRecords("/turmas", initialData["/turmas"]),
-    computers: pcRecords,
-    attendance: readDemoRecords("/presencas", initialData["/presencas"]),
-    rooms: readDemoRecords("/salas", initialData["/salas"]),
-    timetable: readDemoRecords("/horarios", initialData["/horarios"]),
-    logs: readDemoRecords("/logs", initialData["/logs"]),
-  };
-
   return (
     <main className="workspace">
       <aside className="sidebar">
@@ -466,7 +539,15 @@ export default function Workspace() {
         <div className="page-content">
           {notice && <div className="notice" role="status"><span>✓</span>{notice}<button onClick={() => setNotice("")} aria-label="Fechar">×</button></div>}
           {pathname === "/dashboard" ? (
-            <Dashboard role={role} profileName={profileName} period={period} setPeriod={setPeriod} campusData={campusData} />
+            <Dashboard
+              role={role}
+              profileName={profileName}
+              period={period}
+              setPeriod={setPeriod}
+              campusData={dashboardData}
+              dashboardStatus={dashboardStatus}
+              onRefresh={() => setDashboardRefreshKey((current) => current + 1)}
+            />
           ) : pathname === "/aluno" ? (
             <StudentPage name={profileName} qrCode={qrCode} setQrCode={setQrCode} onScan={markPresence} />
           ) : pathname === "/funcionario" ? (
@@ -517,37 +598,269 @@ function PageHeading({ eyebrow, title, description, action }: { eyebrow?: string
   return <div className="page-heading"><div>{eyebrow && <div className="eyebrow">{eyebrow}</div>}<h1>{title}</h1><p>{description}</p></div>{action}</div>;
 }
 
-function Dashboard({ role, profileName, period, setPeriod, campusData }: { role: Role; profileName: string; period: string; setPeriod: (value: string) => void; campusData: CampusData }) {
+function Dashboard({
+  role,
+  profileName,
+  period,
+  setPeriod,
+  campusData,
+  dashboardStatus,
+  onRefresh,
+}: {
+  role: Role;
+  profileName: string;
+  period: string;
+  setPeriod: (value: string) => void;
+  campusData: CampusData;
+  dashboardStatus: DashboardStatus;
+  onRefresh: () => void;
+}) {
   const isAdmin = role === "Administrador";
   return <>
-    <PageHeading eyebrow="RESUMO DIÁRIO DO CAMPUS" title={`Bom dia, ${profileName.split(" ")[0]} 👋`} description={isAdmin ? "Aqui está o resumo do que está a acontecer no campus hoje." : role === "Professor" ? "Consulte as suas turmas, horários e presenças num só lugar." : "Veja o estado das salas e equipamentos do campus."} action={<button className="button button-secondary" onClick={() => window.print()}>↓ <span>Exportar resumo</span></button>} />
-    {isAdmin ? <AdminDashboard period={period} setPeriod={setPeriod} campusData={campusData} /> : role === "Professor" ? <TeacherDashboard /> : <StaffPage />}
+    <PageHeading
+      eyebrow="RESUMO DO CAMPUS"
+      title={`Bom dia, ${profileName.split(" ")[0]} 👋`}
+      description={isAdmin ? "Indicadores académicos e operacionais do campus." : role === "Professor" ? "Consulte as suas turmas, horários e presenças num só lugar." : "Veja o estado das salas e equipamentos do campus."}
+      action={<div className="dashboard-actions"><button className="button button-secondary" onClick={onRefresh} disabled={dashboardStatus.loading}>{dashboardStatus.loading ? "A atualizar..." : "↻ Atualizar"}</button><button className="button button-secondary" onClick={() => window.print()}>↓ <span>Imprimir resumo</span></button></div>}
+    />
+    {isAdmin
+      ? <AdminDashboard period={period} setPeriod={setPeriod} campusData={campusData} status={dashboardStatus} />
+      : role === "Professor" ? <TeacherDashboard /> : <StaffPage />}
   </>;
 }
 
-function AdminDashboard({ period, setPeriod, campusData }: { period: string; setPeriod: (value: string) => void; campusData: CampusData }) {
-  const freeComputers = campusData.computers.filter((computer) => computer.estado === "Livre").length;
+function AdminDashboard({ period, setPeriod, campusData, status }: {
+  period: string;
+  setPeriod: (value: string) => void;
+  campusData: CampusData;
+  status: DashboardStatus;
+}) {
+  const normalize = (value: string | undefined) => (value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-PT").trim();
+  const activeStudents = campusData.students.filter((student) => normalize(student.estado) !== "inativo").length;
+  const activeTeachers = campusData.teachers.filter((teacher) => normalize(teacher.estado) !== "inativo").length;
+  const activeClasses = campusData.classes.filter((item) => !["inativa", "inativo"].includes(normalize(item.estado))).length;
   const computerCount = campusData.computers.length;
-  const pcCounts = ["Livre", "Ocupado", "Reservado", "Manutenção"].map((status) => ({
-    status,
-    count: campusData.computers.filter((computer) => computer.estado === status).length,
-    tone: status === "Livre" ? "green" : status === "Ocupado" ? "red" : status === "Reservado" ? "amber" : "slate",
-  }));
-  const stats = [
-    { label: "Alunos inscritos", value: String(campusData.students.filter((student) => student.estado !== "Inativo").length), change: "Registos ativos", icon: "◎", color: "violet" },
-    { label: "Professores", value: String(campusData.teachers.filter((teacher) => teacher.estado !== "Inativo").length), change: "Registos ativos", icon: "♧", color: "blue" },
-    { label: "Turmas ativas", value: String(campusData.classes.length), change: "Ano letivo 2026/27", icon: "▤", color: "amber" },
-    { label: "PCs disponíveis", value: String(freeComputers), change: `de ${computerCount} equipamentos`, icon: "▣", color: "green" },
+  const computerStatuses = [
+    { status: "Livre", key: "livre", tone: "green", color: "#35a66c" },
+    { status: "Ocupado", key: "ocupado", tone: "red", color: "#e96b70" },
+    { status: "Reservado", key: "reservado", tone: "amber", color: "#e8aa44" },
+    { status: "Manutenção", key: "manutencao", tone: "slate", color: "#8994a7" },
   ];
+  const pcCounts = computerStatuses.map((item) => ({
+    ...item,
+    count: campusData.computers.filter((computer) => normalize(computer.estado) === item.key).length,
+  }));
+  const freeComputers = pcCounts[0].count;
+  const stats = [
+    { label: "Alunos ativos", value: activeStudents, change: `${campusData.students.length} registos no total`, icon: "◎", color: "violet" },
+    { label: "Professores ativos", value: activeTeachers, change: `${campusData.teachers.length} registos no total`, icon: "♧", color: "blue" },
+    { label: "Turmas ativas", value: activeClasses, change: `${campusData.classes.length} registos no total`, icon: "▤", color: "amber" },
+    { label: "PCs livres", value: freeComputers, change: `${computerCount} computadores registados`, icon: "▣", color: "green" },
+  ];
+  const activityBuckets = buildDashboardActivity(period, campusData);
+  const chartMaximum = Math.max(4, ...activityBuckets.flatMap((bucket) => [bucket.presences, bucket.pcUses, bucket.qrScans]));
+  const chartTop = Math.ceil(chartMaximum / 4) * 4;
+  const upcomingLessons = getUpcomingLessons(campusData.timetable);
+  const totalActivity = activityBuckets.reduce((total, bucket) => total + bucket.presences + bucket.pcUses + bucket.qrScans, 0);
+  const gradient = computerCount
+    ? `conic-gradient(${pcCounts.map((item, index) => {
+        const start = pcCounts.slice(0, index).reduce((sum, part) => sum + part.count, 0);
+        const end = start + item.count;
+        return `${item.color} ${start / computerCount * 360}deg ${end / computerCount * 360}deg`;
+      }).join(",")})`
+    : "conic-gradient(#edf0f5 0deg 360deg)";
+
   return <>
-    <section className="stat-grid">{stats.map((stat) => <article className="stat-card" key={stat.label}><div className={`stat-icon ${stat.color}`}>{stat.icon}</div><div className="stat-meta">{stat.label}<span>↗</span></div><strong>{stat.value}</strong><small><i className="positive">↗</i> {stat.change}</small></article>)}</section>
+    <div className={`dashboard-data-status ${status.source === "demo" ? "is-demo" : status.source === "error" || status.source === "partial" ? "has-error" : "is-connected"}`} role="status" aria-live="polite">
+      <span className="dashboard-data-indicator" />
+      <div>
+        <strong>{status.loading ? "A atualizar os dados do campus…" : status.source === "demo" ? "Modo de demonstração" : status.source === "supabase" ? "Dados carregados do Supabase" : status.source === "partial" ? "Dados parcialmente carregados" : "Não foi possível carregar os dados"}</strong>
+        <small>{status.loading ? "A consultar os módulos do painel." : status.source === "demo" ? "Os valores apresentados vêm deste navegador e não são dados partilhados da escola." : status.updatedAt ? `Última atualização às ${status.updatedAt}.` : "Verifica a configuração e as permissões de acesso à base de dados."}</small>
+        {status.error && <small className="dashboard-data-error">{status.error}</small>}
+      </div>
+    </div>
+
+    <section className="stat-grid">
+      {stats.map((stat) => <article className="stat-card" key={stat.label}>
+        <div className={`stat-icon ${stat.color}`}>{stat.icon}</div>
+        <div className="stat-meta">{stat.label}</div>
+        <strong>{status.loading ? "—" : stat.value.toLocaleString("pt-PT")}</strong>
+        <small>{stat.change}</small>
+      </article>)}
+    </section>
+
     <section className="dashboard-grid">
-      <article className="surface chart-card"><div className="surface-heading"><div><h2>Atividade do campus</h2><p>Presenças, utilização de PCs e scans QR</p></div><select className="select-control" value={period} onChange={(event) => setPeriod(event.target.value)}><option>Esta semana</option><option>Este mês</option><option>Este período letivo</option></select></div><div className="chart-legend"><span><i className="legend-dot violet-dot" />Presenças</span><span><i className="legend-dot green-dot" />Utilização de PCs</span><span><i className="legend-dot amber-dot" />Scans QR</span></div><div className="activity-chart"><div className="chart-y"><span>120</span><span>90</span><span>60</span><span>30</span><span>0</span></div><div className="chart-plot"><div className="chart-grid-lines"><i /><i /><i /><i /><i /></div><div className="chart-columns">{[["seg.",68,34,23],["ter.",79,44,29],["qua.",56,39,26],["qui.",90,58,33],["sex.",73,46,21],["sáb.",25,15,10],["dom.",12,8,6]].map(([day, a, b, c]) => <div className="chart-day" key={day}><div className="bar-group"><i className="bar bar-purple" style={{height:`${a}%`}} /><i className="bar bar-green" style={{height:`${b}%`}} /><i className="bar bar-amber" style={{height:`${c}%`}} /></div><small>{day}</small></div>)}</div></div></div></article>
-      <article className="surface pc-status-card"><div className="surface-heading"><div><h2>Estado dos computadores</h2><p>Estado dos registos locais</p></div><Link className="text-link" href="/computadores">Ver todos ↗</Link></div><div className="pc-summary"><div className="donut-chart" style={{ background: `conic-gradient(${pcCounts.map((item, index) => { const previous = pcCounts.slice(0, index).reduce((sum, part) => sum + part.count, 0); const next = previous + item.count; const color = item.tone === "green" ? "#35a66c" : item.tone === "red" ? "#e96b70" : item.tone === "amber" ? "#e8aa44" : "#8994a7"; return `${color} ${computerCount ? previous / computerCount * 360 : 0}deg ${computerCount ? next / computerCount * 360 : 360}deg`; }).join(",")})` }}><div><strong>{computerCount}</strong><small>equipamentos</small></div></div><div className="pc-legend">{pcCounts.map((item) => <StatusLine key={item.status} name={item.status} count={String(item.count)} color={item.tone} />)}</div></div><div className="pc-footnote"><span className="live-pulse" /> Estado dos registos deste navegador</div></article>
-      <article className="surface activity-card"><div className="surface-heading"><div><h2>Atividade recente</h2><p>Últimas ações registadas no sistema</p></div><Link className="text-link" href="/logs">Ver atividade ↗</Link></div><div className="activity-list">{campusData.logs.slice(0, 4).map((item, index) => <Activity key={`${item.data}-${index}`} icon={item.atividade.toLocaleLowerCase().includes("presença") ? "✓" : item.atividade.toLocaleLowerCase().includes("pc") ? "▣" : "▦"} tone={index === 0 ? "green" : "violet"} title={item.atividade} detail={`${item.utilizador} · ${item.destino}`} time={item.data.split(" ").at(-1) ?? item.data} />)}</div></article>
-      <article className="surface schedule-card"><div className="surface-heading"><div><h2>Próximas aulas</h2><p>Agenda do campus</p></div><Link className="text-link" href="/horarios">Ver horário ↗</Link></div><div className="schedule-list">{campusData.timetable.slice(0, 4).map((lesson, index) => <Schedule key={`${lesson.turma}-${lesson.hora}-${index}`} time={lesson.hora.split("–")[0].trim()} subject={lesson.disciplina} className={lesson.turma} room={lesson.sala} tone={index % 2 ? "blue" : "violet"} />)}</div></article>
+      <article className="surface chart-card">
+        <div className="surface-heading">
+          <div><h2>Atividade do campus</h2><p>Registos de presenças, sessões de PCs e eventos QR</p></div>
+          <select className="select-control" value={period} onChange={(event) => setPeriod(event.target.value)} aria-label="Período da atividade do campus">
+            <option>Esta semana</option><option>Este mês</option><option>Este período letivo</option>
+          </select>
+        </div>
+        <div className="chart-legend">
+          <span><i className="legend-dot violet-dot" />Presenças</span>
+          <span><i className="legend-dot green-dot" />Utilização de PCs</span>
+          <span><i className="legend-dot amber-dot" />Eventos QR</span>
+        </div>
+        {status.loading ? <div className="empty-state"><strong>A carregar atividade…</strong><p>Os dados serão apresentados assim que estiverem disponíveis.</p></div>
+          : totalActivity === 0 ? <div className="empty-state"><strong>Sem atividade registada neste período</strong><p>O gráfico será preenchido quando existirem presenças e eventos registados.</p></div>
+          : <div className="activity-chart">
+            <div className="chart-y">{[1, 0.75, 0.5, 0.25, 0].map((ratio) => <span key={ratio}>{Math.round(chartTop * ratio)}</span>)}</div>
+            <div className="chart-plot">
+              <div className="chart-grid-lines"><i /><i /><i /><i /><i /></div>
+              <div className="chart-columns">
+                {activityBuckets.map((bucket) => <div className="chart-day" key={bucket.label} style={{ width: `${Math.max(7, 92 / activityBuckets.length)}%` }}>
+                  <div className="bar-group">
+                    <i className="bar bar-purple" title={`${bucket.presences} presenças`} style={{ height: `${bucket.presences / chartTop * 100}%`, minHeight: bucket.presences ? "4px" : "0" }} />
+                    <i className="bar bar-green" title={`${bucket.pcUses} utilizações de PCs`} style={{ height: `${bucket.pcUses / chartTop * 100}%`, minHeight: bucket.pcUses ? "4px" : "0" }} />
+                    <i className="bar bar-amber" title={`${bucket.qrScans} eventos QR`} style={{ height: `${bucket.qrScans / chartTop * 100}%`, minHeight: bucket.qrScans ? "4px" : "0" }} />
+                  </div>
+                  <small>{bucket.label}</small>
+                </div>)}
+              </div>
+            </div>
+          </div>}
+      </article>
+
+      <article className="surface pc-status-card">
+        <div className="surface-heading"><div><h2>Estado dos computadores</h2><p>Distribuição por estado registado</p></div><Link className="text-link" href="/computadores">Ver todos ↗</Link></div>
+        <div className="pc-summary">
+          <div className="donut-chart" style={{ background: gradient }}><div><strong>{status.loading ? "—" : computerCount}</strong><small>computadores</small></div></div>
+          <div className="pc-legend">{pcCounts.map((item) => <StatusLine key={item.status} name={item.status} count={status.loading ? "—" : String(item.count)} color={item.tone} />)}</div>
+        </div>
+        <div className="pc-footnote"><span className="live-pulse" />{status.source === "demo" ? "Estado demonstrativo neste navegador" : status.loading ? "A atualizar estado…" : "Estado carregado da fonte de dados"}</div>
+      </article>
+
+      <article className="surface activity-card">
+        <div className="surface-heading"><div><h2>Atividade recente</h2><p>Últimas ações registadas no sistema</p></div><Link className="text-link" href="/logs">Ver atividade ↗</Link></div>
+        <div className="activity-list">
+          {status.loading ? <div className="empty-state"><strong>A carregar registos…</strong></div>
+            : campusData.logs.length ? campusData.logs.slice(0, 4).map((item, index) => {
+              const action = (item.atividade ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-PT");
+              const icon = action.includes("presenca") ? "✓" : action.includes("pc") || action.includes("computador") ? "▣" : action.includes("qr") ? "▦" : "≡";
+              const tone = action.includes("presenca") ? "green" : action.includes("pc") ? "blue" : "violet";
+              return <Activity key={`${item.data}-${index}`} icon={icon} tone={tone} title={item.atividade || "Atividade"} detail={`${item.utilizador || "Utilizador"} · ${item.destino || "Campus"}`} time={formatDashboardTime(item.data)} />;
+            })
+            : <div className="empty-state"><strong>Sem atividade recente</strong><p>As operações registadas aparecerão aqui.</p></div>}
+        </div>
+      </article>
+
+      <article className="surface schedule-card">
+        <div className="surface-heading"><div><h2>Próximas aulas</h2><p>Agenda semanal do campus</p></div><Link className="text-link" href="/horarios">Ver horário ↗</Link></div>
+        <div className="schedule-list">
+          {upcomingLessons.length ? upcomingLessons.map((lesson, index) => <Schedule key={`${lesson.turma}-${lesson.hora}-${index}`} time={lesson.hora.split(/[–-]/)[0].trim()} subject={lesson.disciplina || "Aula"} className={lesson.turma || "Turma por definir"} room={lesson.sala || "Sala por definir"} tone={index % 2 ? "blue" : "violet"} />)
+            : <div className="empty-state"><strong>Sem aulas futuras disponíveis</strong><p>Confirma se existem horários ativos e completos.</p></div>}
+        </div>
+      </article>
     </section>
   </>;
+}
+
+type DashboardActivityBucket = {
+  label: string;
+  start: Date;
+  end: Date;
+  presences: number;
+  pcUses: number;
+  qrScans: number;
+};
+
+function parseDashboardDate(value: string): Date | null {
+  const normalized = value.trim();
+  if (!normalized) return null;
+  const today = new Date();
+  if (/^hoje\b/i.test(normalized)) return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  if (/^ontem\b/i.test(normalized)) return new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  const match = /(\d{1,2})[/. -](\d{1,2})[/. -](\d{4})/.exec(normalized);
+  if (match) {
+    const parsed = new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(normalized);
+  if (iso) {
+    const parsed = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+}
+
+function buildDashboardActivity(period: string, data: CampusData): DashboardActivityBucket[] {
+  const today = new Date();
+  const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  let buckets: DashboardActivityBucket[] = [];
+
+  if (period === "Esta semana") {
+    const monday = startOfDay(today);
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    const dayLabels = ["seg.", "ter.", "qua.", "qui.", "sex.", "sáb.", "dom."];
+    buckets = dayLabels.map((label, index) => {
+      const start = new Date(monday);
+      start.setDate(start.getDate() + index);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      return { label, start, end, presences: 0, pcUses: 0, qrScans: 0 };
+    });
+  } else if (period === "Este mês") {
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    for (let day = 1; day <= daysInMonth; day += 7) {
+      const start = new Date(today.getFullYear(), today.getMonth(), day);
+      const end = new Date(Math.min(monthEnd.getTime(), new Date(today.getFullYear(), today.getMonth(), day + 7).getTime()));
+      buckets.push({ label: `${day}–${Math.min(day + 6, daysInMonth)}`, start, end, presences: 0, pcUses: 0, qrScans: 0 });
+    }
+  } else {
+    const academicStartYear = today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1;
+    for (let offset = 0; offset < 12; offset += 2) {
+      const start = new Date(academicStartYear, 8 + offset, 1);
+      const end = new Date(academicStartYear, 10 + offset, 1);
+      const nextMonth = new Date(academicStartYear, 9 + offset, 1);
+      const label = `${start.toLocaleDateString("pt-PT", { month: "short" })}–${nextMonth.toLocaleDateString("pt-PT", { month: "short" })}`;
+      buckets.push({ label, start, end, presences: 0, pcUses: 0, qrScans: 0 });
+    }
+  }
+
+  const addEvent = (value: string, kind: "presences" | "pcUses" | "qrScans") => {
+    const date = parseDashboardDate(value);
+    if (!date) return;
+    const bucket = buckets.find((item) => date >= item.start && date < item.end);
+    if (bucket) bucket[kind] += 1;
+  };
+
+  data.attendance.forEach((item) => addEvent(item.data ?? "", "presences"));
+  data.logs.forEach((item) => {
+    const activity = (item.atividade ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-PT");
+    if (activity.includes("pc") || activity.includes("computador")) addEvent(item.data ?? "", "pcUses");
+    if (activity.includes("qr")) addEvent(item.data ?? "", "qrScans");
+  });
+  return buckets;
+}
+
+function getUpcomingLessons(timetable: RecordItem[]): RecordItem[] {
+  const today = new Date();
+  const weekdayIndex = (today.getDay() + 6) % 7;
+  const nowMinutes = today.getHours() * 60 + today.getMinutes();
+  const weekdays = ["segunda-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sabado", "domingo"];
+  return timetable.map((lesson) => {
+    const day = (lesson.dia ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-PT").trim();
+    const dayIndex = weekdays.findIndex((name) => day.startsWith(name));
+    const match = /(\d{1,2}):(\d{2})/.exec(lesson.hora ?? "");
+    if (dayIndex < 0 || !match) return null;
+    const startMinutes = Number(match[1]) * 60 + Number(match[2]);
+    const offset = (dayIndex - weekdayIndex + 7) % 7;
+    if (offset === 0 && startMinutes < nowMinutes) return null;
+    return { lesson, offset, startMinutes };
+  }).filter((entry): entry is { lesson: RecordItem; offset: number; startMinutes: number } => entry !== null)
+    .sort((a, b) => a.offset - b.offset || a.startMinutes - b.startMinutes)
+    .slice(0, 4)
+    .map((entry) => entry.lesson);
+}
+
+function formatDashboardTime(value: string): string {
+  const time = /(\d{1,2}:\d{2})/.exec(value);
+  if (time) return time[1];
+  const date = parseDashboardDate(value);
+  if (date) return date.toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit" });
+  return "—";
 }
 
 function StatusLine({ name, count, color }: { name: string; count: string; color: string }) { return <div className="status-line"><span><i className={`legend-dot ${color}-dot`} />{name}</span><strong>{count}</strong></div>; }
