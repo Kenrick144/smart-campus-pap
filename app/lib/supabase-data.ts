@@ -109,6 +109,7 @@ function normalizeRowForClient(pathname: string, row: Record<string, unknown>): 
         sala: String(source.sala ?? ""),
         "ano letivo": String(source.ano_letivo ?? ""),
         alunos: String(source.alunos ?? ""),
+        estado: String(source.estado ?? "Ativa"),
       };
     case "/disciplinas":
       return {
