@@ -574,12 +574,14 @@ export async function POST(request: Request) {
 
       birth_date: body.birthDate || null,
       phone: body.phone || null,
-      nif: body.nif || null,
-      document_type: body.documentType || null,
-      document_number: body.documentNumber || null,
-      niss: body.niss || null,
-      health_number: body.healthNumber || null,
-      address: body.address || null,
+      // O Adjunto não recolhe nem grava identificadores civis/fiscais,
+      // dados de saúde ou moradas completas.
+      nif: currentProfile.role === "Administrador" ? body.nif || null : null,
+      document_type: currentProfile.role === "Administrador" ? body.documentType || null : null,
+      document_number: currentProfile.role === "Administrador" ? body.documentNumber || null : null,
+      niss: currentProfile.role === "Administrador" ? body.niss || null : null,
+      health_number: currentProfile.role === "Administrador" ? body.healthNumber || null : null,
+      address: currentProfile.role === "Administrador" ? body.address || null : null,
 
       department: body.department || null,
       employee_position: body.employeePosition || null,
@@ -608,10 +610,10 @@ export async function POST(request: Request) {
         guardian_relationship: body.guardianRelationship,
         guardian_phone: body.guardianPhone,
         guardian_email: body.guardianEmail || null,
-        guardian_nif: body.guardianNif || null,
-        guardian_document_type: body.guardianDocumentType || null,
-        guardian_document_number: body.guardianDocumentNumber || null,
-        guardian_address: body.guardianAddress || null,
+        guardian_nif: currentProfile.role === "Administrador" ? body.guardianNif || null : null,
+        guardian_document_type: currentProfile.role === "Administrador" ? body.guardianDocumentType || null : null,
+        guardian_document_number: currentProfile.role === "Administrador" ? body.guardianDocumentNumber || null : null,
+        guardian_address: currentProfile.role === "Administrador" ? body.guardianAddress || null : null,
         guardian_alternative_phone: body.guardianAlternativePhone || null,
       });
 
