@@ -62,6 +62,7 @@ begin
     update public.pc_device_credentials
       set failed_code_attempts = 0, code_locked_until = null
       where id = p_device_credential_id;
+    v_device.failed_code_attempts := 0;
   end if;
 
   select * into v_computador
