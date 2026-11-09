@@ -41,10 +41,6 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ error: "Não foi possível consultar a sessão deste PC." }, { status: 500 });
 
   if (session && new Date(session.heartbeat_at).getTime() < Date.now() - 2 * 60 * 1000) {
-    await admin.from("sessoes_computador")
-      .update({ ended_at: new Date().toISOString(), ended_reason: "timeout" })
-      .eq("id", session.id)
-      .is("ended_at", null);
     return NextResponse.json({ active: false, reason: "timeout" });
   }
 
