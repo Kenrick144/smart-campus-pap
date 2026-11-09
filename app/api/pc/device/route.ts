@@ -79,8 +79,8 @@ export async function POST(request: Request) {
   const action = body.action ?? "";
 
   if (action === "start") {
-    const code = typeof body.code === "string" ? body.code.replace(/\\s+/g, "") : "";
-    if (!/^\\d{8}$/.test(code)) {
+    const code = typeof body.code === "string" ? body.code.replace(/\s+/g, "") : "";
+    if (!/^\d{8}$/.test(code)) {
       return NextResponse.json({ error: "Introduz um código válido de 8 algarismos." }, { status: 400 });
     }
 
