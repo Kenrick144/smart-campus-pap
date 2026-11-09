@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function getDevice(request: Request) {
+async function getDevice(request: Request, touchLastSeen = true) {
   const authorization = request.headers.get("authorization") ?? "";
   const match = /^Bearer ([a-f0-9]{64})$/i.exec(authorization);
   if (!match) return { admin: null, device: null };
@@ -19,14 +19,16 @@ async function getDevice(request: Request) {
     .maybeSingle();
 
   if (error || !device) return { admin, device: null };
-  await admin.from("pc_device_credentials")
-    .update({ last_seen_at: new Date().toISOString() })
-    .eq("id", device.id);
+  if (touchLastSeen) {
+    await admin.from("pc_device_credentials")
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq("id", device.id);
+  }
   return { admin, device };
 }
 
 export async function GET(request: Request) {
-  const { admin, device } = await getDevice(request);
+  const { admin, device } = await getDevice(request, false);
   if (!admin || !device) {
     return NextResponse.json({ error: "Credencial do computador inválida ou revogada." }, { status: 401 });
   }
