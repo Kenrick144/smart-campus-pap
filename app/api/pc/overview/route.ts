@@ -14,23 +14,7 @@ export async function GET() {
   const now = new Date();
   const staleBefore = new Date(now.getTime() - 2 * 60 * 1000).toISOString();
 
-  const { data: staleSessions, error: staleError } = await context.admin
-    .from("sessoes_computador")
-    .select("id")
-    .is("ended_at", null)
-    .lt("heartbeat_at", staleBefore);
-
-  if (staleError) {
-    return NextResponse.json({ error: "Não foi possível verificar as sessões expiradas." }, { status: 500 });
-  }
-
-  if (staleSessions?.length) {
-    await context.admin.from("sessoes_computador")
-      .update({ ended_at: now.toISOString(), ended_reason: "timeout" })
-      .in("id", staleSessions.map((session) => session.id))
-      .is("ended_at", null);
-  }
-
+  // GET é apenas de leitura: sessões sem heartbeat recente são tratadas como expiradas.
   const [{ data: computers, error: computerError }, { data: sessions, error: sessionError }, { data: rooms, error: roomError }] = await Promise.all([
     context.admin.from("computadores").select("id, nome, sala_id, numero_inventario, estado").order("nome"),
     context.admin.from("sessoes_computador").select("id, computador_id, aluno_id, started_at, heartbeat_at").is("ended_at", null),
@@ -42,7 +26,7 @@ export async function GET() {
     return NextResponse.json({ error: "Não foi possível consultar o parque informático." }, { status: 500 });
   }
 
-  const activeSessions = sessions ?? [];
+  const activeSessions = (sessions ?? []).filter((session) => session.heartbeat_at >= staleBefore);
   const sessionByComputer = new Map(activeSessions.map((session) => [session.computador_id, session]));
   const studentIds = [...new Set(activeSessions.map((session) => session.aluno_id))];
   const { data: students, error: studentError } = studentIds.length
@@ -84,4 +68,28 @@ export async function GET() {
     },
     refreshedAt: now.toISOString(),
   });
+}
+
+export async function POST() {
+  const { context, response } = await getPcAuthContext();
+  if (!context) return response ?? NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  if (!["Administrador", "Administrador Adjunto"].includes(context.role)) {
+    return NextResponse.json({ error: "Apenas a administração pode executar a limpeza de sessões." }, { status: 403 });
+  }
+
+  const staleBefore = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+  const now = new Date().toISOString();
+  const { data, error } = await context.admin
+    .from("sessoes_computador")
+    .update({ ended_at: now, ended_reason: "timeout" })
+    .is("ended_at", null)
+    .lt("heartbeat_at", staleBefore)
+    .select("id");
+
+  if (error) {
+    console.error("Erro ao terminar sessões expiradas:", error.message);
+    return NextResponse.json({ error: "Não foi possível terminar as sessões expiradas." }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true, closedSessions: data?.length ?? 0, cleanedAt: now });
 }
