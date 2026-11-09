@@ -46,6 +46,6 @@ A interface oculta as opções que não pertencem ao perfil, mas a autorização
 
 ## Funcionalidades ainda limitadas
 
-- A sessão temporária de utilização de um computador ainda não está ligada a uma tabela de sessões no Supabase; a aplicação informa-o e não altera o estado do equipamento através de dados de demonstração.
+- O acesso temporário aos computadores usa `codigos_temporarios`, `sessoes_computador` e `pc_device_credentials` no Supabase. Os códigos são de 8 algarismos, válidos durante 10 minutos, com limite de 5 emissões por aluno em 15 minutos. O PC Agent autentica cada equipamento por token; a validação reforçada de tentativas inválidas bloqueia o equipamento após 5 falhas durante 10 minutos. A migração `20261109140000_guard_pc_temporary_code_attempts.sql` tem de estar aplicada antes de ativar esta proteção. O funcionamento num PC Windows 11 Pro e a integração com o agente instalado têm de ser testados no equipamento real.
 - Algumas preferências gerais da página de configurações continuam guardadas localmente no navegador.
 - O funcionamento final depende das variáveis de ambiente corretas e das políticas/tabelas existentes no projeto Supabase. É necessário testar com contas reais de cada perfil antes da utilização institucional.
