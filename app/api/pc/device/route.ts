@@ -81,60 +81,91 @@ export async function POST(request: Request) {
   const action = body.action ?? "";
 
   if (action === "start") {
-    const code = typeof body.code === "string" ? body.code.replace(/\s+/g, "") : "";
-    if (!/^\d{8}$/.test(code)) {
+    const code = typeof body.code === "string" ? body.code.replace(/\\s+/g, "") : "";
+    if (!/^\\d{8}$/.test(code)) {
       return NextResponse.json({ error: "Introduz um código válido de 8 algarismos." }, { status: 400 });
     }
 
-    const { data, error } = await admin.rpc("start_pc_session", {
+    const { data, error } = await admin.rpc("start_pc_session_guarded", {
       p_computador_id: device.computador_id,
       p_codigo_hash: hashTemporaryCode(code),
+      p_device_credential_id: device.id,
     });
 
     if (error) {
-      const message = error.message || "";
-      if (message.includes("INVALID_OR_EXPIRED_CODE")) {
-        return NextResponse.json({ error: "Código inválido, expirado, cancelado ou já utilizado." }, { status: 401 });
-      }
-      if (message.includes("COMPUTER_NOT_FOUND")) {
-        return NextResponse.json({ error: "Este computador já não está registado no inventário." }, { status: 404 });
-      }
-      if (message.includes("COMPUTER_NOT_OPERATIONAL")) {
-        return NextResponse.json({ error: "Este computador não está operacional e não pode iniciar uma sessão." }, { status: 409 });
-      }
-      if (message.includes("COMPUTER_IN_USE")) {
-        return NextResponse.json({ error: "Este computador já está a ser utilizado." }, { status: 409 });
-      }
-      if (message.includes("STUDENT_HAS_ACTIVE_SESSION")) {
-        return NextResponse.json({ error: "Este aluno já tem uma sessão ativa noutro computador." }, { status: 409 });
-      }
-      if (message.includes("STUDENT_NOT_ENROLLED") || message.includes("STUDENT_NOT_ACTIVE")) {
-        return NextResponse.json({ error: "A conta do aluno não está ativa ou não tem matrícula ativa." }, { status: 403 });
-      }
       console.error("Erro ao iniciar sessão de computador:", error.message);
       return NextResponse.json({ error: "Não foi possível iniciar a sessão." }, { status: 500 });
     }
 
-    const session = Array.isArray(data) ? data[0] : data;
-    if (!session?.session_id) return NextResponse.json({ error: "O servidor não confirmou o início da sessão." }, { status: 500 });
+    const result = data as {
+      ok?: boolean;
+      error?: string;
+      retry_at?: string | null;
+      attempts_remaining?: number;
+      session_id?: string;
+      aluno_id?: string;
+      aluno_nome?: string;
+      computador_id?: string;
+      computador_nome?: string;
+      started_at?: string;
+    } | null;
+
+    if (!result?.ok) {
+      const codeError = result?.error ?? "UNKNOWN";
+      if (codeError === "INVALID_OR_EXPIRED_CODE") {
+        return NextResponse.json({
+          error: "Código inválido, expirado, cancelado ou já utilizado.",
+          attemptsRemaining: result?.attempts_remaining ?? null,
+        }, { status: 401 });
+      }
+      if (codeError === "DEVICE_TEMPORARILY_LOCKED") {
+        return NextResponse.json({
+          error: "Demasiadas tentativas inválidas. Este computador está temporariamente bloqueado durante 10 minutos.",
+          retryAt: result?.retry_at ?? null,
+        }, { status: 429 });
+      }
+      if (codeError === "DEVICE_CREDENTIAL_INVALID") {
+        return NextResponse.json({ error: "Credencial do computador inválida ou revogada." }, { status: 401 });
+      }
+      if (codeError === "COMPUTER_NOT_FOUND") {
+        return NextResponse.json({ error: "Este computador já não está registado no inventário." }, { status: 404 });
+      }
+      if (codeError === "COMPUTER_NOT_OPERATIONAL") {
+        return NextResponse.json({ error: "Este computador não está operacional e não pode iniciar uma sessão." }, { status: 409 });
+      }
+      if (codeError === "COMPUTER_IN_USE") {
+        return NextResponse.json({ error: "Este computador já está a ser utilizado." }, { status: 409 });
+      }
+      if (codeError === "STUDENT_HAS_ACTIVE_SESSION") {
+        return NextResponse.json({ error: "Este aluno já tem uma sessão ativa noutro computador." }, { status: 409 });
+      }
+      if (codeError === "STUDENT_NOT_ENROLLED" || codeError === "STUDENT_NOT_ACTIVE") {
+        return NextResponse.json({ error: "A conta do aluno não está ativa ou não tem matrícula ativa." }, { status: 403 });
+      }
+      return NextResponse.json({ error: "Não foi possível iniciar a sessão." }, { status: 500 });
+    }
+
+    if (!result.session_id || !result.aluno_id) {
+      return NextResponse.json({ error: "O servidor não confirmou o início da sessão." }, { status: 500 });
+    }
 
     await writePcLog(
       admin,
-      session.aluno_id,
+      result.aluno_id,
       "Iniciar sessão de computador",
       "sessoes_computador",
-      session.session_id,
-      "O aluno " + (session.aluno_nome ?? "") + " iniciou uma sessão em " + (session.computador_nome ?? "um computador") + "."
+      result.session_id,
+      "O aluno " + (result.aluno_nome ?? "") + " iniciou uma sessão em " + (result.computador_nome ?? "um computador") + "."
     );
 
     return NextResponse.json({
       active: true,
-      sessionId: session.session_id,
-      studentId: session.aluno_id,
-      studentName: session.aluno_nome,
-      computerId: session.computador_id,
-      computerName: session.computador_nome,
-      startedAt: session.started_at,
+      sessionId: result.session_id,
+      studentId: result.aluno_id,
+      studentName: result.aluno_nome,
+      computerId: result.computador_id,
+      computerName: result.computador_nome,
+      startedAt: result.started_at,
     }, { status: 201 });
   }
 
