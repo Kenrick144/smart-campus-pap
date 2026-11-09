@@ -57,7 +57,7 @@ export async function getPcAuthContext() {
 }
 
 export function isPcAdmin(role: PcRole) {
-  return role === "Administrador" || role === "Administrador Adjunto";
+  return role === "Administrador";
 }
 
 export function hashTemporaryCode(code: string) {
