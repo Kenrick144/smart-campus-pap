@@ -73,8 +73,8 @@ export async function GET() {
 export async function POST() {
   const { context, response } = await getPcAuthContext();
   if (!context) return response ?? NextResponse.json({ error: "Não autenticado." }, { status: 401 });
-  if (!["Administrador", "Administrador Adjunto"].includes(context.role)) {
-    return NextResponse.json({ error: "Apenas a administração pode executar a limpeza de sessões." }, { status: 403 });
+  if (context.role !== "Administrador") {
+    return NextResponse.json({ error: "Apenas o Administrador pode executar a limpeza de sessões." }, { status: 403 });
   }
 
   const staleBefore = new Date(Date.now() - 2 * 60 * 1000).toISOString();
