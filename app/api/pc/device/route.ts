@@ -79,9 +79,10 @@ export async function POST(request: Request) {
   const action = body.action ?? "";
 
   if (action === "start") {
+    // Códigos malformados também contam como tentativas, evitando contornar o bloqueio.
     const code = typeof body.code === "string" ? body.code.replace(/\s+/g, "") : "";
-    if (!/^\d{8}$/.test(code)) {
-      return NextResponse.json({ error: "Introduz um código válido de 8 algarismos." }, { status: 400 });
+    if (!code || code.length > 32) {
+      return NextResponse.json({ error: "Introduz o código temporário de 8 algarismos." }, { status: 400 });
     }
 
     const { data, error } = await admin.rpc("start_pc_session_guarded", {
@@ -175,6 +176,7 @@ export async function POST(request: Request) {
       .eq("id", body.sessionId)
       .eq("computador_id", device.computador_id)
       .is("ended_at", null)
+      .gte("heartbeat_at", new Date(Date.now() - 2 * 60 * 1000).toISOString())
       .select("id, heartbeat_at")
       .maybeSingle();
 
