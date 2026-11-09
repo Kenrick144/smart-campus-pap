@@ -79,3 +79,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media print { .sidebar,.topbar,.button,.toolbar-actions { display: none!important; }.main-area { margin: 0; }.page-content { max-width: none; padding: 0; }body { background: white; }.surface,.stat-card { break-inside: avoid; box-shadow: none; } }
 @media (max-width:820px) { .main-nav .nav-item { display: flex!important; font-size: 0; }.main-nav .nav-item .nav-count { display: none; } }
 @media (max-width:600px) { .main-nav { justify-content: flex-start; gap: 4px; overflow-x: auto; }.main-nav .nav-item,.main-nav .nav-item.selected { flex: 0 0 40px; font-size: 0; }.main-nav .nav-item .nav-count { display: none; } }
+
+
+/* Dashboard data status and actions */
+.dashboard-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dashboard-data-status { display: flex; align-items: flex-start; gap: 10px; margin: -8px 0 17px; padding: 11px 13px; border: 1px solid #e8eaf1; border-radius: 8px; background: #fafbfe; color: #596579; }
+.dashboard-data-indicator { width: 8px; height: 8px; flex: none; margin-top: 4px; border-radius: 50%; background: #8792a5; }
+.dashboard-data-status>div { display: grid; min-width: 0; gap: 3px; }
+.dashboard-data-status strong { color: #4b5669; font-size: 10px; font-weight: 700; }
+.dashboard-data-status small { color: #818b9d; font-size: 9px; line-height: 1.5; overflow-wrap: anywhere; }
+.dashboard-data-status.is-demo { border-color: #e8e2fb; background: #faf8ff; }
+.dashboard-data-status.is-demo .dashboard-data-indicator { background: #7669e2; }
+.dashboard-data-status.is-connected { border-color: #d9eee2; background: #f5fbf7; }
+.dashboard-data-status.is-connected .dashboard-data-indicator { background: #35a66c; }
+.dashboard-data-status.has-error { border-color: #f2e2c5; background: #fffaf1; }
+.dashboard-data-status.has-error .dashboard-data-indicator { background: #d99a2b; }
+.dashboard-data-status .dashboard-data-error { color: #a66b18; }
+@media (max-width: 700px) {
+  .dashboard-actions { width: 100%; }
+  .dashboard-actions .button { flex: 1; }
+}
