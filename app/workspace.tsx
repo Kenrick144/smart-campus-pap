@@ -59,7 +59,7 @@ const navigation = [
   { label: "Códigos QR", icon: "▦", href: "/qr-code", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno"] },
   { label: "Relatórios", icon: "▥", href: "/relatorios", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
   { label: "Registos de atividade", icon: "≡", href: "/logs", roles: ["Administrador", "Administrador Adjunto"] },
-  { label: "Configurações", icon: "⚙", href: "/configuracoes", roles: ["Administrador", "Administrador Adjunto"] },
+  { label: "Configurações", icon: "⚙", href: "/configuracoes", roles: ["Administrador"] },
 ];
 
 const pageNames: Record<string, string> = {
@@ -88,7 +88,7 @@ const pageNames: Record<string, string> = {
 
 const roleRoutes: Record<Role, string[]> = {
   Administrador: Object.keys(pageNames),
-  "Administrador Adjunto": Object.keys(pageNames),
+  "Administrador Adjunto": Object.keys(pageNames).filter((route) => route !== "/configuracoes"),
   Professor: ["/dashboard", "/alunos", "/professor", "/turmas", "/disciplinas", "/presencas", "/horarios", "/salas", "/computadores", "/equipamentos", "/qr-code", "/relatorios", "/avaliacoes", "/notas", "/avisos", "/pc", "/perfil"],
   Aluno: ["/aluno", "/horarios", "/presencas", "/qr-code", "/notas", "/avaliacoes", "/avisos", "/pc", "/perfil"],
   "Funcionário": ["/dashboard", "/funcionario", "/horarios", "/salas", "/computadores", "/equipamentos", "/avisos", "/pc", "/perfil"],
