@@ -80,10 +80,10 @@ export async function POST(request: Request) {
 
   if (action === "start") {
     // Códigos malformados também contam como tentativas, evitando contornar o bloqueio.
-    const code = typeof body.code === "string" ? body.code.replace(/\s+/g, "") : "";
-    if (!code || code.length > 32) {
-      return NextResponse.json({ error: "Introduz o código temporário de 8 algarismos." }, { status: 400 });
-    }
+    // Enviar também entradas vazias ou malformadas à função protegida para
+    // que contem como tentativa inválida. Limita o tamanho processado.
+    const rawCode = typeof body.code === "string" ? body.code.replace(/\s+/g, "") : "";
+    const code = rawCode.length > 64 ? rawCode.slice(0, 65) : rawCode;
 
     const { data, error } = await admin.rpc("start_pc_session_guarded", {
       p_computador_id: device.computador_id,
