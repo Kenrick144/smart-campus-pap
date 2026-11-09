@@ -1,3 +1,4 @@
+using System.Drawing.Drawing2D;
 using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
@@ -9,22 +10,28 @@ public sealed class LauncherForm : Form
     private readonly TextBox _code = new()
     {
         MaxLength = 6,
-        Font = new Font("Segoe UI", 26, FontStyle.Bold),
-        Width = 260,
+        Font = new Font("Segoe UI", 30, FontStyle.Bold),
+        Width = 620,
+        Height = 104,
         TextAlign = HorizontalAlignment.Center,
-        PlaceholderText = "000000"
+        BackColor = Color.White,
+        ForeColor = Color.FromArgb(18, 27, 48),
+        BorderStyle = BorderStyle.None,
+        PlaceholderText = "______"
     };
-    private readonly Button _start = new() { Text = "AUTORIZAR COMPUTADOR", AutoSize = true, Height = 48 };
-    private readonly Button _logout = new() { Text = "Terminar sessão Windows", AutoSize = true, Height = 42 };
-    private readonly Button _shutdown = new() { Text = "Desligar computador", AutoSize = true, Height = 42 };
+
+    private readonly Button _start = new() { Text = "AUTORIZAR COMPUTADOR", Height = 104, Dock = DockStyle.Fill };
+    private readonly Button _logout = new() { Text = "Terminar sessão Windows", Height = 104, Dock = DockStyle.Fill };
+    private readonly Button _shutdown = new() { Text = "Desligar computador", Height = 104, Dock = DockStyle.Fill };
     private readonly Label _status = new()
     {
         AutoSize = true,
-        MaximumSize = new Size(720, 0),
+        MaximumSize = new Size(820, 0),
         TextAlign = ContentAlignment.MiddleCenter,
-        Text = "Este computador está bloqueado até ser introduzido um código temporário válido."
+        Text = ""
     };
     private bool _allowClose;
+    private readonly RoundedPanel _card;
 
     public LauncherForm()
     {
@@ -34,100 +41,102 @@ public sealed class LauncherForm : Form
         WindowState = FormWindowState.Maximized;
         TopMost = true;
         ShowInTaskbar = false;
-        BackColor = Color.FromArgb(10, 20, 38);
+        BackColor = Color.Black;
         ForeColor = Color.White;
         KeyPreview = true;
+        MinimumSize = new Size(640, 720);
+
+        _card = new RoundedPanel
+        {
+            BackColor = Color.FromArgb(12, 21, 43),
+            CornerRadius = 34,
+            Padding = new Padding(36, 30, 36, 30),
+            Width = 1010,
+            Height = 1120,
+            Anchor = AnchorStyles.None
+        };
+
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 7,
+            BackColor = Color.Transparent,
+            Padding = new Padding(0),
+            Margin = new Padding(0)
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 112));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 205));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 120));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 18));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 132));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 154));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 154));
 
         var title = new Label
         {
             Text = "SMART CAMPUS",
-            Font = new Font("Segoe UI", 15, FontStyle.Bold),
-            ForeColor = Color.FromArgb(130, 180, 255),
-            AutoSize = true,
+            Dock = DockStyle.Fill,
+            Font = new Font("Segoe UI", 38, FontStyle.Bold),
+            ForeColor = Color.FromArgb(126, 174, 255),
             TextAlign = ContentAlignment.MiddleCenter
         };
         var heading = new Label
         {
-            Text = "Acesso ao computador",
-            Font = new Font("Segoe UI", 30, FontStyle.Bold),
-            AutoSize = true,
+            Text = "Acesso ao\ncomputador",
+            Dock = DockStyle.Fill,
+            Font = new Font("Segoe UI", 54, FontStyle.Bold),
+            ForeColor = Color.White,
             TextAlign = ContentAlignment.MiddleCenter
         };
         var help = new Label
         {
-            Text = "Lê o QR permanente deste computador no telemóvel, inicia sessão no Smart Campus e introduz o código temporário de seis dígitos.",
-            Font = new Font("Segoe UI", 12),
-            AutoSize = true,
-            MaximumSize = new Size(720, 0),
+            Text = "Introduz o teu código temporário",
+            Dock = DockStyle.Fill,
+            Font = new Font("Segoe UI", 29, FontStyle.Regular),
+            ForeColor = Color.FromArgb(211, 220, 237),
             TextAlign = ContentAlignment.MiddleCenter
         };
-        var codeLabel = new Label
+
+        var codeHost = new Panel
         {
-            Text = "CÓDIGO TEMPORÁRIO",
-            Font = new Font("Segoe UI", 10, FontStyle.Bold),
-            ForeColor = Color.FromArgb(190, 205, 225),
-            AutoSize = true
+            Dock = DockStyle.Fill,
+            BackColor = Color.White,
+            Padding = new Padding(24, 8, 24, 8),
+            Margin = new Padding(0, 8, 0, 16)
         };
-        var note = new Label
-        {
-            Text = "Válido durante 10 minutos · Utilização única",
-            Font = new Font("Segoe UI", 10),
-            ForeColor = Color.FromArgb(170, 185, 205),
-            AutoSize = true
-        };
+        _code.Dock = DockStyle.Fill;
+        _code.Margin = new Padding(0);
+        codeHost.Controls.Add(_code);
 
         StylePrimaryButton(_start);
         StyleSecondaryButton(_logout);
         StyleSecondaryButton(_shutdown);
-        _status.Font = new Font("Segoe UI", 11);
-        _status.ForeColor = Color.FromArgb(210, 220, 235);
 
-        var buttons = new FlowLayoutPanel
-        {
-            AutoSize = true,
-            FlowDirection = FlowDirection.TopDown,
-            WrapContents = false,
-            Anchor = AnchorStyles.None,
-            BackColor = Color.Transparent
-        };
-        buttons.Controls.Add(_start);
-        buttons.Controls.Add(_logout);
-        buttons.Controls.Add(_shutdown);
+        layout.Controls.Add(title, 0, 0);
+        layout.Controls.Add(heading, 0, 1);
+        layout.Controls.Add(help, 0, 2);
+        layout.Controls.Add(codeHost, 0, 3);
+        layout.Controls.Add(_start, 0, 4);
+        layout.Controls.Add(_logout, 0, 5);
+        layout.Controls.Add(_shutdown, 0, 6);
+        _card.Controls.Add(layout);
+        Controls.Add(_card);
 
-        var content = new TableLayoutPanel
-        {
-            ColumnCount = 1,
-            RowCount = 10,
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            BackColor = Color.Transparent,
-            Anchor = AnchorStyles.None,
-            Padding = new Padding(24)
-        };
-        content.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        content.Controls.Add(title, 0, 0);
-        content.Controls.Add(heading, 0, 1);
-        content.Controls.Add(help, 0, 2);
-        content.Controls.Add(codeLabel, 0, 3);
-        content.Controls.Add(_code, 0, 4);
-        content.Controls.Add(note, 0, 5);
-        content.Controls.Add(buttons, 0, 6);
-        content.Controls.Add(_status, 0, 7);
-
-        var host = new Panel { Dock = DockStyle.Fill, BackColor = BackColor };
-        host.Controls.Add(content);
-        content.Location = new Point(
-            Math.Max(0, (ClientSize.Width - content.PreferredSize.Width) / 2),
-            Math.Max(0, (ClientSize.Height - content.PreferredSize.Height) / 2));
-        host.Resize += (_, _) => content.Location = new Point(
-            Math.Max(0, (host.ClientSize.Width - content.PreferredSize.Width) / 2),
-            Math.Max(0, (host.ClientSize.Height - content.PreferredSize.Height) / 2));
-        Controls.Add(host);
+        Resize += (_, _) => CenterCard();
+        Shown += (_, _) => CenterCard();
+        CenterCard();
 
         _code.KeyPress += (_, eventArgs) =>
         {
             if (!char.IsControl(eventArgs.KeyChar) && !char.IsDigit(eventArgs.KeyChar))
                 eventArgs.Handled = true;
+        };
+        _code.TextChanged += (_, _) =>
+        {
+            if (_code.Text.Length > 6)
+                _code.Text = _code.Text[..6];
         };
         _start.Click += async (_, _) => await SendCommandAsync("start");
         _logout.Click += async (_, _) => await SendCommandAsync("logout");
@@ -138,10 +147,36 @@ public sealed class LauncherForm : Form
         };
     }
 
+    private void CenterCard()
+    {
+        var width = Math.Min(1010, Math.Max(560, ClientSize.Width - 64));
+        var height = Math.Min(1120, Math.Max(700, ClientSize.Height - 32));
+        _card.Size = new Size(width, height);
+        _card.Location = new Point(
+            Math.Max(0, (ClientSize.Width - _card.Width) / 2),
+            Math.Max(0, (ClientSize.Height - _card.Height) / 2));
+        var scale = Math.Min(width / 1010f, height / 1120f);
+        foreach (Control control in _card.Controls)
+            ScaleControlTree(control, scale);
+    }
+
+    private static void ScaleControlTree(Control control, float scale)
+    {
+        foreach (Control child in control.Controls)
+        {
+            if (child is Label label)
+                label.Font = new Font("Segoe UI", Math.Max(14, label.Font.Size * scale), label.Font.Style);
+            else if (child is Button button)
+                button.Font = new Font("Segoe UI", Math.Max(12, 29 * scale), FontStyle.Bold);
+            else if (child is TextBox textBox)
+                textBox.Font = new Font("Segoe UI", Math.Max(18, 30 * scale), FontStyle.Bold);
+            ScaleControlTree(child, scale);
+        }
+    }
+
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
-        // Prevent ordinary app-level exit shortcuts. Secure attention (Ctrl+Alt+Del)
-        // remains controlled by Windows and must never be intercepted by this app.
+        // Keep Windows secure-attention and system security shortcuts under Windows control.
         if (keyData == (Keys.Alt | Keys.F4) || keyData == Keys.Escape)
             return true;
         return base.ProcessCmdKey(ref msg, keyData);
@@ -149,26 +184,27 @@ public sealed class LauncherForm : Form
 
     private static void StylePrimaryButton(Button button)
     {
-        button.BackColor = Color.FromArgb(37, 99, 235);
+        button.BackColor = Color.FromArgb(38, 99, 235);
         button.ForeColor = Color.White;
         button.FlatStyle = FlatStyle.Flat;
         button.FlatAppearance.BorderSize = 0;
-        button.Font = new Font("Segoe UI", 11, FontStyle.Bold);
-        button.Padding = new Padding(24, 10, 24, 10);
-        button.Margin = new Padding(0, 16, 0, 8);
+        button.Font = new Font("Segoe UI", 29, FontStyle.Bold);
+        button.Margin = new Padding(0, 10, 0, 12);
         button.Cursor = Cursors.Hand;
+        button.UseVisualStyleBackColor = false;
     }
 
     private static void StyleSecondaryButton(Button button)
     {
-        button.BackColor = Color.FromArgb(27, 42, 64);
+        button.BackColor = Color.FromArgb(12, 21, 43);
         button.ForeColor = Color.White;
         button.FlatStyle = FlatStyle.Flat;
-        button.FlatAppearance.BorderColor = Color.FromArgb(75, 95, 125);
-        button.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-        button.Padding = new Padding(18, 8, 18, 8);
-        button.Margin = new Padding(0, 6, 0, 6);
+        button.FlatAppearance.BorderColor = Color.FromArgb(76, 94, 126);
+        button.FlatAppearance.BorderSize = 2;
+        button.Font = new Font("Segoe UI", 27, FontStyle.Bold);
+        button.Margin = new Padding(0, 10, 0, 12);
         button.Cursor = Cursors.Hand;
+        button.UseVisualStyleBackColor = false;
     }
 
     private async Task SendCommandAsync(string action)
@@ -195,9 +231,7 @@ public sealed class LauncherForm : Form
             if (result.Ok && action == "start")
             {
                 _code.Clear();
-                _logout.Enabled = true;
-                _shutdown.Enabled = true;
-                _start.Enabled = true;
+                SetButtonsEnabled(true);
                 return;
             }
 
@@ -208,18 +242,40 @@ public sealed class LauncherForm : Form
                 return;
             }
 
-            _start.Enabled = true;
-            _logout.Enabled = true;
-            _shutdown.Enabled = true;
+            SetButtonsEnabled(true);
         }
         catch (Exception exception)
         {
             _status.Text = "Não foi possível contactar o serviço Smart Campus. Confirma que o agente está instalado e em execução. " + exception.Message;
-            _start.Enabled = true;
-            _logout.Enabled = true;
-            _shutdown.Enabled = true;
+            SetButtonsEnabled(true);
         }
     }
 
+    private void SetButtonsEnabled(bool enabled)
+    {
+        _start.Enabled = enabled;
+        _logout.Enabled = enabled;
+        _shutdown.Enabled = enabled;
+    }
+
     private sealed record PipeResponse(bool Ok, string Message);
+
+    private sealed class RoundedPanel : Panel
+    {
+        public int CornerRadius { get; set; } = 30;
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using var path = new GraphicsPath();
+            var d = CornerRadius * 2;
+            path.AddArc(0, 0, d, d, 180, 90);
+            path.AddArc(Width - d - 1, 0, d, d, 270, 90);
+            path.AddArc(Width - d - 1, Height - d - 1, d, d, 0, 90);
+            path.AddArc(0, Height - d - 1, d, d, 90, 90);
+            path.CloseFigure();
+            Region = new Region(path);
+        }
+    }
 }
