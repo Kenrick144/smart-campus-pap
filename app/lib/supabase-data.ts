@@ -16,21 +16,44 @@ const tableMap: Record<string, string> = {
   "/utilizadores": "profiles",
 };
 
-export async function readSupabaseRecords(pathname: string, fallback: RecordItem[]): Promise<RecordItem[]> {
-  if (!isSupabaseConfigured || !supabase) return fallback;
+export type SupabaseReadResult = {
+  records: RecordItem[];
+  source: "demo" | "supabase" | "error";
+  error?: string;
+};
 
-  const table = tableMap[pathname];
-  if (!table) return fallback;
-
-  const { data, error } = await supabase.from(table).select("*").order("created_at", { ascending: false });
-  if (error) {
-    console.error(`Não foi possível carregar ${table} do Supabase.`, error);
-    return fallback;
+export async function readSupabaseRecordsWithStatus(
+  pathname: string,
+  fallback: RecordItem[],
+): Promise<SupabaseReadResult> {
+  if (!isSupabaseConfigured || !supabase) {
+    return { records: fallback, source: "demo" };
   }
 
-  if (!data) return fallback;
+  const table = tableMap[pathname];
+  if (!table) {
+    return { records: [], source: "error", error: `Não existe uma tabela associada a ${pathname}.` };
+  }
 
-  return data.map((row) => normalizeRowForClient(pathname, row));
+  const { data, error } = await supabase
+    .from(table)
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(`Não foi possível carregar ${table} do Supabase.`, error);
+    return { records: [], source: "error", error: error.message };
+  }
+
+  return {
+    records: (data ?? []).map((row) => normalizeRowForClient(pathname, row)),
+    source: "supabase",
+  };
+}
+
+export async function readSupabaseRecords(pathname: string, fallback: RecordItem[]): Promise<RecordItem[]> {
+  const result = await readSupabaseRecordsWithStatus(pathname, fallback);
+  return result.records.length || result.source !== "error" ? result.records : fallback;
 }
 
 export async function writeSupabaseRecords(pathname: string, records: RecordItem[]) {
