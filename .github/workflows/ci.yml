@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - integracao-supabase-real
+      - fix/admin-adjunto-permissions
   pull_request:
     branches:
       - main
