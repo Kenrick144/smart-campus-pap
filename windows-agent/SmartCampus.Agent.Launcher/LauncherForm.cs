@@ -11,6 +11,7 @@ public sealed class LauncherForm : Form
     {
         MaxLength = 6,
         Font = new Font("Segoe UI", 30, FontStyle.Bold),
+        Tag = 30f,
         Width = 620,
         Height = 104,
         TextAlign = HorizontalAlignment.Center,
@@ -79,6 +80,7 @@ public sealed class LauncherForm : Form
             Text = "SMART CAMPUS",
             Dock = DockStyle.Fill,
             Font = new Font("Segoe UI", 38, FontStyle.Bold),
+            Tag = 38f,
             ForeColor = Color.FromArgb(126, 174, 255),
             TextAlign = ContentAlignment.MiddleCenter
         };
@@ -87,6 +89,7 @@ public sealed class LauncherForm : Form
             Text = "Acesso ao\ncomputador",
             Dock = DockStyle.Fill,
             Font = new Font("Segoe UI", 54, FontStyle.Bold),
+            Tag = 54f,
             ForeColor = Color.White,
             TextAlign = ContentAlignment.MiddleCenter
         };
@@ -95,6 +98,7 @@ public sealed class LauncherForm : Form
             Text = "Introduz o teu código temporário",
             Dock = DockStyle.Fill,
             Font = new Font("Segoe UI", 29, FontStyle.Regular),
+            Tag = 29f,
             ForeColor = Color.FromArgb(211, 220, 237),
             TextAlign = ContentAlignment.MiddleCenter
         };
@@ -164,12 +168,12 @@ public sealed class LauncherForm : Form
     {
         foreach (Control child in control.Controls)
         {
-            if (child is Label label)
-                label.Font = new Font("Segoe UI", Math.Max(14, label.Font.Size * scale), label.Font.Style);
+            if (child is Label label && label.Tag is float labelBaseSize)
+                label.Font = new Font("Segoe UI", Math.Max(14, labelBaseSize * scale), label.Font.Style);
             else if (child is Button button)
                 button.Font = new Font("Segoe UI", Math.Max(12, 29 * scale), FontStyle.Bold);
-            else if (child is TextBox textBox)
-                textBox.Font = new Font("Segoe UI", Math.Max(18, 30 * scale), FontStyle.Bold);
+            else if (child is TextBox textBox && textBox.Tag is float textBaseSize)
+                textBox.Font = new Font("Segoe UI", Math.Max(18, textBaseSize * scale), FontStyle.Bold);
             ScaleControlTree(child, scale);
         }
     }
