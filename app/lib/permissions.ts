@@ -15,8 +15,6 @@ export const PERMISSIONS = {
 
 export const ALL_PERMISSIONS = Object.values(PERMISSIONS).flat() as string[];
 
-// O Adjunto gere as operações correntes do campus, mas não altera segurança,
-// configurações globais nem credenciais administrativas/de dispositivos.
 const ADJUNCT_PERMISSIONS = [
   ...PERMISSIONS.UTILIZADORES,
   ...PERMISSIONS.ALUNOS,
@@ -30,11 +28,23 @@ const ADJUNCT_PERMISSIONS = [
   "Ver histórico de alterações",
 ].filter((permission) => permission !== "Redefinir palavra-passe");
 
+// The role matrix is a UI default only; APIs and RLS remain authoritative.
+const PROFESSOR_PERMISSIONS = [
+  "Ver alunos",
+  "Ver professores",
+  "Ver disciplinas",
+  "Ver turmas",
+  "Ver horários",
+  "Ver relatórios",
+];
+
+const STAFF_PERMISSIONS = ALL_PERMISSIONS.filter((permission) => permission.startsWith("Ver "));
+
 export function defaultPermissionsForRole(role: UserRole): string[] {
   if (role === "Administrador") return [...ALL_PERMISSIONS];
   if (role === "Administrador Adjunto") return [...ADJUNCT_PERMISSIONS];
-  if (role === "Professor") return ["Ver alunos", "Ver professores", "Associar professor a disciplina", "Associar professor a turma", "Definir professor coordenador de turma", "Ver disciplinas", "Ver turmas", "Associar alunos", "Ver horários", "Ver relatórios"];
-  if (role === "Funcionário") return ["Ver alunos", "Ver professores", "Ver turmas", "Ver horários"];
+  if (role === "Professor") return [...PROFESSOR_PERMISSIONS];
+  if (role === "Funcionário") return [...STAFF_PERMISSIONS];
   return ["Ver horários"];
 }
 
