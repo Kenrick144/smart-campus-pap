@@ -767,7 +767,7 @@ export async function GET(request: Request) {
     const role = profile.role as Role;
     const admin = createAdminClient();
 
-    if (resource === "/cursos" && !isAdmin(role)) {
+    if (resource === "/cursos" && !isAdmin(role) && role !== "Funcionário") {
       return NextResponse.json({ error: "Não tens permissão para gerir cursos." }, { status: 403 });
     }
 
