@@ -90,8 +90,15 @@ export async function updateSession(request: NextRequest) {
   });
 
   const pathname = request.nextUrl.pathname;
-  // The PC agent authenticates with its per-device bearer token in its route handler.
-  if (pathname === "/api/pc/device") return response;
+  // Public QR lookup returns only the computer identity/status; the QR is not a credential.
+  // The PC Agent routes authenticate with their individual device token in each handler.
+  const isPublicPcLookup = pathname.startsWith("/api/pc/lookup/");
+  const isPcAgentRoute =
+    pathname === "/api/pc/device" ||
+    pathname === "/api/pc/agent/start" ||
+    pathname === "/api/pc/agent/end" ||
+    pathname === "/api/pc/agent/heartbeat";
+  if (isPublicPcLookup || isPcAgentRoute) return response;
   const isLogin = pathname === "/login";
   const isRoot = pathname === "/";
   const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
