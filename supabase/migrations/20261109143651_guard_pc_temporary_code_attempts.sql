@@ -101,16 +101,13 @@ begin
 
   if not found then
     v_attempts := least(v_device.failed_code_attempts + 1, 5);
+    v_retry_at := case when v_attempts >= 5 then now() + interval '10 minutes' else null end;
     update public.pc_device_credentials
-      set failed_code_attempts = v_attempts,
-          code_locked_until = case when v_attempts >= 5 then now() + interval '10 minutes' else null end
+      set failed_code_attempts = v_attempts, code_locked_until = v_retry_at
       where id = p_device_credential_id;
-    return jsonb_build_object(
-      'ok', false,
+    return jsonb_build_object('ok', false,
       'error', case when v_attempts >= 5 then 'DEVICE_TEMPORARILY_LOCKED' else 'INVALID_OR_EXPIRED_CODE' end,
-      'attempts_remaining', greatest(5 - v_attempts, 0),
-      'retry_at', case when v_attempts >= 5 then now() + interval '10 minutes' else null end
-    );
+      'attempts_remaining', greatest(5 - v_attempts, 0), 'retry_at', v_retry_at);
   end if;
 
   perform pg_advisory_xact_lock(hashtextextended(v_aluno_id::text, 0));
@@ -126,16 +123,13 @@ begin
 
   if not found then
     v_attempts := least(v_device.failed_code_attempts + 1, 5);
+    v_retry_at := case when v_attempts >= 5 then now() + interval '10 minutes' else null end;
     update public.pc_device_credentials
-      set failed_code_attempts = v_attempts,
-          code_locked_until = case when v_attempts >= 5 then now() + interval '10 minutes' else null end
+      set failed_code_attempts = v_attempts, code_locked_until = v_retry_at
       where id = p_device_credential_id;
-    return jsonb_build_object(
-      'ok', false,
+    return jsonb_build_object('ok', false,
       'error', case when v_attempts >= 5 then 'DEVICE_TEMPORARILY_LOCKED' else 'INVALID_OR_EXPIRED_CODE' end,
-      'attempts_remaining', greatest(5 - v_attempts, 0),
-      'retry_at', case when v_attempts >= 5 then now() + interval '10 minutes' else null end
-    );
+      'attempts_remaining', greatest(5 - v_attempts, 0), 'retry_at', v_retry_at);
   end if;
 
   if not exists (
