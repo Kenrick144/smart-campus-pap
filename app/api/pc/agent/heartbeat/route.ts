@@ -1,13 +1,13 @@
-import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/app/lib/supabase-admin";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { hashDeviceToken } from "../../_lib";
 
 export const runtime = "nodejs";
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function POST(request: NextRequest) {
   const agentKey = request.headers.get("x-pc-agent-key");
-  if (!agentKey || agentKey.length < 32 || agentKey.length > 512) {
+  if (!agentKey || agentKey.length !== 64 || !/^[a-f0-9]{64}$/i.test(agentKey)) {
     return NextResponse.json({ error: "Credencial do computador inválida." }, { status: 401 });
   }
 
@@ -17,8 +17,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Indica o computador e a sessão válidos." }, { status: 400 });
     }
 
-    const admin = getSupabaseAdmin();
-    const tokenHash = createHash("sha256").update(agentKey, "utf8").digest("hex");
+    const admin = createAdminClient();
+    const tokenHash = hashDeviceToken(agentKey);
     const { data: credential, error: credentialError } = await admin
       .from("pc_device_credentials")
       .select("id")
