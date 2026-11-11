@@ -1,4 +1,4 @@
-export type DemoRole = "Administrador" | "Professor" | "Aluno" | "Funcionário";
+export type DemoRole = "Administrador" | "Administrador Adjunto" | "Professor" | "Aluno" | "Funcionário";
 
 export type DemoSession = {
   role: DemoRole;
