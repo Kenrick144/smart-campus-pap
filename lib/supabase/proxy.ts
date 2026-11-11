@@ -97,6 +97,9 @@ export async function updateSession(request: NextRequest) {
     return redirectWithCookies(login, response);
   }
 
+  const isLogin = pathname === "/login";
+  const isRoot = pathname === "/";
+
   const supabase = createServerClient(url, key, {
     cookies: {
       getAll() {
@@ -115,8 +118,6 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  const isLogin = pathname === "/login";
-  const isRoot = pathname === "/";
   const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
   const userId = claimsData?.claims?.sub as string | undefined;
   const isAuthenticated = !claimsError && Boolean(userId);
