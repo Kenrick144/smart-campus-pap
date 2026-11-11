@@ -10,19 +10,20 @@ const allRoles: Role[] = ["Aluno", "Professor", "Funcionário", "Administrador A
 const adminRoles: Role[] = ["Administrador", "Administrador Adjunto"];
 
 const readableRoles: Record<string, Role[]> = {
-  "/anos-letivos": ["Administrador", "Administrador Adjunto"],
-  "/alunos": ["Administrador", "Administrador Adjunto", "Professor", "Aluno"],
-  "/professor": ["Administrador", "Administrador Adjunto", "Professor"],
-  "/turmas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno"],
-  "/cursos": ["Administrador", "Administrador Adjunto"],
-  "/disciplinas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno"],
-  "/presencas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno"],
+  // Funcionário tem leitura transversal (todos_leitura), sem capacidade de escrita.
+  "/anos-letivos": ["Administrador", "Administrador Adjunto", "Funcionário"],
+  "/alunos": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
+  "/professor": ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"],
+  "/turmas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
+  "/cursos": ["Administrador", "Administrador Adjunto", "Funcionário"],
+  "/disciplinas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
+  "/presencas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/horarios": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/salas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/computadores": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/equipamentos": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
-  "/qr-code": ["Administrador", "Administrador Adjunto", "Professor", "Aluno"],
-  "/logs": ["Administrador", "Administrador Adjunto"],
+  "/qr-code": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
+  "/logs": ["Administrador", "Administrador Adjunto", "Funcionário"],
 };
 
 function text(row: Row | undefined, key: string, fallback = ""): string {
@@ -910,13 +911,13 @@ export async function GET(request: Request) {
       rows = rows.filter((row) => text(row, "id") === user.id);
     }
 
-    if (resource === "/turmas" && !isAdmin(role)) {
+    if (resource === "/turmas" && !isAdmin(role) && role !== "Funcionário") {
       const classIds = await classIdsForUser(admin, role, user.id);
       const allowedIds = new Set(classIds);
       rows = rows.filter((row) => allowedIds.has(text(row, "id")));
     }
 
-    if (resource === "/disciplinas" && !isAdmin(role)) {
+    if (resource === "/disciplinas" && !isAdmin(role) && role !== "Funcionário") {
       const classIds = role === "Aluno" || role === "Professor" ? await classIdsForUser(admin, role, user.id) : [];
       const disciplineIds = await subjectIdsForUser(admin, role, user.id, classIds);
       const allowedIds = new Set(disciplineIds);
