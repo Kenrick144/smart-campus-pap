@@ -61,7 +61,7 @@ export async function POST(request: Request) {
   const { context, response } = await getPcAuthContext();
   if (!context) return response ?? NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   if (!ALLOWED_ROLES.has(context.role)) {
-    return NextResponse.json({ error: "Apenas Alunos, Professores e Funcionários podem gerar códigos." }, { status: 403 });
+    return NextResponse.json({ error: "Apenas Alunos e Professores podem gerar códigos." }, { status: 403 });
   }
 
   try {
