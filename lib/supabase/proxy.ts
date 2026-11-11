@@ -69,8 +69,10 @@ export async function updateSession(request: NextRequest) {
       return response;
     }
     const login = request.nextUrl.clone();
+    const requestedPath = login.pathname + login.search;
     login.pathname = "/login";
     login.search = "";
+    login.searchParams.set("next", requestedPath);
     return NextResponse.redirect(login);
   }
 
@@ -111,8 +113,10 @@ export async function updateSession(request: NextRequest) {
     }
     if (isLogin || isRoot) return response;
     const login = request.nextUrl.clone();
+    const requestedPath = login.pathname + login.search;
     login.pathname = "/login";
     login.search = "";
+    login.searchParams.set("next", requestedPath);
     return NextResponse.redirect(login);
   }
 
