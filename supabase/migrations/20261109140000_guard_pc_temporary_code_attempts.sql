@@ -95,6 +95,7 @@ begin
     into v_codigo_id, v_aluno_id
   from public.codigos_temporarios c
   where c.codigo_hash = p_codigo_hash
+    and c.computador_id = p_computador_id
     and c.used_at is null
     and c.revoked_at is null
     and c.expires_at > now();
@@ -119,6 +120,7 @@ begin
   from public.codigos_temporarios c
   where c.id = v_codigo_id
     and c.codigo_hash = p_codigo_hash
+    and c.computador_id = p_computador_id
     and c.used_at is null
     and c.revoked_at is null
     and c.expires_at > now()
