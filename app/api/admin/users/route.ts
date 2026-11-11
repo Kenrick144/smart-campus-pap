@@ -88,19 +88,44 @@ export async function GET() {
     const admin = createAdminClient();
     const { data: users, error } = await admin
       .from("users")
-      .select("id, name, email, role, status, username, created_at, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status")
+      .select((currentProfile.role === "Administrador"
+        ? "id, name, email, role, status, username, created_at, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status"
+        : "id, name, email, role, status, username, created_at, department, employee_position, hiring_date, contract_type, professional_status") as any)
       .order("name");
 
     if (error) {
       return NextResponse.json({ error: "Não foi possível carregar os utilizadores." }, { status: 500 });
     }
 
-    const ids = (users ?? []).map((user) => user.id);
+    // Projeções dinâmicas do Supabase não preservam o tipo gerado da tabela.
+    // Normalizamos os resultados para o DTO usado abaixo, sem alargar os campos consultados.
+    type UserListRow = {
+      id: string; name: string | null; email: string | null; role: UserRole;
+      status: string | null; username?: string | null; created_at?: string | null;
+      birth_date?: string | null; phone?: string | null; nif?: string | null;
+      document_type?: string | null; document_number?: string | null; niss?: string | null;
+      health_number?: string | null; address?: string | null; department?: string | null;
+      employee_position?: string | null; hiring_date?: string | null; contract_type?: string | null;
+      professional_status?: string | null;
+    };
+    type DetailRow = {
+      id: string; department?: string | null; employee_position?: string | null;
+      hiring_date?: string | null; contract_type?: string | null; professional_status?: string | null;
+      professional_number?: string | null; employee_number?: string | null;
+      school_year?: string | null; student_number?: string | null; course?: string | null;
+      enrollment_date?: string | null; guardian_name?: string | null;
+      guardian_relationship?: string | null; guardian_phone?: string | null;
+      guardian_email?: string | null; guardian_nif?: string | null;
+      guardian_document_type?: string | null; guardian_document_number?: string | null;
+      guardian_address?: string | null; guardian_alternative_phone?: string | null;
+    };
+    const userRows = (users ?? []) as unknown as UserListRow[];
+    const ids = userRows.map((user) => user.id);
     const [studentsResult, teachersResult, employeesResult] = ids.length
       ? await Promise.all([
-          admin.from("alunos").select("*").in("id", ids),
-          admin.from("professores").select("*").in("id", ids),
-          admin.from("funcionarios").select("*").in("id", ids),
+          admin.from("alunos").select((currentProfile.role === "Administrador" ? "*" : "id, school_year, student_number, course, enrollment_date") as any).in("id", ids),
+          admin.from("professores").select((currentProfile.role === "Administrador" ? "*" : "id, professional_number, department, hiring_date, contract_type, professional_status") as any).in("id", ids),
+          admin.from("funcionarios").select((currentProfile.role === "Administrador" ? "*" : "id, employee_number, department, employee_position, hiring_date, contract_type, professional_status") as any).in("id", ids),
         ])
       : [
           { data: [], error: null },
@@ -114,11 +139,14 @@ export async function GET() {
       return NextResponse.json({ error: "Não foi possível carregar os dados complementares dos utilizadores." }, { status: 500 });
     }
 
-    const students = new Map((studentsResult.data ?? []).map((row) => [row.id, row]));
-    const teachers = new Map((teachersResult.data ?? []).map((row) => [row.id, row]));
-    const employees = new Map((employeesResult.data ?? []).map((row) => [row.id, row]));
+    const studentRows = (studentsResult.data ?? []) as unknown as DetailRow[];
+    const teacherRows = (teachersResult.data ?? []) as unknown as DetailRow[];
+    const employeeRows = (employeesResult.data ?? []) as unknown as DetailRow[];
+    const students = new Map(studentRows.map((row) => [row.id, row]));
+    const teachers = new Map(teacherRows.map((row) => [row.id, row]));
+    const employees = new Map(employeeRows.map((row) => [row.id, row]));
 
-    const toUser = (user: NonNullable<typeof users>[number]) => {
+    const toUser = (user: UserListRow) => {
       const student = students.get(user.id);
       const teacher = teachers.get(user.id);
       const employee = employees.get(user.id);
@@ -168,7 +196,7 @@ export async function GET() {
       ok: true,
       currentRole: currentProfile.role,
       currentUser: { name: currentProfile.name, email: currentProfile.email },
-      users: (users ?? []).map(toUser),
+      users: userRows.map(toUser),
     });
   } catch (error) {
     console.error("Erro ao carregar utilizadores:", error);

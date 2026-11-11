@@ -110,7 +110,10 @@ function isAdmin(role: Role) {
 }
 
 async function readTable(admin: ReturnType<typeof createAdminClient>, table: string): Promise<Row[]> {
-  const { data, error } = await admin.from(table).select("*");
+  // Os enriquecimentos só precisam destes campos da conta; nunca carregar
+  // identificadores civis/fiscais, dados de saúde ou moradas via service role.
+  const columns = table === "users" ? "id, name, email, status" : "*";
+  const { data, error } = await admin.from(table).select(columns);
   if (error) throw new Error("Não foi possível ler a tabela " + table + ".");
   return asRows(data);
 }
