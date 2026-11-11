@@ -1,0 +1,25 @@
+name: Windows PC Agent
+
+on:
+  push:
+    branches: [feature/pc-agent-foundation]
+    paths:
+      - "windows-agent/**"
+      - ".github/workflows/windows-agent.yml"
+  pull_request:
+    paths:
+      - "windows-agent/**"
+      - ".github/workflows/windows-agent.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Restore
+        run: dotnet restore windows-agent/SmartCampus.Agent.sln
+      - name: Build
+        run: dotnet build windows-agent/SmartCampus.Agent.sln --configuration Release --no-restore
