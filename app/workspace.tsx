@@ -1873,7 +1873,6 @@ function PcDeviceManager({ computers }: { computers: RecordItem[] }) {
 
 function StudentPcAccess() {
   const [activeCode, setActiveCode] = useState<{ id: string; expiresAt: string } | null>(null);
-  const [displayedCode, setDisplayedCode] = useState("");
   const [history, setHistory] = useState<Array<{ id: string; createdAt: string; expiresAt: string; status: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1900,26 +1899,6 @@ function StudentPcAccess() {
     void refreshCodes();
   }, []);
 
-  async function generateCode() {
-    setSaving(true);
-    setError("");
-    setFeedback("");
-    try {
-      const response = await fetch("/api/pc/codes", { method: "POST" });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Não foi possível gerar o código.");
-      setDisplayedCode(result.code);
-      setActiveCode({ id: result.id, expiresAt: result.expiresAt });
-      setFeedback("Código criado. Apresenta-o no computador que vais utilizar.");
-      await refreshCodes();
-      setActiveCode({ id: result.id, expiresAt: result.expiresAt });
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Não foi possível gerar o código.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function cancelCode() {
     if (!activeCode) return;
     setSaving(true);
@@ -1933,7 +1912,6 @@ function StudentPcAccess() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Não foi possível cancelar o código.");
-      setDisplayedCode("");
       setActiveCode(null);
       setFeedback("Código cancelado.");
       await refreshCodes();
@@ -1944,50 +1922,28 @@ function StudentPcAccess() {
     }
   }
 
-  async function copyCode() {
-    if (!displayedCode) return;
-    try {
-      await navigator.clipboard.writeText(displayedCode);
-      setFeedback("Código copiado.");
-    } catch {
-      setFeedback("Não foi possível copiar automaticamente. Seleciona o código e copia-o.");
-    }
-  }
-
   const hasActiveCode = Boolean(activeCode && new Date(activeCode.expiresAt).getTime() > Date.now());
 
   return (
     <article className="surface student-pc-access">
       <div className="surface-heading">
-        <div><h2>Acesso aos computadores</h2><p>Gera o teu código pessoal para utilizar um PC da escola.</p></div>
+        <div><h2>Acesso aos computadores</h2><p>Digitaliza o QR permanente colado no computador que pretendes utilizar.</p></div>
         <span className="student-pc-icon" aria-hidden="true">▣</span>
       </div>
-      {displayedCode && hasActiveCode ? (
-        <div className="student-pc-code">
-          <div>
-            <small>O TEU CÓDIGO TEMPORÁRIO</small>
-            <strong>{displayedCode}</strong>
-            <span>Expira às {new Date(activeCode!.expiresAt).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}</span>
-          </div>
-          <button type="button" className="button button-secondary" onClick={() => void copyCode()}>Copiar código</button>
-        </div>
-      ) : hasActiveCode ? (
+      {hasActiveCode ? (
         <div className="student-pc-existing">
           <span className="pill pill-green">Código ativo</span>
-          <p>Já existe um código ativo. Por segurança, o número completo só é mostrado no momento em que é gerado. Cancela-o para criar outro.</p>
+          <p>Já tens um código associado a um computador. Por segurança, o código completo só é apresentado uma vez, na página aberta pelo QR.</p>
           <small>Expira às {new Date(activeCode!.expiresAt).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}</small>
         </div>
       ) : (
         <div className="student-pc-empty">
           <strong>Sem código ativo</strong>
-          <span>O código é válido durante 10 minutos e só pode ser utilizado uma vez.</span>
+          <span>Digitaliza o QR do posto com o telemóvel, inicia sessão e gera o teu código de seis algarismos.</span>
         </div>
       )}
-      <p className="student-pc-install-note">A geração de códigos já está ligada ao servidor. Para iniciar a utilização num PC físico, a escola terá de instalar e ligar o Smart Campus PC Agent nesse computador.</p>
+      <p className="student-pc-install-note">O código é válido durante 10 minutos, só pode ser utilizado uma vez e funciona exclusivamente no computador identificado pelo QR. O PC Agent tem de estar instalado nesse posto.</p>
       <div className="student-pc-actions">
-        <button type="button" className="button button-primary" onClick={() => void generateCode()} disabled={saving || loading || hasActiveCode}>
-          {saving ? "A processar..." : "Gerar código temporário"}
-        </button>
         {hasActiveCode && <button type="button" className="button button-secondary" onClick={() => void cancelCode()} disabled={saving}>Cancelar código</button>}
         <button type="button" className="text-link student-pc-refresh" onClick={() => void refreshCodes()} disabled={loading || saving}>Atualizar</button>
       </div>
