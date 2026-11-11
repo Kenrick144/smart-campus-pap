@@ -88,7 +88,11 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace(destinationFor(profile.role as UserRole));
+      const requestedNext = new URLSearchParams(window.location.search).get("next");
+      const safeNext = requestedNext && requestedNext.startsWith("/") && !requestedNext.startsWith("//")
+        ? requestedNext
+        : destinationFor(profile.role as UserRole);
+      router.replace(safeNext);
       router.refresh();
     } catch (authError) {
       console.error("Erro ao iniciar sessão:", authError);
