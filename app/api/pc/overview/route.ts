@@ -7,14 +7,17 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const { context, response } = await getPcAuthContext();
   if (!context) return response ?? NextResponse.json({ error: "Não autenticado." }, { status: 401 });
-  if (!["Administrador", "Administrador Adjunto", "Professor", "Funcionário"].includes(context.role)) {
-    return NextResponse.json({ error: "Não tens permissão para consultar o estado do parque informático." }, { status: 403 });
+
+  // Professors have pedagogical access only within assigned classes.
+  // The current computer/session schema has no safe class-to-PC scope, so
+  // exposing a global inventory here would exceed that role's permissions.
+  if (!["Administrador", "Administrador Adjunto", "Funcionário"].includes(context.role)) {
+    return NextResponse.json({ error: "Este perfil não pode consultar o parque informático global." }, { status: 403 });
   }
 
   const now = new Date();
   const staleBefore = new Date(now.getTime() - 2 * 60 * 1000).toISOString();
 
-  // GET é apenas de leitura: sessões sem heartbeat recente são tratadas como expiradas.
   const [{ data: computers, error: computerError }, { data: sessions, error: sessionError }, { data: rooms, error: roomError }] = await Promise.all([
     context.admin.from("computadores").select("id, nome, sala_id, numero_inventario, estado").order("nome"),
     context.admin.from("sessoes_computador").select("id, computador_id, aluno_id, started_at, heartbeat_at").is("ended_at", null),
@@ -67,7 +70,7 @@ export async function GET() {
       Inativo: records.filter((item) => item.availability === "Inativo").length,
     },
     refreshedAt: now.toISOString(),
-  });
+  }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST() {
