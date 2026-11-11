@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
       .eq("id", body.session_id)
       .eq("computador_id", body.computer_id)
       .is("ended_at", null)
+      .gte("heartbeat_at", new Date(Date.now() - 2 * 60 * 1000).toISOString())
       .select("id")
       .maybeSingle();
 
