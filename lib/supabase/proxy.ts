@@ -1,0 +1,180 @@
+import { createServerClient } from "@supabase/ssr";
+import { type NextRequest, NextResponse } from "next/server";
+
+type Role =
+  | "Aluno"
+  | "Professor"
+  | "Funcionário"
+  | "Administrador Adjunto"
+  | "Administrador";
+
+const roleRoutes: Record<Role, string[]> = {
+  Administrador: [
+    "/dashboard", "/utilizadores", "/alunos", "/professor", "/turmas", "/cursos", "/anos-letivos",
+    "/disciplinas", "/presencas", "/horarios", "/salas", "/computadores", "/equipamentos",
+    "/qr-code", "/relatorios", "/logs", "/configuracoes", "/avisos",
+    "/avaliacoes", "/notas", "/aluno", "/funcionario", "/pc", "/perfil",
+  ],
+  "Administrador Adjunto": [
+    "/dashboard", "/utilizadores", "/alunos", "/professor", "/turmas", "/cursos", "/anos-letivos",
+    "/disciplinas", "/presencas", "/horarios", "/salas", "/computadores",
+    "/qr-code", "/relatorios", "/logs", "/configuracoes", "/avisos",
+    "/avaliacoes", "/notas", "/aluno", "/funcionario", "/pc", "/perfil",
+  ],
+  Professor: [
+    "/dashboard", "/alunos", "/turmas", "/disciplinas", "/presencas",
+    "/horarios", "/computadores", "/equipamentos", "/qr-code", "/relatorios", "/avaliacoes",
+    "/notas", "/avisos", "/pc", "/perfil",
+  ],
+  "Funcionário": [
+    "/dashboard", "/funcionario", "/horarios", "/salas", "/computadores", "/equipamentos",
+    "/avisos", "/pc", "/perfil",
+  ],
+  Aluno: ["/aluno", "/horarios", "/presencas", "/qr-code", "/notas", "/avaliacoes", "/avisos", "/pc", "/perfil"],
+};
+
+const roleHome: Record<Role, string> = {
+  Administrador: "/dashboard",
+  "Administrador Adjunto": "/dashboard",
+  Professor: "/dashboard",
+  "Funcionário": "/funcionario",
+  Aluno: "/aluno",
+};
+
+function isRole(value: string): value is Role {
+  return [
+    "Aluno",
+    "Professor",
+    "Funcionário",
+    "Administrador Adjunto",
+    "Administrador",
+  ].includes(value);
+}
+
+function canAccess(role: Role, pathname: string) {
+  return roleRoutes[role].some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
+}
+
+function redirectWithCookies(url: URL, source: NextResponse) {
+  const redirect = NextResponse.redirect(url);
+  source.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+  for (const name of ["cache-control", "expires", "pragma"]) {
+    const value = source.headers.get(name);
+    if (value) redirect.headers.set(name, value);
+  }
+  return redirect;
+}
+
+export async function updateSession(request: NextRequest) {
+  let response = NextResponse.next({ request });
+  const pathname = request.nextUrl.pathname;
+  // Public QR lookup returns only the computer identity/status; the QR is not a credential.
+  // The PC Agent routes authenticate with their individual device token in each handler.
+  const isPublicPcLookup = pathname.startsWith("/api/pc/lookup/");
+  const isPcAgentRoute =
+    pathname === "/api/pc/device" ||
+    pathname === "/api/pc/agent/start" ||
+    pathname === "/api/pc/agent/end" ||
+    pathname === "/api/pc/agent/heartbeat";
+  if (isPublicPcLookup || isPcAgentRoute) return response;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    if (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/") {
+      return response;
+    }
+    const login = request.nextUrl.clone();
+    const requestedPath = login.pathname + login.search;
+    login.pathname = "/login";
+    login.search = "";
+    login.searchParams.set("next", requestedPath);
+    return redirectWithCookies(login, response);
+  }
+
+  const isLogin = pathname === "/login";
+  const isRoot = pathname === "/";
+
+  const supabase = createServerClient(url, key, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet, cacheHeaders) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.next({ request });
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options)
+        );
+        Object.entries(cacheHeaders ?? {}).forEach(([key, value]) => {
+          response.headers.set(key, value);
+        });
+      },
+    },
+  });
+
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub as string | undefined;
+  const isAuthenticated = !claimsError && Boolean(userId);
+
+  if (!isAuthenticated) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+    }
+    if (isLogin || isRoot) return response;
+    const login = request.nextUrl.clone();
+    const requestedPath = login.pathname + login.search;
+    login.pathname = "/login";
+    login.search = "";
+    login.searchParams.set("next", requestedPath);
+    return redirectWithCookies(login, response);
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("users")
+    .select("role, status")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError || !profile || profile.status !== "Ativo" || !isRole(profile.role)) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Conta inativa ou perfil inválido." }, { status: 403 });
+    }
+    const login = request.nextUrl.clone();
+    login.pathname = "/login";
+    login.search = "";
+    return redirectWithCookies(login, response);
+  }
+
+  if (pathname.startsWith("/api/")) {
+    if (
+      pathname.startsWith("/api/admin/users") &&
+      profile.role !== "Administrador" &&
+      profile.role !== "Administrador Adjunto"
+    ) {
+      return NextResponse.json({ error: "Não tens permissão para gerir utilizadores." }, { status: 403 });
+    }
+    return response;
+  }
+
+  if (isRoot || isLogin) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = roleHome[profile.role];
+    destination.search = "";
+    return redirectWithCookies(destination, response);
+  }
+
+  if (!canAccess(profile.role, pathname)) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = roleHome[profile.role];
+    destination.search = "";
+    return redirectWithCookies(destination, response);
+  }
+
+  return response;
+}

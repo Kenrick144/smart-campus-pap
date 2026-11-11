@@ -15,8 +15,24 @@ export const PERMISSIONS = {
 
 export const ALL_PERMISSIONS = Object.values(PERMISSIONS).flat() as string[];
 
+// O Adjunto gere as operações correntes do campus, mas não altera segurança,
+// configurações globais nem credenciais administrativas/de dispositivos.
+const ADJUNCT_PERMISSIONS = [
+  ...PERMISSIONS.UTILIZADORES,
+  ...PERMISSIONS.ALUNOS,
+  ...PERMISSIONS.PROFESSORES,
+  ...PERMISSIONS.DISCIPLINAS,
+  ...PERMISSIONS.TURMAS,
+  ...PERMISSIONS.HORARIOS,
+  ...PERMISSIONS.ANO_LETIVO,
+  ...PERMISSIONS.RELATORIOS,
+  "Ver registos de atividade",
+  "Ver histórico de alterações",
+].filter((permission) => permission !== "Redefinir palavra-passe");
+
 export function defaultPermissionsForRole(role: UserRole): string[] {
-  if (role === "Administrador" || role === "Administrador Adjunto") return [...ALL_PERMISSIONS];
+  if (role === "Administrador") return [...ALL_PERMISSIONS];
+  if (role === "Administrador Adjunto") return [...ADJUNCT_PERMISSIONS];
   if (role === "Professor") return ["Ver alunos", "Ver professores", "Associar professor a disciplina", "Associar professor a turma", "Definir professor coordenador de turma", "Ver disciplinas", "Ver turmas", "Associar alunos", "Ver horários", "Ver relatórios"];
   if (role === "Funcionário") return ["Ver alunos", "Ver professores", "Ver turmas", "Ver horários"];
   return ["Ver horários"];
@@ -24,6 +40,9 @@ export function defaultPermissionsForRole(role: UserRole): string[] {
 
 export function hasPermission(user: { role: UserRole; permissions?: string[] } | null | undefined, permission: string): boolean {
   if (!user) return false;
-  if (user.role === "Administrador" || user.role === "Administrador Adjunto") return true;
+  if (user.role === "Administrador") return true;
+  if (user.role === "Administrador Adjunto") {
+    return ADJUNCT_PERMISSIONS.includes(permission as (typeof ADJUNCT_PERMISSIONS)[number]);
+  }
   return user.permissions?.includes(permission) === true;
 }
