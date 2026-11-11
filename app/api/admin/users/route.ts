@@ -88,7 +88,9 @@ export async function GET() {
     const admin = createAdminClient();
     const { data: users, error } = await admin
       .from("users")
-      .select("id, name, email, role, status, username, created_at, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status")
+      .select(currentProfile.role === "Administrador"
+        ? "id, name, email, role, status, username, created_at, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status"
+        : "id, name, email, role, status, username, created_at, department, employee_position, hiring_date, contract_type, professional_status")
       .order("name");
 
     if (error) {
@@ -98,9 +100,9 @@ export async function GET() {
     const ids = (users ?? []).map((user) => user.id);
     const [studentsResult, teachersResult, employeesResult] = ids.length
       ? await Promise.all([
-          admin.from("alunos").select("*").in("id", ids),
-          admin.from("professores").select("*").in("id", ids),
-          admin.from("funcionarios").select("*").in("id", ids),
+          admin.from("alunos").select(currentProfile.role === "Administrador" ? "*" : "id, school_year, student_number, course, enrollment_date").in("id", ids),
+          admin.from("professores").select(currentProfile.role === "Administrador" ? "*" : "id, professional_number, department, hiring_date, contract_type, professional_status").in("id", ids),
+          admin.from("funcionarios").select(currentProfile.role === "Administrador" ? "*" : "id, employee_number, department, employee_position, hiring_date, contract_type, professional_status").in("id", ids),
         ])
       : [
           { data: [], error: null },
