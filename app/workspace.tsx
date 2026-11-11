@@ -191,11 +191,11 @@ export default function Workspace() {
       Administrador: dataRoutes,
       "Administrador Adjunto": dataRoutes,
       Professor: [
-        "/alunos", "/professor", "/turmas", "/disciplinas", "/presencas",
+        "/anos-letivos", "/alunos", "/professor", "/turmas", "/disciplinas", "/presencas",
         "/horarios", "/salas", "/computadores", "/equipamentos", "/qr-code",
       ],
-      Aluno: ["/alunos", "/presencas", "/horarios", "/computadores", "/qr-code"],
-      "Funcionário": ["/horarios", "/salas", "/computadores", "/equipamentos"],
+      Aluno: ["/anos-letivos", "/alunos", "/presencas", "/horarios", "/computadores", "/qr-code"],
+      "Funcionário": ["/anos-letivos", "/horarios", "/salas", "/computadores", "/equipamentos"],
     };
 
     const allowed = new Set(pathsByRole[currentRole]);

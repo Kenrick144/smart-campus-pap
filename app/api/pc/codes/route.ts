@@ -6,7 +6,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const ALLOWED_ROLES = new Set(["Aluno", "Professor", "Funcionário"]);
+// Códigos temporários permitem iniciar sessões e são uma operação de escrita.
+// Funcionário tem todos_leitura e não pode gerar, consultar ou cancelar códigos.
+const ALLOWED_ROLES = new Set(["Aluno", "Professor"]);
 
 function schemaNotReady() {
   return NextResponse.json(
@@ -59,7 +61,7 @@ export async function POST(request: Request) {
   const { context, response } = await getPcAuthContext();
   if (!context) return response ?? NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   if (!ALLOWED_ROLES.has(context.role)) {
-    return NextResponse.json({ error: "Apenas Alunos, Professores e Funcionários podem gerar códigos." }, { status: 403 });
+    return NextResponse.json({ error: "Apenas Alunos e Professores podem gerar códigos." }, { status: 403 });
   }
 
   try {
