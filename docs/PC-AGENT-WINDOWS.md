@@ -68,7 +68,7 @@ O workflow `.github/workflows/windows-agent.yml` executa restore e build em runn
 - O shutdown usa o encerramento normal do Windows sem forçar o fecho de aplicações; aplicações podem apresentar pedidos para guardar trabalho.
 - A sessão Windows institucional ainda não está ligada a um identificador imutável Microsoft Entra ID / Active Directory.
 - WTS atua na sessão de consola física; RDP e ambientes multi-sessão precisam de validação própria.
-- As migrações `202611050001_pc_qr_user_code.sql` e `20261111130000_guard_pc_agent_qr_sessions.sql` continuam por aplicar ao Supabase ativo; devem ser revistas em conjunto e aplicadas manualmente por ordem, após confirmação do schema real.
+- As migrações `20261111120000_pc_qr_user_code.sql` e `20261111130000_guard_pc_agent_qr_sessions.sql` continuam por aplicar ao Supabase ativo; devem ser revistas em conjunto e aplicadas manualmente por ordem, após confirmação do schema real.
 - Antes de produção: testar código inválido/expirado/de outro PC, logout antes e depois da autorização, shutdown, falha de rede, restart do serviço, recuperação do launcher, OneDrive com sincronização pendente, conta IT de recuperação e escape paths do quiosque.
 - Não aplicar políticas de quiosque nem migrações ao ambiente ativo sem revisão e autorização.
 
