@@ -11,7 +11,8 @@ const adminRoles: Role[] = ["Administrador", "Administrador Adjunto"];
 
 const readableRoles: Record<string, Role[]> = {
   // Funcionário tem leitura transversal (todos_leitura), sem capacidade de escrita.
-  "/anos-letivos": ["Administrador", "Administrador Adjunto", "Funcionário"],
+  // Todos os perfis podem consultar o calendário letivo; só Admin/Adjunto o gerem.
+  "/anos-letivos": ["Administrador", "Administrador Adjunto", "Funcionário", "Professor", "Aluno"],
   "/alunos": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/professor": ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"],
   "/turmas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
@@ -884,6 +885,11 @@ export async function GET(request: Request) {
     };
     const table = tableMap[resource];
     let rows = await readTable(admin, table);
+
+    // Professor e Aluno consultam apenas o ano ativo; escrita continua exclusiva dos administradores.
+    if (resource === "/anos-letivos" && (role === "Professor" || role === "Aluno")) {
+      rows = rows.filter((row) => row.ativo === true || text(row, "ativo").toLowerCase() === "true");
+    }
 
     // The dashboard and activity page should show the newest events first.
     if (resource === "/logs") {
