@@ -57,8 +57,29 @@ function canAccess(role: Role, pathname: string) {
   );
 }
 
+function redirectWithCookies(url: URL, source: NextResponse) {
+  const redirect = NextResponse.redirect(url);
+  source.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+  for (const name of ["cache-control", "expires", "pragma"]) {
+    const value = source.headers.get(name);
+    if (value) redirect.headers.set(name, value);
+  }
+  return redirect;
+}
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
+  const pathname = request.nextUrl.pathname;
+  // Public QR lookup returns only the computer identity/status; the QR is not a credential.
+  // The PC Agent routes authenticate with their individual device token in each handler.
+  const isPublicPcLookup = pathname.startsWith("/api/pc/lookup/");
+  const isPcAgentRoute =
+    pathname === "/api/pc/device" ||
+    pathname === "/api/pc/agent/start" ||
+    pathname === "/api/pc/agent/end" ||
+    pathname === "/api/pc/agent/heartbeat";
+  if (isPublicPcLookup || isPcAgentRoute) return response;
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key =
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
@@ -73,7 +94,7 @@ export async function updateSession(request: NextRequest) {
     login.pathname = "/login";
     login.search = "";
     login.searchParams.set("next", requestedPath);
-    return NextResponse.redirect(login);
+    return redirectWithCookies(login, response);
   }
 
   const supabase = createServerClient(url, key, {
@@ -81,26 +102,19 @@ export async function updateSession(request: NextRequest) {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet, cacheHeaders) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) =>
           response.cookies.set(name, value, options)
         );
+        Object.entries(cacheHeaders ?? {}).forEach(([key, value]) => {
+          response.headers.set(key, value);
+        });
       },
     },
   });
 
-  const pathname = request.nextUrl.pathname;
-  // Public QR lookup returns only the computer identity/status; the QR is not a credential.
-  // The PC Agent routes authenticate with their individual device token in each handler.
-  const isPublicPcLookup = pathname.startsWith("/api/pc/lookup/");
-  const isPcAgentRoute =
-    pathname === "/api/pc/device" ||
-    pathname === "/api/pc/agent/start" ||
-    pathname === "/api/pc/agent/end" ||
-    pathname === "/api/pc/agent/heartbeat";
-  if (isPublicPcLookup || isPcAgentRoute) return response;
   const isLogin = pathname === "/login";
   const isRoot = pathname === "/";
   const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
@@ -117,7 +131,7 @@ export async function updateSession(request: NextRequest) {
     login.pathname = "/login";
     login.search = "";
     login.searchParams.set("next", requestedPath);
-    return NextResponse.redirect(login);
+    return redirectWithCookies(login, response);
   }
 
   const { data: profile, error: profileError } = await supabase
@@ -133,7 +147,7 @@ export async function updateSession(request: NextRequest) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";
     login.search = "";
-    return NextResponse.redirect(login);
+    return redirectWithCookies(login, response);
   }
 
   if (pathname.startsWith("/api/")) {
@@ -151,14 +165,14 @@ export async function updateSession(request: NextRequest) {
     const destination = request.nextUrl.clone();
     destination.pathname = roleHome[profile.role];
     destination.search = "";
-    return NextResponse.redirect(destination);
+    return redirectWithCookies(destination, response);
   }
 
   if (!canAccess(profile.role, pathname)) {
     const destination = request.nextUrl.clone();
     destination.pathname = roleHome[profile.role];
     destination.search = "";
-    return NextResponse.redirect(destination);
+    return redirectWithCookies(destination, response);
   }
 
   return response;
