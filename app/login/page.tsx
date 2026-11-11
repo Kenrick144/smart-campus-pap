@@ -89,9 +89,17 @@ export default function LoginPage() {
       }
 
       const requestedNext = new URLSearchParams(window.location.search).get("next");
-      const safeNext = requestedNext && requestedNext.startsWith("/") && !requestedNext.startsWith("//")
-        ? requestedNext
-        : destinationFor(profile.role as UserRole);
+      let safeNext = destinationFor(profile.role as UserRole);
+      if (requestedNext) {
+        try {
+          const requestedUrl = new URL(requestedNext, window.location.origin);
+          if (requestedUrl.origin === window.location.origin) {
+            safeNext = requestedUrl.pathname + requestedUrl.search + requestedUrl.hash;
+          }
+        } catch {
+          // Ignore malformed or external redirect targets.
+        }
+      }
       router.replace(safeNext);
       router.refresh();
     } catch (authError) {
