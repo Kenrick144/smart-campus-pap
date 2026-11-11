@@ -25,7 +25,8 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ qr
       .from("sessoes_computador")
       .select("id", { count: "exact", head: true })
       .eq("computador_id", computer.id)
-      .is("ended_at", null);
+      .is("ended_at", null)
+      .gte("heartbeat_at", new Date(Date.now() - 2 * 60 * 1000).toISOString());
 
     if (sessionError) throw sessionError;
     const available = computer.estado === "Operacional" && (count ?? 0) === 0;
@@ -40,7 +41,11 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ qr
       },
     }, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "";
     console.error("PC QR lookup failed:", error);
+    if (/qr_public_id|schema cache|does not exist/i.test(message)) {
+      return NextResponse.json({ error: "A integração do QR permanente ainda não está instalada na base de dados." }, { status: 503 });
+    }
     return NextResponse.json({ error: "Não foi possível consultar este computador." }, { status: 500 });
   }
 }
