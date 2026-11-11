@@ -41,7 +41,9 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ qr
       },
     }, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
+    const message = error && typeof error === "object" && "message" in error && typeof error.message === "string"
+      ? error.message
+      : error instanceof Error ? error.message : "";
     console.error("PC QR lookup failed:", error);
     if (/qr_public_id|schema cache|does not exist/i.test(message)) {
       return NextResponse.json({ error: "A integração do QR permanente ainda não está instalada na base de dados." }, { status: 503 });
