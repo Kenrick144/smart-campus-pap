@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { hashDeviceToken } from "../../_lib";
 
 export const runtime = "nodejs";
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function POST(request: NextRequest) {
   const agentKey = request.headers.get("x-pc-agent-key");
