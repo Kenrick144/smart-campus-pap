@@ -129,7 +129,7 @@ export async function GET() {
       guardian_relationship?: string | null; guardian_phone?: string | null;
       guardian_email?: string | null; guardian_nif?: string | null;
       guardian_document_type?: string | null; guardian_document_number?: string | null;
-      guardian_address?: string | null; guardian_alternative_phone?: string | null;
+      guardian_address?: string | null; guardian_alternative_phone?: string | null; guardian_is_student?: boolean | null;
     };
     const userRows = (users ?? []) as unknown as UserListRow[];
     const ids = userRows.map((user) => user.id);
