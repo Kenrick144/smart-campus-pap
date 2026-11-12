@@ -1,10 +1,29 @@
 -- Phase 2 RBAC: safe read scopes for Funcionário and Administrador Adjunto.
 -- Prepared for review only. Do not apply until the API/UI contract and tests are approved.
 
+-- Reuse the authenticated profile but require an active account for every new grant.
+CREATE OR REPLACE FUNCTION private.current_user_is_active()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.users AS u
+    WHERE u.id = (SELECT auth.uid())
+      AND u.status = 'Ativo'
+  );
+$function$;
+
+REVOKE ALL ON FUNCTION private.current_user_is_active() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION private.current_user_is_active() TO authenticated;
+
 -- Funcionário: global read-only access only to non-sensitive academic/campus catalogues.
 -- Personal/student records (users, alunos, presencas, notas, sessoes, temporary codes)
 -- deliberately remain excluded from broad direct-table SELECT policies.
-DO $$
+DO $
 DECLARE
   table_name text;
   policy_name text;
@@ -27,7 +46,7 @@ BEGIN
     policy_name := table_name || '_select_funcionario_read_all';
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', policy_name, table_name);
     EXECUTE format(
-      'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (private.current_user_role() = %L)',
+      'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (private.current_user_is_active() AND private.current_user_role() = %L)',
       policy_name, table_name, 'Funcionário'
     );
   END LOOP;
@@ -52,7 +71,8 @@ SELECT
   professional_status,
   created_at
 FROM public.users
-WHERE private.current_user_role() IN ('Administrador', 'Administrador Adjunto');
+WHERE private.current_user_is_active()
+  AND private.current_user_role() IN ('Administrador', 'Administrador Adjunto');
 
 REVOKE ALL ON public.users_directory FROM PUBLIC;
 GRANT SELECT ON public.users_directory TO authenticated;
