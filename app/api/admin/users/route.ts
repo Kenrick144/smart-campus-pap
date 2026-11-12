@@ -251,13 +251,25 @@ export async function PATCH(request: Request) {
     }
 
     const admin = createAdminClient();
-    const { data: target, error: targetError } = await admin
+    const { data: targetData, error: targetError } = await admin
       .from("users")
       .select((currentProfile.role === "Administrador"
         ? "id, name, email, role, status, username, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status"
         : "id, name, email, role, status, username, department, employee_position, hiring_date, contract_type, professional_status") as any)
       .eq("id", id)
       .maybeSingle();
+
+    // O select dinâmico é limitado por perfil; normalizamos o tipo sem alterar
+    // as colunas efetivamente consultadas nem ampliar o acesso do Adjunto.
+    type TargetUserRow = {
+      id: string; name: string | null; email: string | null; role: UserRole;
+      status: string | null; username?: string | null; birth_date?: string | null;
+      phone?: string | null; nif?: string | null; document_type?: string | null;
+      document_number?: string | null; niss?: string | null; health_number?: string | null;
+      address?: string | null; department?: string | null; employee_position?: string | null;
+      hiring_date?: string | null; contract_type?: string | null; professional_status?: string | null;
+    };
+    const target = targetData as unknown as TargetUserRow | null;
 
     if (targetError || !target) {
       return NextResponse.json({ error: "O utilizador selecionado não foi encontrado." }, { status: 404 });
