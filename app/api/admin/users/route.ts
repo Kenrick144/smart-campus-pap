@@ -286,7 +286,9 @@ export async function PATCH(request: Request) {
       currentProfile.role === "Administrador Adjunto" &&
       ["Administrador", "Administrador Adjunto"].includes(target.role)
     ) {
-      return NextResponse.json({ error: "O Administrador Adjunto não pode editar contas de administração." }, { status: 403 });
+      // Não revelar se o ID pertence a uma conta de administração.
+      // Para o Adjunto, uma conta protegida é indistinguível de uma conta inexistente.
+      return NextResponse.json({ error: "O utilizador selecionado não foi encontrado." }, { status: 404 });
     }
 
     if (id === currentUser.id && (cleanStatus !== "Ativo" || cleanRole !== currentProfile.role)) {
