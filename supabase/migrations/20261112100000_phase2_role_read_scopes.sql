@@ -23,7 +23,7 @@ GRANT EXECUTE ON FUNCTION private.current_user_is_active() TO authenticated;
 -- Funcionário: global read-only access only to non-sensitive academic/campus catalogues.
 -- Personal/student records (users, alunos, presencas, notas, sessoes, temporary codes)
 -- deliberately remain excluded from broad direct-table SELECT policies.
-DO $
+DO $phase2$
 DECLARE
   table_name text;
   policy_name text;
@@ -51,7 +51,7 @@ BEGIN
     );
   END LOOP;
 END
-$$;
+$phase2$;
 
 -- Administrador Adjunto may consult a restricted directory for account management.
 -- Do NOT grant SELECT on public.users: it contains fiscal, identity, health and address data.
