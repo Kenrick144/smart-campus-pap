@@ -28,6 +28,14 @@ type User = {
   role: UserRole;
   status: UserStatus;
   birthDate?: string;
+  sex?: string;
+  nationality?: string;
+  postalCode?: string;
+  locality?: string;
+  academicDegree?: string;
+  disciplinaryArea?: string;
+  professionalCategory?: string;
+  guardianIsStudent?: boolean;
   phone?: string;
   nif?: string;
   documentType?: "Cartão de Cidadão" | "Passaporte" | "Título de Residência";
@@ -196,6 +204,14 @@ export default function Utilizadores() {
   const [status, setStatus] = useState<UserStatus>("Ativo");
 
   const [birthDate, setBirthDate] = useState("");
+  const [sex, setSex] = useState("");
+  const [nationality, setNationality] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [locality, setLocality] = useState("");
+  const [academicDegree, setAcademicDegree] = useState("");
+  const [disciplinaryArea, setDisciplinaryArea] = useState("");
+  const [professionalCategory, setProfessionalCategory] = useState("Docente");
+  const [guardianIsStudent, setGuardianIsStudent] = useState(false);
   const [phone, setPhone] = useState("");
   const [nif, setNif] = useState("");
   const [documentType, setDocumentType] = useState<User["documentType"]>("Cartão de Cidadão");
@@ -264,6 +280,10 @@ function openForm() {
     setStatus(user.status);
 
     setBirthDate(user.birthDate ?? "");
+    setSex(user.sex ?? ""); setNationality(user.nationality ?? "");
+    setPostalCode(user.postalCode ?? ""); setLocality(user.locality ?? "");
+    setAcademicDegree(user.academicDegree ?? ""); setDisciplinaryArea(user.disciplinaryArea ?? "");
+    setProfessionalCategory(user.professionalCategory ?? "Docente"); setGuardianIsStudent(Boolean(user.guardianIsStudent));
     setPhone(user.phone ?? "");
     setNif(user.nif ?? "");
     setDocumentType(user.documentType ?? "Cartão de Cidadão");
@@ -306,7 +326,9 @@ function openForm() {
 
   function resetForm() {
     setName(""); setEmail(""); setRole("Aluno"); setStatus("Ativo");
-    setBirthDate(""); setPhone(""); setNif(""); setDocumentType("Cartão de Cidadão");
+    setBirthDate(""); setSex(""); setNationality(""); setPostalCode(""); setLocality("");
+    setAcademicDegree(""); setDisciplinaryArea(""); setProfessionalCategory("Docente"); setGuardianIsStudent(false);
+    setPhone(""); setNif(""); setDocumentType("Cartão de Cidadão");
     setDocumentNumber(""); setNiss(""); setHealthNumber(""); setAddress("");
     setSchoolYear(""); setStudentNumber(""); setCourse(""); setEnrollmentDate("");
     setGuardianName(""); setGuardianRelationship(""); setGuardianPhone(""); setGuardianEmail("");
@@ -378,6 +400,12 @@ function openForm() {
       role,
       status,
       birthDate: birthDate || undefined,
+      sex: sex || undefined, nationality: nationality || undefined,
+      postalCode: postalCode || undefined, locality: locality || undefined,
+      academicDegree: academicDegree || undefined, disciplinaryArea: disciplinaryArea || undefined,
+      professionalCategory: role === "Professor" ? professionalCategory : undefined,
+      guardianIsStudent: role === "Aluno" ? guardianIsStudent : undefined,
+      administratorNumber: role === "Administrador" || role === "Administrador Adjunto" ? previewNumber : undefined,
       phone: phone || undefined,
       nif: nif || undefined,
       documentType,
@@ -389,10 +417,10 @@ function openForm() {
       studentNumber: role === "Aluno" ? studentNumber || undefined : undefined,
       course: role === "Aluno" ? course || undefined : undefined,
       enrollmentDate: role === "Aluno" ? enrollmentDate || undefined : undefined,
-      guardianName: role === "Aluno" ? guardianName || undefined : undefined,
-      guardianRelationship: role === "Aluno" ? guardianRelationship || undefined : undefined,
-      guardianPhone: role === "Aluno" ? guardianPhone || undefined : undefined,
-      guardianEmail: role === "Aluno" ? guardianEmail || undefined : undefined,
+      guardianName: role === "Aluno" ? (guardianIsStudent ? cleanName : guardianName || undefined) : undefined,
+      guardianRelationship: role === "Aluno" ? (guardianIsStudent ? "O próprio" : guardianRelationship || undefined) : undefined,
+      guardianPhone: role === "Aluno" ? (guardianIsStudent ? phone : guardianPhone || undefined) : undefined,
+      guardianEmail: role === "Aluno" ? (guardianIsStudent ? cleanEmail : guardianEmail || undefined) : undefined,
       guardianNif: role === "Aluno" ? guardianNif || undefined : undefined,
       guardianDocumentType: role === "Aluno" ? guardianDocumentType : undefined,
       guardianDocumentNumber: role === "Aluno" ? guardianDocumentNumber || undefined : undefined,
@@ -474,12 +502,14 @@ function openForm() {
 
   const previewNumber =
     role === "Professor"
-      ? users.find((user) => user.id === editingUserId)?.professionalNumber
-        ?? generateNumber("PROF-", users, "professionalNumber")
+      ? users.find((user) => user.id === editingUserId)?.professionalNumber ?? generateNumber("PROF-", users, "professionalNumber")
       : role === "Funcionário"
-        ? users.find((user) => user.id === editingUserId)?.employeeNumber
-          ?? generateNumber("FUNC-", users, "employeeNumber")
-        : "Gerado automaticamente";
+        ? users.find((user) => user.id === editingUserId)?.employeeNumber ?? generateNumber("FUNC-", users, "employeeNumber")
+        : role === "Administrador"
+          ? users.find((user) => user.id === editingUserId)?.administratorNumber ?? generateNumber("ADM-", users, "administratorNumber")
+          : role === "Administrador Adjunto"
+            ? users.find((user) => user.id === editingUserId)?.administratorNumber ?? generateNumber("ADJ-", users, "administratorNumber")
+            : "Gerado automaticamente";
 
   const roleMeta: Record<UserRole, { icon: string; title: string; description: string }> = {
     Aluno: { icon: "🎓", title: "Conta académica", description: "Acesso do aluno" },
@@ -660,18 +690,17 @@ function openForm() {
                   <div className="user-form-grid">
                     <div className="form-field"><label>Nome completo *</label><input value={name} onChange={e => setName(e.target.value)} autoFocus placeholder="Ex.: Ana Sofia Ribeiro" required /></div>
                     <div className="form-field"><label>Email *</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Ex.: ana.ribeiro@smartcampus.com" required /></div>
-                    {currentRole === "Administrador" && (
-                      <>
-                        <div className="form-field"><label>Telefone</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Ex.: 912 345 678" /></div>
-                        <div className="form-field"><label>Data de nascimento</label><input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} /></div>
-                        <div className="form-field"><label>NIF</label><input value={nif} onChange={e => setNif(e.target.value)} placeholder="Ex.: 123 456 789" /></div>
-                        <div className="form-field"><label>Número de identificação</label><input value={documentNumber} onChange={e => setDocumentNumber(e.target.value)} placeholder="Ex.: BI12345678" /></div>
-                        <div className="form-field"><label>Tipo de documento</label><select value={documentType} onChange={e => setDocumentType(e.target.value as User["documentType"])}><option>Cartão de Cidadão</option><option>Passaporte</option><option>Título de Residência</option></select></div>
-                        <div className="form-field"><label>NISS</label><input value={niss} onChange={e => setNiss(e.target.value)} /></div>
-                        <div className="form-field"><label>Número de Utente</label><input name="healthNumberFieldNoAutofill" autoComplete="off" autoCorrect="off" spellCheck={false} value={healthNumber} onChange={e => setHealthNumber(e.target.value)} /></div>
-                        <div className="form-field form-field-full"><label>Morada</label><input value={address} onChange={e => setAddress(e.target.value)} placeholder="Rua, número, código postal e localidade" /></div>
-                      </>
-                    )}
+                    <div className="form-field"><label>Telefone</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Ex.: 912 345 678" /></div>
+                    <div className="form-field"><label>Data de nascimento</label><input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} /></div>
+                    <div className="form-field"><label>Sexo</label><select value={sex} onChange={e => setSex(e.target.value)}><option value="">Selecionar</option><option>Feminino</option><option>Masculino</option><option>Outro</option><option>Prefiro não indicar</option></select></div>
+                    <div className="form-field"><label>Nacionalidade</label><input value={nationality} onChange={e => setNationality(e.target.value)} /></div>
+                    <div className="form-field"><label>NIF</label><input value={nif} onChange={e => setNif(e.target.value)} inputMode="numeric" maxLength={9} /></div>
+                    <div className="form-field"><label>Número de identificação</label><input value={documentNumber} onChange={e => setDocumentNumber(e.target.value)} placeholder="CC / Passaporte" /></div>
+                    <div className="form-field"><label>Tipo de documento</label><select value={documentType} onChange={e => setDocumentType(e.target.value as User["documentType"])}><option>Cartão de Cidadão</option><option>Passaporte</option><option>Título de Residência</option></select></div>
+                    {role === "Administrador" && <><div className="form-field"><label>NISS</label><input value={niss} onChange={e => setNiss(e.target.value)} /></div><div className="form-field"><label>Número de Utente</label><input value={healthNumber} onChange={e => setHealthNumber(e.target.value)} /></div></>}
+                    <div className="form-field form-field-full"><label>Morada</label><input value={address} onChange={e => setAddress(e.target.value)} /></div>
+                    <div className="form-field"><label>Código postal</label><input value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="0000-000" /></div>
+                    <div className="form-field"><label>Localidade</label><input value={locality} onChange={e => setLocality(e.target.value)} /></div>
                   </div>
                 </section>
 
@@ -692,7 +721,8 @@ function openForm() {
                     <section className="user-form-section">
                       <div className="user-form-section-heading">👨‍👩‍👦 &nbsp;Encarregado de Educação</div>
                       <div className="user-form-grid">
-                        <div className="form-field"><label>Nome completo *</label><input value={guardianName} onChange={e => setGuardianName(e.target.value)} required /></div>
+                        <div className="form-field form-field-full"><label><input type="checkbox" checked={guardianIsStudent} onChange={e => { const v=e.target.checked; setGuardianIsStudent(v); if(v){setGuardianName(name);setGuardianPhone(phone);setGuardianEmail(email);setGuardianRelationship("O próprio");} else {setGuardianName("");setGuardianPhone("");setGuardianEmail("");setGuardianRelationship("");} }} /> O próprio é o encarregado de educação</label></div>
+                        {!guardianIsStudent && <><div className="form-field"><label>Nome completo *</label><input value={guardianName} onChange={e => setGuardianName(e.target.value)} required /></div>
                         <div className="form-field"><label>Grau de parentesco *</label><select value={guardianRelationship} onChange={e => setGuardianRelationship(e.target.value)} required><option value="">Selecionar</option><option>Pai</option><option>Mãe</option><option>Avô/Avó</option><option>Tutor legal</option><option>Outro</option></select></div>
                         <div className="form-field"><label>Telefone *</label><input type="tel" value={guardianPhone} onChange={e => setGuardianPhone(e.target.value)} required /></div>
                         <div className="form-field"><label>Email</label><input type="email" value={guardianEmail} onChange={e => setGuardianEmail(e.target.value)} /></div>
@@ -700,7 +730,7 @@ function openForm() {
                         <div className="form-field"><label>Tipo de documento</label><select value={guardianDocumentType} onChange={e => setGuardianDocumentType(e.target.value as User["guardianDocumentType"])}><option>Cartão de Cidadão</option><option>Passaporte</option><option>Título de Residência</option></select></div>
                         <div className="form-field"><label>Número de identificação</label><input value={guardianDocumentNumber} onChange={e => setGuardianDocumentNumber(e.target.value)} /></div>
                         <div className="form-field"><label>Morada</label><input value={guardianAddress} onChange={e => setGuardianAddress(e.target.value)} /></div>
-                        <div className="form-field"><label>Contacto alternativo</label><input type="tel" value={guardianAlternativePhone} onChange={e => setGuardianAlternativePhone(e.target.value)} /></div>
+                        <div className="form-field"><label>Contacto alternativo</label><input type="tel" value={guardianAlternativePhone} onChange={e => setGuardianAlternativePhone(e.target.value)} /></div></>}
                       </div>
                     </section>
                   </>
@@ -734,10 +764,28 @@ function openForm() {
 
                 {role === "Professor" && (
                   <section className="user-form-section">
-                    <div className="user-form-section-heading">🎓 &nbsp;Dados académicos</div>
+                    <div className="user-form-section-heading">🎓 &nbsp;Dados académicos e pedagógicos</div>
                     <div className="user-form-grid">
-                      <div className="form-field"><label>Disciplinas que leciona</label><select defaultValue=""><option value="">Selecionar disciplinas</option><option>Matemática</option><option>Português</option><option>Informática</option><option>Inglês</option><option>Educação Física</option></select></div>
-                      <div className="form-field"><label>Turmas atribuídas</label><select defaultValue=""><option value="">Selecionar turmas</option><option>10.º A</option><option>10.º B</option><option>11.º A</option><option>12.º A</option></select></div>
+                      <div className="form-field"><label>Categoria profissional *</label><input value={professionalCategory} onChange={e => setProfessionalCategory(e.target.value)} required /></div>
+                      <div className="form-field"><label>Área disciplinar *</label><input value={disciplinaryArea} onChange={e => setDisciplinaryArea(e.target.value)} required /></div>
+                      <div className="form-field"><label>Grau académico *</label><select value={academicDegree} onChange={e => setAcademicDegree(e.target.value)} required><option value="">Selecionar</option><option>Licenciatura</option><option>Mestrado</option><option>Doutoramento</option></select></div>
+                      <div className="form-field"><label>Disciplinas e turmas</label><p className="muted">As atribuições pedagógicas são geridas nas respetivas secções de disciplinas e turmas, garantindo que o professor só acede às associações atribuídas.</p></div>
+                    </div>
+                  </section>
+                )}
+                {(role === "Administrador" || role === "Administrador Adjunto") && (
+                  <section className="user-form-section">
+                    <div className="user-form-section-heading">🛡️ &nbsp;Identificação administrativa</div>
+                    <div className="user-form-grid">
+                      <div className="form-field"><label>Número de administrador</label><input readOnly value={previewNumber} /></div>
+                    </div>
+                  </section>
+                )}
+                {role === "Funcionário" && (
+                  <section className="user-form-section">
+                    <div className="user-form-section-heading">🎓 &nbsp;Qualificações</div>
+                    <div className="user-form-grid">
+                      <div className="form-field"><label>Grau académico</label><select value={academicDegree} onChange={e => setAcademicDegree(e.target.value)}><option value="">Selecionar</option><option>Ensino secundário</option><option>Licenciatura</option><option>Mestrado</option><option>Doutoramento</option><option>Outro</option></select></div>
                     </div>
                   </section>
                 )}
