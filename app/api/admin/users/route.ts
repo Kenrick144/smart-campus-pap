@@ -631,7 +631,7 @@ export async function POST(request: Request) {
       "Professor": [body.department || ""],
       "Funcionário": [body.department || "", body.employeePosition || ""],
     };
-    if (requiredByRole[body.role].some((value) => !value.trim())) {
+    if ((requiredByRole[body.role] ?? []).some((value) => !value.trim())) {
       return NextResponse.json({ error: "Faltam campos obrigatórios para o perfil selecionado." }, { status: 400 });
     }
 
