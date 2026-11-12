@@ -18,13 +18,13 @@ const readableRoles: Record<string, Role[]> = {
   "/turmas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/cursos": ["Administrador", "Administrador Adjunto", "Funcionário"],
   "/disciplinas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
-  "/presencas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
+  "/presencas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno"],
   "/horarios": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/salas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/computadores": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/equipamentos": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/qr-code": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
-  "/logs": ["Administrador", "Administrador Adjunto", "Funcionário"],
+  "/logs": ["Administrador", "Administrador Adjunto"],
 };
 
 function text(row: Row | undefined, key: string, fallback = ""): string {
@@ -323,8 +323,10 @@ async function enrich(
       return {
         id: text(row, "id"),
         nome: text(user, "name", "Professor"),
-        email: text(user, "email"),
-        número: text(row, "professional_number"),
+        ...(role === "Funcionário" ? {} : {
+          email: text(user, "email"),
+          número: text(row, "professional_number"),
+        }),
         departamento: text(row, "department"),
         "data de contratação": text(row, "hiring_date"),
         "tipo de contrato": text(row, "contract_type"),
