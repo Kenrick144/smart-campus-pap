@@ -502,12 +502,14 @@ function openForm() {
 
   const previewNumber =
     role === "Professor"
-      ? users.find((user) => user.id === editingUserId)?.professionalNumber
-        ?? generateNumber("PROF-", users, "professionalNumber")
+      ? users.find((user) => user.id === editingUserId)?.professionalNumber ?? generateNumber("PROF-", users, "professionalNumber")
       : role === "Funcionário"
-        ? users.find((user) => user.id === editingUserId)?.employeeNumber
-          ?? generateNumber("FUNC-", users, "employeeNumber")
-        : "Gerado automaticamente";
+        ? users.find((user) => user.id === editingUserId)?.employeeNumber ?? generateNumber("FUNC-", users, "employeeNumber")
+        : role === "Administrador"
+          ? users.find((user) => user.id === editingUserId)?.administratorNumber ?? generateNumber("ADM-", users, "administratorNumber")
+          : role === "Administrador Adjunto"
+            ? users.find((user) => user.id === editingUserId)?.administratorNumber ?? generateNumber("ADJ-", users, "administratorNumber")
+            : "Gerado automaticamente";
 
   const roleMeta: Record<UserRole, { icon: string; title: string; description: string }> = {
     Aluno: { icon: "🎓", title: "Conta académica", description: "Acesso do aluno" },
