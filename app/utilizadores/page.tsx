@@ -660,14 +660,18 @@ function openForm() {
                   <div className="user-form-grid">
                     <div className="form-field"><label>Nome completo *</label><input value={name} onChange={e => setName(e.target.value)} autoFocus placeholder="Ex.: Ana Sofia Ribeiro" required /></div>
                     <div className="form-field"><label>Email *</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Ex.: ana.ribeiro@smartcampus.com" required /></div>
-                    <div className="form-field"><label>Telefone</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Ex.: 912 345 678" /></div>
-                    <div className="form-field"><label>Data de nascimento</label><input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} /></div>
-                    <div className="form-field"><label>NIF</label><input value={nif} onChange={e => setNif(e.target.value)} placeholder="Ex.: 123 456 789" /></div>
-                    <div className="form-field"><label>Número de identificação</label><input value={documentNumber} onChange={e => setDocumentNumber(e.target.value)} placeholder="Ex.: BI12345678" /></div>
-                    <div className="form-field"><label>Tipo de documento</label><select value={documentType} onChange={e => setDocumentType(e.target.value as User["documentType"])}><option>Cartão de Cidadão</option><option>Passaporte</option><option>Título de Residência</option></select></div>
-                    <div className="form-field"><label>NISS</label><input value={niss} onChange={e => setNiss(e.target.value)} /></div>
-                    <div className="form-field"><label>Número de Utente</label><input name="healthNumberFieldNoAutofill" autoComplete="off" autoCorrect="off" spellCheck={false} value={healthNumber} onChange={e => setHealthNumber(e.target.value)} /></div>
-                    <div className="form-field form-field-full"><label>Morada</label><input value={address} onChange={e => setAddress(e.target.value)} placeholder="Rua, número, código postal e localidade" /></div>
+                    {currentRole === "Administrador" && (
+                      <>
+                        <div className="form-field"><label>Telefone</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Ex.: 912 345 678" /></div>
+                        <div className="form-field"><label>Data de nascimento</label><input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} /></div>
+                        <div className="form-field"><label>NIF</label><input value={nif} onChange={e => setNif(e.target.value)} placeholder="Ex.: 123 456 789" /></div>
+                        <div className="form-field"><label>Número de identificação</label><input value={documentNumber} onChange={e => setDocumentNumber(e.target.value)} placeholder="Ex.: BI12345678" /></div>
+                        <div className="form-field"><label>Tipo de documento</label><select value={documentType} onChange={e => setDocumentType(e.target.value as User["documentType"])}><option>Cartão de Cidadão</option><option>Passaporte</option><option>Título de Residência</option></select></div>
+                        <div className="form-field"><label>NISS</label><input value={niss} onChange={e => setNiss(e.target.value)} /></div>
+                        <div className="form-field"><label>Número de Utente</label><input name="healthNumberFieldNoAutofill" autoComplete="off" autoCorrect="off" spellCheck={false} value={healthNumber} onChange={e => setHealthNumber(e.target.value)} /></div>
+                        <div className="form-field form-field-full"><label>Morada</label><input value={address} onChange={e => setAddress(e.target.value)} placeholder="Rua, número, código postal e localidade" /></div>
+                      </>
+                    )}
                   </div>
                 </section>
 
@@ -766,7 +770,7 @@ function openForm() {
           <article className="stat-card"><div className="stat-icon green">♧</div><div className="stat-meta">Professores</div><strong>{totalTeachers}</strong><small>Contas de professor</small></article>
           <article className="stat-card"><div className="stat-icon amber">♙</div><div className="stat-meta">Funcionários</div><strong>{users.filter((user) => user.role === "Funcionário").length}</strong><small>Contas operacionais</small></article>
           <article className="stat-card"><div className="stat-icon violet">◇</div><div className="stat-meta">Administradores adjuntos</div><strong>{users.filter((user) => user.role === "Administrador Adjunto").length}</strong><small>Contas de gestão</small></article>
-          <article className="stat-card"><div className="stat-icon blue">♧</div><div className="stat-meta">Administradores</div><strong>{totalAdministrators}</strong><small>Contas de administração</small></article>
+          {currentRole === "Administrador" && <article className="stat-card"><div className="stat-icon blue">♧</div><div className="stat-meta">Administradores</div><strong>{totalAdministrators}</strong><small>Contas de administração</small></article>}
         </section>
 
         {/* LISTA DE UTILIZADORES */}
