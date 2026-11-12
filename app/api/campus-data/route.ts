@@ -295,13 +295,17 @@ async function enrich(
       return {
         id: studentId,
         nome: text(user, "name", "Aluno"),
-        email: text(user, "email"),
+        // Funcionário tem leitura global da informação escolar necessária,
+        // mas não recebe contactos, identificadores de aluno ou datas de inscrição.
+        ...(role === "Funcionário" ? {} : {
+          email: text(user, "email"),
+          número: text(row, "student_number"),
+          "data de inscrição": text(row, "enrollment_date"),
+        }),
         estado: text(user, "status", "Ativo"),
-        número: text(row, "student_number"),
         "ano escolar": text(row, "school_year"),
         curso: text(row, "course"),
         turma: currentClasses.join(", ") || "Sem turma ativa",
-        "data de inscrição": text(row, "enrollment_date"),
         ...(isAdmin(role)
           ? {
               "encarregado de educação": text(row, "guardian_name"),
