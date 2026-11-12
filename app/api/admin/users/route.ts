@@ -265,7 +265,11 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Preenche o nome, email, perfil e estado." }, { status: 400 });
     }
 
-    if (!isValidEmail(cleanEmail)) {\n      return NextResponse.json({ error: "Indica um endereço de email válido." }, { status: 400 });\n    }\n\n    if (!roles.includes(cleanRole) || !["Ativo", "Inativo"].includes(cleanStatus)) {
+    if (!isValidEmail(cleanEmail)) {
+      return NextResponse.json({ error: "Indica um endereço de email válido." }, { status: 400 });
+    }
+
+    if (!roles.includes(cleanRole) || !["Ativo", "Inativo"].includes(cleanStatus)) {
       return NextResponse.json({ error: "O perfil ou o estado selecionado é inválido." }, { status: 400 });
     }
 
