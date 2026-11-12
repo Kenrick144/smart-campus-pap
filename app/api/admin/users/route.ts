@@ -270,8 +270,8 @@ export async function PATCH(request: Request) {
     const { data: targetData, error: targetError } = await admin
       .from("users")
       .select((currentProfile.role === "Administrador"
-        ? "id, name, email, role, status, username, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status"
-        : "id, name, email, role, status, username, department, employee_position, hiring_date, contract_type, professional_status") as any)
+        ? "id, name, email, role, status, username, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status, sex, nationality, postal_code, locality, administrator_number, academic_degree, disciplinary_area, professional_category"
+        : "id, name, email, role, status, username, department, employee_position, hiring_date, contract_type, professional_status, sex, nationality, postal_code, locality, administrator_number, academic_degree, disciplinary_area, professional_category") as any)
       .eq("id", id)
       .maybeSingle();
 
@@ -284,6 +284,8 @@ export async function PATCH(request: Request) {
       document_number?: string | null; niss?: string | null; health_number?: string | null;
       address?: string | null; department?: string | null; employee_position?: string | null;
       hiring_date?: string | null; contract_type?: string | null; professional_status?: string | null;
+      sex?: string | null; nationality?: string | null; postal_code?: string | null; locality?: string | null;
+      administrator_number?: string | null; academic_degree?: string | null; disciplinary_area?: string | null; professional_category?: string | null;
     };
     const target = targetData as unknown as TargetUserRow | null;
 
@@ -488,6 +490,10 @@ export async function PATCH(request: Request) {
         hiring_date: target.hiring_date,
         contract_type: target.contract_type,
         professional_status: target.professional_status,
+        sex: target.sex, nationality: target.nationality, postal_code: target.postal_code,
+        locality: target.locality, administrator_number: target.administrator_number,
+        academic_degree: target.academic_degree, disciplinary_area: target.disciplinary_area,
+        professional_category: target.professional_category,
       }).eq("id", id);
       await admin.auth.admin.updateUserById(id, {
         email: oldAuthEmail,
