@@ -55,7 +55,7 @@ type CreateUserBody = {
   username?: string;
 };
 
-const isValidEmail = (value: string) => /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value);
+const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 async function generateUserIdentifier(admin: ReturnType<typeof createAdminClient>, role: UserRole) {
   const { data, error } = await (admin as any).rpc("generate_user_identifier", { p_role: role });
