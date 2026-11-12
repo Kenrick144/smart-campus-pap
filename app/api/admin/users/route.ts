@@ -55,6 +55,16 @@ type CreateUserBody = {
   username?: string;
 };
 
+const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+async function generateUserIdentifier(admin: ReturnType<typeof createAdminClient>, role: UserRole) {
+  const { data, error } = await (admin as any).rpc("generate_user_identifier", { p_role: role });
+  if (error || typeof data !== "string" || !data.trim()) {
+    throw new Error("Não foi possível gerar o número automático do utilizador.");
+  }
+  return data as string;
+}
+
 const roles: UserRole[] = [
   "Aluno",
   "Professor",
@@ -255,6 +265,10 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Preenche o nome, email, perfil e estado." }, { status: 400 });
     }
 
+    if (!isValidEmail(cleanEmail)) {
+      return NextResponse.json({ error: "Indica um endereço de email válido." }, { status: 400 });
+    }
+
     if (!roles.includes(cleanRole) || !["Ativo", "Inativo"].includes(cleanStatus)) {
       return NextResponse.json({ error: "O perfil ou o estado selecionado é inválido." }, { status: 400 });
     }
@@ -270,8 +284,8 @@ export async function PATCH(request: Request) {
     const { data: targetData, error: targetError } = await admin
       .from("users")
       .select((currentProfile.role === "Administrador"
-        ? "id, name, email, role, status, username, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status"
-        : "id, name, email, role, status, username, department, employee_position, hiring_date, contract_type, professional_status") as any)
+        ? "id, name, email, role, status, username, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status, sex, nationality, postal_code, locality, administrator_number, academic_degree, disciplinary_area, professional_category"
+        : "id, name, email, role, status, username, department, employee_position, hiring_date, contract_type, professional_status, sex, nationality, postal_code, locality, administrator_number, academic_degree, disciplinary_area, professional_category") as any)
       .eq("id", id)
       .maybeSingle();
 
@@ -284,6 +298,8 @@ export async function PATCH(request: Request) {
       document_number?: string | null; niss?: string | null; health_number?: string | null;
       address?: string | null; department?: string | null; employee_position?: string | null;
       hiring_date?: string | null; contract_type?: string | null; professional_status?: string | null;
+      sex?: string | null; nationality?: string | null; postal_code?: string | null; locality?: string | null;
+      administrator_number?: string | null; academic_degree?: string | null; disciplinary_area?: string | null; professional_category?: string | null;
     };
     const target = targetData as unknown as TargetUserRow | null;
 
@@ -347,16 +363,34 @@ export async function PATCH(request: Request) {
       }
     }
 
-    if (cleanRole === "Aluno" && (!body.studentNumber?.trim() || !body.schoolYear?.trim() || !body.course?.trim() || !body.guardianName?.trim() || !body.guardianRelationship?.trim() || !body.guardianPhone?.trim())) {
+    if (cleanRole === "Aluno" && (!body.studentNumber?.trim() || !body.schoolYear?.trim() || !body.course?.trim() || (!body.guardianIsStudent && (!body.guardianName?.trim() || !body.guardianRelationship?.trim() || !body.guardianPhone?.trim())))) {
       return NextResponse.json({ error: "Para atribuir o perfil Aluno, preenche o número, ano letivo, curso e os dados obrigatórios do encarregado." }, { status: 400 });
     }
 
-    if (cleanRole === "Professor" && (!body.professionalNumber?.trim() || !body.department?.trim())) {
+    if (cleanRole === "Professor" && !body.department?.trim()) {
       return NextResponse.json({ error: "Para atribuir o perfil Professor, preenche o número profissional e o departamento." }, { status: 400 });
     }
 
-    if (cleanRole === "Funcionário" && (!body.employeeNumber?.trim() || !body.department?.trim() || !body.employeePosition?.trim())) {
+    if (cleanRole === "Funcionário" && (!body.department?.trim() || !body.employeePosition?.trim())) {
       return NextResponse.json({ error: "Para atribuir o perfil Funcionário, preenche o número, departamento e cargo." }, { status: 400 });
+    }
+
+    let automaticNumber: string | null = null;
+    if (["Administrador", "Administrador Adjunto"].includes(cleanRole)) {
+      automaticNumber = target.role === cleanRole ? target.administrator_number ?? null : null;
+    } else if (cleanRole === "Professor") {
+      if (target.role === "Professor") {
+        const { data } = await admin.from("professores").select("professional_number").eq("id", id).maybeSingle();
+        automaticNumber = data?.professional_number ?? null;
+      }
+    } else if (cleanRole === "Funcionário") {
+      if (target.role === "Funcionário") {
+        const { data } = await admin.from("funcionarios").select("employee_number").eq("id", id).maybeSingle();
+        automaticNumber = data?.employee_number ?? null;
+      }
+    }
+    if (["Administrador", "Administrador Adjunto", "Professor", "Funcionário"].includes(cleanRole) && !automaticNumber) {
+      automaticNumber = await generateUserIdentifier(admin, cleanRole);
     }
 
     const authTargetResult = await admin.auth.admin.getUserById(id);
@@ -409,7 +443,7 @@ export async function PATCH(request: Request) {
       professional_status: body.professionalStatus ?? "Ativo",
       sex: body.sex || null, nationality: body.nationality || null,
       postal_code: body.postalCode || null, locality: body.locality || null,
-      administrator_number: body.administratorNumber || null, academic_degree: body.academicDegree || null,
+      administrator_number: automaticNumber && ["Administrador", "Administrador Adjunto"].includes(cleanRole) ? automaticNumber : null, academic_degree: body.academicDegree || null,
       disciplinary_area: body.disciplinaryArea || null, professional_category: body.professionalCategory || null,
     };
 
@@ -448,7 +482,7 @@ export async function PATCH(request: Request) {
     } else if (cleanRole === "Professor") {
       const { error } = await admin.from("professores").upsert({
         id,
-        professional_number: body.professionalNumber?.trim(),
+        professional_number: automaticNumber,
         department: body.department?.trim(),
         hiring_date: body.hiringDate || null,
         contract_type: body.contractType || null,
@@ -458,7 +492,7 @@ export async function PATCH(request: Request) {
     } else if (cleanRole === "Funcionário") {
       const { error } = await admin.from("funcionarios").upsert({
         id,
-        employee_number: body.employeeNumber?.trim(),
+        employee_number: automaticNumber,
         department: body.department?.trim(),
         employee_position: body.employeePosition?.trim(),
         hiring_date: body.hiringDate || null,
@@ -488,6 +522,10 @@ export async function PATCH(request: Request) {
         hiring_date: target.hiring_date,
         contract_type: target.contract_type,
         professional_status: target.professional_status,
+        sex: target.sex, nationality: target.nationality, postal_code: target.postal_code,
+        locality: target.locality, administrator_number: target.administrator_number,
+        academic_degree: target.academic_degree, disciplinary_area: target.disciplinary_area,
+        professional_category: target.professional_category,
       }).eq("id", id);
       await admin.auth.admin.updateUserById(id, {
         email: oldAuthEmail,
@@ -595,14 +633,34 @@ export async function POST(request: Request) {
       );
     }
 
-    if (cleanPassword.length < 6) {
-      return NextResponse.json(
-        { error: "A palavra-passe deve ter pelo menos 6 caracteres." },
-        { status: 400 },
-      );
+    if (!isValidEmail(cleanEmail)) {
+      return NextResponse.json({ error: "Indica um endereço de email válido." }, { status: 400 });
+    }
+
+    if (cleanPassword.length < 8) {
+      return NextResponse.json({ error: "A palavra-passe deve ter pelo menos 8 caracteres." }, { status: 400 });
+    }
+
+    if (body.status && !["Ativo", "Inativo"].includes(body.status)) {
+      return NextResponse.json({ error: "O estado selecionado é inválido." }, { status: 400 });
+    }
+
+    const requiredByRole: Partial<Record<UserRole, string[]>> = {
+      "Aluno": [
+        body.studentNumber || "", body.schoolYear || "", body.course || "",
+        ...(body.guardianIsStudent ? [] : [body.guardianName || "", body.guardianRelationship || "", body.guardianPhone || ""]),
+      ],
+      "Professor": [body.department || ""],
+      "Funcionário": [body.department || "", body.employeePosition || ""],
+    };
+    if ((requiredByRole[body.role] ?? []).some((value) => !value.trim())) {
+      return NextResponse.json({ error: "Faltam campos obrigatórios para o perfil selecionado." }, { status: 400 });
     }
 
     const admin = createAdminClient();
+    const automaticNumber = ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"].includes(body.role)
+      ? await generateUserIdentifier(admin, body.role)
+      : null;
 
     const { data: authData, error: authError } =
       await admin.auth.admin.createUser({
@@ -659,7 +717,7 @@ export async function POST(request: Request) {
       username: cleanUsername || null,
       sex: body.sex || null, nationality: body.nationality || null,
       postal_code: body.postalCode || null, locality: body.locality || null,
-      administrator_number: body.administratorNumber || null, academic_degree: body.academicDegree || null,
+      administrator_number: ["Administrador", "Administrador Adjunto"].includes(body.role ?? "") ? automaticNumber : null, academic_degree: body.academicDegree || null,
       disciplinary_area: body.disciplinaryArea || null, professional_category: body.professionalCategory || null,
     });
 
@@ -700,7 +758,7 @@ export async function POST(request: Request) {
     if (body.role === "Professor") {
       const { error } = await admin.from("professores").insert({
         id: userId,
-        professional_number: body.professionalNumber,
+        professional_number: automaticNumber,
         department: body.department,
         hiring_date: body.hiringDate || null,
         contract_type: body.contractType || null,
@@ -718,7 +776,7 @@ export async function POST(request: Request) {
     if (body.role === "Funcionário") {
       const { error } = await admin.from("funcionarios").insert({
         id: userId,
-        employee_number: body.employeeNumber,
+        employee_number: automaticNumber,
         department: body.department,
         employee_position: body.employeePosition,
         hiring_date: body.hiringDate || null,
