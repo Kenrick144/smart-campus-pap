@@ -346,7 +346,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "A conta de autenticação associada não foi encontrada." }, { status: 404 });
     }
     const authTarget = authTargetResult.data.user;
-    const oldAuthEmail = authTarget.email ?? target.email;
+    const oldAuthEmail = authTarget.email ?? target.email ?? undefined;
     const oldUserMetadata = authTarget.user_metadata ?? {};
 
     const authUpdate: {
