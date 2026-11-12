@@ -405,6 +405,7 @@ function openForm() {
       academicDegree: academicDegree || undefined, disciplinaryArea: disciplinaryArea || undefined,
       professionalCategory: role === "Professor" ? professionalCategory : undefined,
       guardianIsStudent: role === "Aluno" ? guardianIsStudent : undefined,
+      administratorNumber: role === "Administrador" || role === "Administrador Adjunto" ? previewNumber : undefined,
       phone: phone || undefined,
       nif: nif || undefined,
       documentType,
@@ -416,10 +417,10 @@ function openForm() {
       studentNumber: role === "Aluno" ? studentNumber || undefined : undefined,
       course: role === "Aluno" ? course || undefined : undefined,
       enrollmentDate: role === "Aluno" ? enrollmentDate || undefined : undefined,
-      guardianName: role === "Aluno" ? guardianName || undefined : undefined,
-      guardianRelationship: role === "Aluno" ? guardianRelationship || undefined : undefined,
-      guardianPhone: role === "Aluno" ? guardianPhone || undefined : undefined,
-      guardianEmail: role === "Aluno" ? guardianEmail || undefined : undefined,
+      guardianName: role === "Aluno" ? (guardianIsStudent ? cleanName : guardianName || undefined) : undefined,
+      guardianRelationship: role === "Aluno" ? (guardianIsStudent ? "O próprio" : guardianRelationship || undefined) : undefined,
+      guardianPhone: role === "Aluno" ? (guardianIsStudent ? phone : guardianPhone || undefined) : undefined,
+      guardianEmail: role === "Aluno" ? (guardianIsStudent ? cleanEmail : guardianEmail || undefined) : undefined,
       guardianNif: role === "Aluno" ? guardianNif || undefined : undefined,
       guardianDocumentType: role === "Aluno" ? guardianDocumentType : undefined,
       guardianDocumentNumber: role === "Aluno" ? guardianDocumentNumber || undefined : undefined,
@@ -761,10 +762,28 @@ function openForm() {
 
                 {role === "Professor" && (
                   <section className="user-form-section">
-                    <div className="user-form-section-heading">🎓 &nbsp;Dados académicos</div>
+                    <div className="user-form-section-heading">🎓 &nbsp;Dados académicos e pedagógicos</div>
                     <div className="user-form-grid">
-                      <div className="form-field"><label>Disciplinas que leciona</label><select defaultValue=""><option value="">Selecionar disciplinas</option><option>Matemática</option><option>Português</option><option>Informática</option><option>Inglês</option><option>Educação Física</option></select></div>
-                      <div className="form-field"><label>Turmas atribuídas</label><select defaultValue=""><option value="">Selecionar turmas</option><option>10.º A</option><option>10.º B</option><option>11.º A</option><option>12.º A</option></select></div>
+                      <div className="form-field"><label>Categoria profissional *</label><input value={professionalCategory} onChange={e => setProfessionalCategory(e.target.value)} required /></div>
+                      <div className="form-field"><label>Área disciplinar *</label><input value={disciplinaryArea} onChange={e => setDisciplinaryArea(e.target.value)} required /></div>
+                      <div className="form-field"><label>Grau académico *</label><select value={academicDegree} onChange={e => setAcademicDegree(e.target.value)} required><option value="">Selecionar</option><option>Licenciatura</option><option>Mestrado</option><option>Doutoramento</option></select></div>
+                      <div className="form-field"><label>Disciplinas e turmas</label><p className="muted">As atribuições pedagógicas são geridas nas respetivas secções de disciplinas e turmas, garantindo que o professor só acede às associações atribuídas.</p></div>
+                    </div>
+                  </section>
+                )}
+                {(role === "Administrador" || role === "Administrador Adjunto") && (
+                  <section className="user-form-section">
+                    <div className="user-form-section-heading">🛡️ &nbsp;Identificação administrativa</div>
+                    <div className="user-form-grid">
+                      <div className="form-field"><label>Número de administrador</label><input readOnly value={previewNumber} /></div>
+                    </div>
+                  </section>
+                )}
+                {role === "Funcionário" && (
+                  <section className="user-form-section">
+                    <div className="user-form-section-heading">🎓 &nbsp;Qualificações</div>
+                    <div className="user-form-grid">
+                      <div className="form-field"><label>Grau académico</label><select value={academicDegree} onChange={e => setAcademicDegree(e.target.value)}><option value="">Selecionar</option><option>Ensino secundário</option><option>Licenciatura</option><option>Mestrado</option><option>Doutoramento</option><option>Outro</option></select></div>
                     </div>
                   </section>
                 )}
