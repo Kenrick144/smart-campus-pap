@@ -265,7 +265,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Preenche o nome, email, perfil e estado." }, { status: 400 });
     }
 
-    if (!roles.includes(cleanRole) || !["Ativo", "Inativo"].includes(cleanStatus)) {
+    if (!isValidEmail(cleanEmail)) {\n      return NextResponse.json({ error: "Indica um endereço de email válido." }, { status: 400 });\n    }\n\n    if (!roles.includes(cleanRole) || !["Ativo", "Inativo"].includes(cleanStatus)) {
       return NextResponse.json({ error: "O perfil ou o estado selecionado é inválido." }, { status: 400 });
     }
 
@@ -359,15 +359,15 @@ export async function PATCH(request: Request) {
       }
     }
 
-    if (cleanRole === "Aluno" && (!body.studentNumber?.trim() || !body.schoolYear?.trim() || !body.course?.trim() || !body.guardianName?.trim() || !body.guardianRelationship?.trim() || !body.guardianPhone?.trim())) {
+    if (cleanRole === "Aluno" && (!body.studentNumber?.trim() || !body.schoolYear?.trim() || !body.course?.trim() || (!body.guardianIsStudent && (!body.guardianName?.trim() || !body.guardianRelationship?.trim() || !body.guardianPhone?.trim())))) {
       return NextResponse.json({ error: "Para atribuir o perfil Aluno, preenche o número, ano letivo, curso e os dados obrigatórios do encarregado." }, { status: 400 });
     }
 
-    if (cleanRole === "Professor" && (!body.professionalNumber?.trim() || !body.department?.trim())) {
+    if (cleanRole === "Professor" && !body.department?.trim()) {
       return NextResponse.json({ error: "Para atribuir o perfil Professor, preenche o número profissional e o departamento." }, { status: 400 });
     }
 
-    if (cleanRole === "Funcionário" && (!body.employeeNumber?.trim() || !body.department?.trim() || !body.employeePosition?.trim())) {
+    if (cleanRole === "Funcionário" && (!body.department?.trim() || !body.employeePosition?.trim())) {
       return NextResponse.json({ error: "Para atribuir o perfil Funcionário, preenche o número, departamento e cargo." }, { status: 400 });
     }
 
