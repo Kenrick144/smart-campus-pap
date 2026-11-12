@@ -113,11 +113,15 @@ async function readTable(admin: ReturnType<typeof createAdminClient>, table: str
   // Projeções mínimas para impedir que o service role carregue dados pessoais
   // que não são usados nos DTOs do campus.
   const safeColumns: Record<string, string> = {
-    users: "id, name, email, status",
+    users: role === "Funcionário" ? "id, name, status" : "id, name, email, status",
     alunos: isAdmin(role as Role)
       ? "id, student_number, school_year, course, enrollment_date, guardian_name, guardian_relationship, guardian_phone"
-      : "id, student_number, school_year, course, enrollment_date",
-    professores: "id, professional_number, department, hiring_date, contract_type, professional_status",
+      : role === "Funcionário"
+        ? "id, school_year, course"
+        : "id, student_number, school_year, course, enrollment_date",
+    professores: role === "Funcionário"
+      ? "id, department, professional_status"
+      : "id, professional_number, department, hiring_date, contract_type, professional_status",
     funcionarios: "id, employee_number, department, employee_position, hiring_date, contract_type, professional_status",
     anos_letivos: "id, nome, data_inicio, data_fim, ativo, created_at",
     cursos: "id, nome, codigo, descricao, estado, created_at",
@@ -328,8 +332,10 @@ async function enrich(
           número: text(row, "professional_number"),
         }),
         departamento: text(row, "department"),
-        "data de contratação": text(row, "hiring_date"),
-        "tipo de contrato": text(row, "contract_type"),
+        ...(role === "Funcionário" ? {} : {
+          "data de contratação": text(row, "hiring_date"),
+          "tipo de contrato": text(row, "contract_type"),
+        }),
         estado: text(row, "professional_status", "Ativo"),
         estado_conta: text(user, "status", "Inativo"),
       };
