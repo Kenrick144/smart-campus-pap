@@ -443,7 +443,7 @@ export async function PATCH(request: Request) {
       professional_status: body.professionalStatus ?? "Ativo",
       sex: body.sex || null, nationality: body.nationality || null,
       postal_code: body.postalCode || null, locality: body.locality || null,
-      administrator_number: automaticNumber && ["Administrador", "Administrador Adjunto"].includes(body.role) ? automaticNumber : null, academic_degree: body.academicDegree || null,
+      administrator_number: automaticNumber && ["Administrador", "Administrador Adjunto"].includes(cleanRole) ? automaticNumber : null, academic_degree: body.academicDegree || null,
       disciplinary_area: body.disciplinaryArea || null, professional_category: body.professionalCategory || null,
     };
 
@@ -717,7 +717,7 @@ export async function POST(request: Request) {
       username: cleanUsername || null,
       sex: body.sex || null, nationality: body.nationality || null,
       postal_code: body.postalCode || null, locality: body.locality || null,
-      administrator_number: ["Administrador", "Administrador Adjunto"].includes(cleanRole) ? automaticNumber : null, academic_degree: body.academicDegree || null,
+      administrator_number: ["Administrador", "Administrador Adjunto"].includes(body.role ?? "") ? automaticNumber : null, academic_degree: body.academicDegree || null,
       disciplinary_area: body.disciplinaryArea || null, professional_category: body.professionalCategory || null,
     });
 
