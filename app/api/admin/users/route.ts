@@ -251,11 +251,25 @@ export async function PATCH(request: Request) {
     }
 
     const admin = createAdminClient();
-    const { data: target, error: targetError } = await admin
+    const { data: targetData, error: targetError } = await admin
       .from("users")
-      .select("id, name, email, role, status, username, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status")
+      .select((currentProfile.role === "Administrador"
+        ? "id, name, email, role, status, username, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status"
+        : "id, name, email, role, status, username, department, employee_position, hiring_date, contract_type, professional_status") as any)
       .eq("id", id)
       .maybeSingle();
+
+    // O select dinâmico é limitado por perfil; normalizamos o tipo sem alterar
+    // as colunas efetivamente consultadas nem ampliar o acesso do Adjunto.
+    type TargetUserRow = {
+      id: string; name: string | null; email: string | null; role: UserRole;
+      status: string | null; username?: string | null; birth_date?: string | null;
+      phone?: string | null; nif?: string | null; document_type?: string | null;
+      document_number?: string | null; niss?: string | null; health_number?: string | null;
+      address?: string | null; department?: string | null; employee_position?: string | null;
+      hiring_date?: string | null; contract_type?: string | null; professional_status?: string | null;
+    };
+    const target = targetData as unknown as TargetUserRow | null;
 
     if (targetError || !target) {
       return NextResponse.json({ error: "O utilizador selecionado não foi encontrado." }, { status: 404 });
@@ -332,7 +346,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "A conta de autenticação associada não foi encontrada." }, { status: 404 });
     }
     const authTarget = authTargetResult.data.user;
-    const oldAuthEmail = authTarget.email ?? target.email;
+    const oldAuthEmail = authTarget.email ?? target.email ?? undefined;
     const oldUserMetadata = authTarget.user_metadata ?? {};
 
     const authUpdate: {
@@ -357,8 +371,10 @@ export async function PATCH(request: Request) {
       role: cleanRole,
       status: cleanStatus,
       username: cleanUsername,
-      birth_date: body.birthDate || null,
-      phone: body.phone || null,
+      ...(currentProfile.role === "Administrador" ? {
+        birth_date: body.birthDate || null,
+        phone: body.phone || null,
+      } : {}),
       // Apenas o Administrador pode alterar identificadores e moradas sensíveis.
       ...(currentProfile.role === "Administrador" ? {
         nif: body.nif || null,

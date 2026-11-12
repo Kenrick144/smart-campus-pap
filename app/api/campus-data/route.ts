@@ -109,10 +109,33 @@ function isAdmin(role: Role) {
   return adminRoles.includes(role);
 }
 
-async function readTable(admin: ReturnType<typeof createAdminClient>, table: string): Promise<Row[]> {
-  // Os enriquecimentos só precisam destes campos da conta; nunca carregar
-  // identificadores civis/fiscais, dados de saúde ou moradas via service role.
-  const columns = table === "users" ? "id, name, email, status" : "*";
+async function readTable(admin: ReturnType<typeof createAdminClient>, table: string, role?: Role): Promise<Row[]> {
+  // Projeções mínimas para impedir que o service role carregue dados pessoais
+  // que não são usados nos DTOs do campus.
+  const safeColumns: Record<string, string> = {
+    users: "id, name, email, status",
+    alunos: isAdmin(role as Role)
+      ? "id, student_number, school_year, course, enrollment_date, guardian_name, guardian_relationship, guardian_phone"
+      : "id, student_number, school_year, course, enrollment_date",
+    professores: "id, professional_number, department, hiring_date, contract_type, professional_status",
+    funcionarios: "id, employee_number, department, employee_position, hiring_date, contract_type, professional_status",
+    anos_letivos: "id, nome, data_inicio, data_fim, ativo, created_at",
+    cursos: "id, nome, codigo, descricao, estado, created_at",
+    turmas: "id, nome, ano_letivo_id, ano_escolar, curso_id, curso, capacidade, estado, professor_coordenador_id, created_at",
+    disciplinas: "id, nome, codigo, descricao, estado, created_at",
+    disciplinas_turmas: "id, turma_id, disciplina_id, ativa",
+    professores_turmas: "id, professor_id, turma_id, data_fim",
+    alunos_turmas: "id, aluno_id, turma_id, data_fim",
+    professores_disciplinas_turmas: "id, professor_id, disciplina_turma_id",
+    horarios: "id, turma_id, disciplina_turma_id, professor_id, sala_id, dia_semana, hora_inicio, hora_fim, observacoes",
+    salas: "id, nome, edificio, piso, capacidade, tipo, estado, observacoes",
+    computadores: "id, sala_id, nome, numero_inventario, marca, modelo, numero_serie, estado, observacoes, created_at",
+    equipamentos: "id, sala_id, tipo, nome, numero_inventario, marca, modelo, numero_serie, estado, observacoes, created_at",
+    presencas: "id, aluno_id, horario_id, data, estado, observacoes",
+    logs: "id, user_id, acao, entidade, descricao, created_at",
+  };
+  const columns = safeColumns[table];
+  if (!columns) throw new Error("Tabela sem projeção segura configurada: " + table);
   const { data, error } = await admin.from(table).select(columns);
   if (error) throw new Error("Não foi possível ler a tabela " + table + ".");
   return asRows(data);
@@ -272,13 +295,17 @@ async function enrich(
       return {
         id: studentId,
         nome: text(user, "name", "Aluno"),
-        email: text(user, "email"),
+        // Funcionário tem leitura global da informação escolar necessária,
+        // mas não recebe contactos, identificadores de aluno ou datas de inscrição.
+        ...(role === "Funcionário" ? {} : {
+          email: text(user, "email"),
+          número: text(row, "student_number"),
+          "data de inscrição": text(row, "enrollment_date"),
+        }),
         estado: text(user, "status", "Ativo"),
-        número: text(row, "student_number"),
         "ano escolar": text(row, "school_year"),
         curso: text(row, "course"),
         turma: currentClasses.join(", ") || "Sem turma ativa",
-        "data de inscrição": text(row, "enrollment_date"),
         ...(isAdmin(role)
           ? {
               "encarregado de educação": text(row, "guardian_name"),
@@ -887,7 +914,7 @@ export async function GET(request: Request) {
       "/logs": "logs",
     };
     const table = tableMap[resource];
-    let rows = await readTable(admin, table);
+    let rows = await readTable(admin, table, role);
 
     // Professor e Aluno consultam apenas o ano ativo; escrita continua exclusiva dos administradores.
     if (resource === "/anos-letivos" && (role === "Professor" || role === "Aluno")) {
