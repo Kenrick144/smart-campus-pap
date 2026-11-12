@@ -17,6 +17,9 @@ type CreateUserBody = {
   status?: "Ativo" | "Inativo";
 
   birthDate?: string;
+  sex?: string; nationality?: string; postalCode?: string; locality?: string;
+  academicDegree?: string; disciplinaryArea?: string; professionalCategory?: string;
+  guardianIsStudent?: boolean;
   phone?: string;
   nif?: string;
   documentType?: string;
@@ -89,7 +92,7 @@ export async function GET() {
     let usersQuery = admin
       .from("users")
       .select((currentProfile.role === "Administrador"
-        ? "id, name, email, role, status, username, created_at, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status"
+        ? "id, name, email, role, status, username, created_at, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status, sex, nationality, postal_code, locality, administrator_number, academic_degree, disciplinary_area, professional_category"
         : "id, name, email, role, status, username, created_at, department, employee_position, hiring_date, contract_type, professional_status") as any);
 
     // O Administrador Adjunto não pode sequer descobrir a existência ou os dados
@@ -113,7 +116,9 @@ export async function GET() {
       document_type?: string | null; document_number?: string | null; niss?: string | null;
       health_number?: string | null; address?: string | null; department?: string | null;
       employee_position?: string | null; hiring_date?: string | null; contract_type?: string | null;
-      professional_status?: string | null;
+      professional_status?: string | null; sex?: string | null; nationality?: string | null;
+      postal_code?: string | null; locality?: string | null; administrator_number?: string | null;
+      academic_degree?: string | null; disciplinary_area?: string | null; professional_category?: string | null;
     };
     type DetailRow = {
       id: string; department?: string | null; employee_position?: string | null;
@@ -176,6 +181,10 @@ export async function GET() {
         niss: currentProfile.role === "Administrador" ? user.niss ?? "" : "",
         healthNumber: currentProfile.role === "Administrador" ? user.health_number ?? "" : "",
         address: currentProfile.role === "Administrador" ? user.address ?? "" : "",
+        sex: user.sex ?? "", nationality: user.nationality ?? "", postalCode: user.postal_code ?? "", locality: user.locality ?? "",
+        administratorNumber: user.administrator_number ?? "", academicDegree: user.academic_degree ?? "",
+        disciplinaryArea: user.disciplinary_area ?? "", professionalCategory: user.professional_category ?? "",
+        guardianIsStudent: Boolean(student?.guardian_is_student),
         department: user.department ?? teacher?.department ?? employee?.department ?? "",
         employeePosition: user.employee_position ?? employee?.employee_position ?? "",
         hiringDate: user.hiring_date ?? teacher?.hiring_date ?? employee?.hiring_date ?? "",
@@ -398,6 +407,10 @@ export async function PATCH(request: Request) {
       hiring_date: body.hiringDate || null,
       contract_type: body.contractType || null,
       professional_status: body.professionalStatus ?? "Ativo",
+      sex: body.sex || null, nationality: body.nationality || null,
+      postal_code: body.postalCode || null, locality: body.locality || null,
+      administrator_number: body.administratorNumber || null, academic_degree: body.academicDegree || null,
+      disciplinary_area: body.disciplinaryArea || null, professional_category: body.professionalCategory || null,
     };
 
     const { error: updateError } = await admin.from("users").update(userUpdates).eq("id", id);
@@ -429,6 +442,7 @@ export async function PATCH(request: Request) {
           guardian_address: body.guardianAddress || null,
         } : {}),
         guardian_alternative_phone: body.guardianAlternativePhone || null,
+        guardian_is_student: Boolean(body.guardianIsStudent),
       }, { onConflict: "id" });
       relatedError = error;
     } else if (cleanRole === "Professor") {
@@ -643,6 +657,10 @@ export async function POST(request: Request) {
       professional_status: body.professionalStatus ?? "Ativo",
 
       username: cleanUsername || null,
+      sex: body.sex || null, nationality: body.nationality || null,
+      postal_code: body.postalCode || null, locality: body.locality || null,
+      administrator_number: body.administratorNumber || null, academic_degree: body.academicDegree || null,
+      disciplinary_area: body.disciplinaryArea || null, professional_category: body.professionalCategory || null,
     });
 
     if (userError) {
@@ -668,6 +686,7 @@ export async function POST(request: Request) {
         guardian_document_number: currentProfile.role === "Administrador" ? body.guardianDocumentNumber || null : null,
         guardian_address: currentProfile.role === "Administrador" ? body.guardianAddress || null : null,
         guardian_alternative_phone: body.guardianAlternativePhone || null,
+        guardian_is_student: Boolean(body.guardianIsStudent),
       });
 
       if (error) {
