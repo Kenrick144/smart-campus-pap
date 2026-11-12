@@ -371,6 +371,24 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Para atribuir o perfil Funcionário, preenche o número, departamento e cargo." }, { status: 400 });
     }
 
+    let automaticNumber: string | null = null;
+    if (["Administrador", "Administrador Adjunto"].includes(cleanRole)) {
+      automaticNumber = target.role === cleanRole ? target.administrator_number ?? null : null;
+    } else if (cleanRole === "Professor") {
+      if (target.role === "Professor") {
+        const { data } = await admin.from("professores").select("professional_number").eq("id", id).maybeSingle();
+        automaticNumber = data?.professional_number ?? null;
+      }
+    } else if (cleanRole === "Funcionário") {
+      if (target.role === "Funcionário") {
+        const { data } = await admin.from("funcionarios").select("employee_number").eq("id", id).maybeSingle();
+        automaticNumber = data?.employee_number ?? null;
+      }
+    }
+    if (["Administrador", "Administrador Adjunto", "Professor", "Funcionário"].includes(cleanRole) && !automaticNumber) {
+      automaticNumber = await generateUserIdentifier(admin, cleanRole);
+    }
+
     const authTargetResult = await admin.auth.admin.getUserById(id);
     if (authTargetResult.error || !authTargetResult.data.user) {
       return NextResponse.json({ error: "A conta de autenticação associada não foi encontrada." }, { status: 404 });
@@ -460,7 +478,7 @@ export async function PATCH(request: Request) {
     } else if (cleanRole === "Professor") {
       const { error } = await admin.from("professores").upsert({
         id,
-        professional_number: body.professionalNumber?.trim(),
+        professional_number: automaticNumber,
         department: body.department?.trim(),
         hiring_date: body.hiringDate || null,
         contract_type: body.contractType || null,
@@ -470,7 +488,7 @@ export async function PATCH(request: Request) {
     } else if (cleanRole === "Funcionário") {
       const { error } = await admin.from("funcionarios").upsert({
         id,
-        employee_number: body.employeeNumber?.trim(),
+        employee_number: automaticNumber,
         department: body.department?.trim(),
         employee_position: body.employeePosition?.trim(),
         hiring_date: body.hiringDate || null,
@@ -695,7 +713,7 @@ export async function POST(request: Request) {
       username: cleanUsername || null,
       sex: body.sex || null, nationality: body.nationality || null,
       postal_code: body.postalCode || null, locality: body.locality || null,
-      administrator_number: body.administratorNumber || null, academic_degree: body.academicDegree || null,
+      administrator_number: ["Administrador", "Administrador Adjunto"].includes(cleanRole) ? automaticNumber : null, academic_degree: body.academicDegree || null,
       disciplinary_area: body.disciplinaryArea || null, professional_category: body.professionalCategory || null,
     });
 
