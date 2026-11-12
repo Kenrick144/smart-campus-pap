@@ -86,12 +86,19 @@ export async function GET() {
     }
 
     const admin = createAdminClient();
-    const { data: users, error } = await admin
+    let usersQuery = admin
       .from("users")
       .select((currentProfile.role === "Administrador"
         ? "id, name, email, role, status, username, created_at, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status"
-        : "id, name, email, role, status, username, created_at, department, employee_position, hiring_date, contract_type, professional_status") as any)
-      .order("name");
+        : "id, name, email, role, status, username, created_at, department, employee_position, hiring_date, contract_type, professional_status") as any);
+
+    // O Administrador Adjunto não pode sequer descobrir a existência ou os dados
+    // das contas de administração. A restrição é aplicada na consulta do servidor.
+    if (currentProfile.role === "Administrador Adjunto") {
+      usersQuery = usersQuery.neq("role", "Administrador").neq("role", "Administrador Adjunto");
+    }
+
+    const { data: users, error } = await usersQuery.order("name");
 
     if (error) {
       return NextResponse.json({ error: "Não foi possível carregar os utilizadores." }, { status: 500 });
