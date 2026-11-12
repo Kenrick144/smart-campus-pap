@@ -253,7 +253,9 @@ export async function PATCH(request: Request) {
     const admin = createAdminClient();
     const { data: target, error: targetError } = await admin
       .from("users")
-      .select("id, name, email, role, status, username, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status")
+      .select((currentProfile.role === "Administrador"
+        ? "id, name, email, role, status, username, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status"
+        : "id, name, email, role, status, username, department, employee_position, hiring_date, contract_type, professional_status") as any)
       .eq("id", id)
       .maybeSingle();
 
@@ -357,8 +359,10 @@ export async function PATCH(request: Request) {
       role: cleanRole,
       status: cleanStatus,
       username: cleanUsername,
-      birth_date: body.birthDate || null,
-      phone: body.phone || null,
+      ...(currentProfile.role === "Administrador" ? {
+        birth_date: body.birthDate || null,
+        phone: body.phone || null,
+      } : {}),
       // Apenas o Administrador pode alterar identificadores e moradas sensíveis.
       ...(currentProfile.role === "Administrador" ? {
         nif: body.nif || null,
