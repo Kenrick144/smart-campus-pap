@@ -28,6 +28,14 @@ type User = {
   role: UserRole;
   status: UserStatus;
   birthDate?: string;
+  sex?: string;
+  nationality?: string;
+  postalCode?: string;
+  locality?: string;
+  academicDegree?: string;
+  disciplinaryArea?: string;
+  professionalCategory?: string;
+  guardianIsStudent?: boolean;
   phone?: string;
   nif?: string;
   documentType?: "Cartão de Cidadão" | "Passaporte" | "Título de Residência";
@@ -196,6 +204,14 @@ export default function Utilizadores() {
   const [status, setStatus] = useState<UserStatus>("Ativo");
 
   const [birthDate, setBirthDate] = useState("");
+  const [sex, setSex] = useState("");
+  const [nationality, setNationality] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [locality, setLocality] = useState("");
+  const [academicDegree, setAcademicDegree] = useState("");
+  const [disciplinaryArea, setDisciplinaryArea] = useState("");
+  const [professionalCategory, setProfessionalCategory] = useState("Docente");
+  const [guardianIsStudent, setGuardianIsStudent] = useState(false);
   const [phone, setPhone] = useState("");
   const [nif, setNif] = useState("");
   const [documentType, setDocumentType] = useState<User["documentType"]>("Cartão de Cidadão");
@@ -264,6 +280,10 @@ function openForm() {
     setStatus(user.status);
 
     setBirthDate(user.birthDate ?? "");
+    setSex(user.sex ?? ""); setNationality(user.nationality ?? "");
+    setPostalCode(user.postalCode ?? ""); setLocality(user.locality ?? "");
+    setAcademicDegree(user.academicDegree ?? ""); setDisciplinaryArea(user.disciplinaryArea ?? "");
+    setProfessionalCategory(user.professionalCategory ?? "Docente"); setGuardianIsStudent(Boolean(user.guardianIsStudent));
     setPhone(user.phone ?? "");
     setNif(user.nif ?? "");
     setDocumentType(user.documentType ?? "Cartão de Cidadão");
@@ -306,7 +326,9 @@ function openForm() {
 
   function resetForm() {
     setName(""); setEmail(""); setRole("Aluno"); setStatus("Ativo");
-    setBirthDate(""); setPhone(""); setNif(""); setDocumentType("Cartão de Cidadão");
+    setBirthDate(""); setSex(""); setNationality(""); setPostalCode(""); setLocality("");
+    setAcademicDegree(""); setDisciplinaryArea(""); setProfessionalCategory("Docente"); setGuardianIsStudent(false);
+    setPhone(""); setNif(""); setDocumentType("Cartão de Cidadão");
     setDocumentNumber(""); setNiss(""); setHealthNumber(""); setAddress("");
     setSchoolYear(""); setStudentNumber(""); setCourse(""); setEnrollmentDate("");
     setGuardianName(""); setGuardianRelationship(""); setGuardianPhone(""); setGuardianEmail("");
@@ -378,6 +400,11 @@ function openForm() {
       role,
       status,
       birthDate: birthDate || undefined,
+      sex: sex || undefined, nationality: nationality || undefined,
+      postalCode: postalCode || undefined, locality: locality || undefined,
+      academicDegree: academicDegree || undefined, disciplinaryArea: disciplinaryArea || undefined,
+      professionalCategory: role === "Professor" ? professionalCategory : undefined,
+      guardianIsStudent: role === "Aluno" ? guardianIsStudent : undefined,
       phone: phone || undefined,
       nif: nif || undefined,
       documentType,
