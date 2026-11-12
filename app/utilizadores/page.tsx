@@ -687,18 +687,17 @@ function openForm() {
                   <div className="user-form-grid">
                     <div className="form-field"><label>Nome completo *</label><input value={name} onChange={e => setName(e.target.value)} autoFocus placeholder="Ex.: Ana Sofia Ribeiro" required /></div>
                     <div className="form-field"><label>Email *</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Ex.: ana.ribeiro@smartcampus.com" required /></div>
-                    {currentRole === "Administrador" && (
-                      <>
-                        <div className="form-field"><label>Telefone</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Ex.: 912 345 678" /></div>
-                        <div className="form-field"><label>Data de nascimento</label><input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} /></div>
-                        <div className="form-field"><label>NIF</label><input value={nif} onChange={e => setNif(e.target.value)} placeholder="Ex.: 123 456 789" /></div>
-                        <div className="form-field"><label>Número de identificação</label><input value={documentNumber} onChange={e => setDocumentNumber(e.target.value)} placeholder="Ex.: BI12345678" /></div>
-                        <div className="form-field"><label>Tipo de documento</label><select value={documentType} onChange={e => setDocumentType(e.target.value as User["documentType"])}><option>Cartão de Cidadão</option><option>Passaporte</option><option>Título de Residência</option></select></div>
-                        <div className="form-field"><label>NISS</label><input value={niss} onChange={e => setNiss(e.target.value)} /></div>
-                        <div className="form-field"><label>Número de Utente</label><input name="healthNumberFieldNoAutofill" autoComplete="off" autoCorrect="off" spellCheck={false} value={healthNumber} onChange={e => setHealthNumber(e.target.value)} /></div>
-                        <div className="form-field form-field-full"><label>Morada</label><input value={address} onChange={e => setAddress(e.target.value)} placeholder="Rua, número, código postal e localidade" /></div>
-                      </>
-                    )}
+                    <div className="form-field"><label>Telefone</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Ex.: 912 345 678" /></div>
+                    <div className="form-field"><label>Data de nascimento</label><input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} /></div>
+                    <div className="form-field"><label>Sexo</label><select value={sex} onChange={e => setSex(e.target.value)}><option value="">Selecionar</option><option>Feminino</option><option>Masculino</option><option>Outro</option><option>Prefiro não indicar</option></select></div>
+                    <div className="form-field"><label>Nacionalidade</label><input value={nationality} onChange={e => setNationality(e.target.value)} /></div>
+                    <div className="form-field"><label>NIF</label><input value={nif} onChange={e => setNif(e.target.value)} inputMode="numeric" maxLength={9} /></div>
+                    <div className="form-field"><label>Número de identificação</label><input value={documentNumber} onChange={e => setDocumentNumber(e.target.value)} placeholder="CC / Passaporte" /></div>
+                    <div className="form-field"><label>Tipo de documento</label><select value={documentType} onChange={e => setDocumentType(e.target.value as User["documentType"])}><option>Cartão de Cidadão</option><option>Passaporte</option><option>Título de Residência</option></select></div>
+                    {role === "Administrador" && <><div className="form-field"><label>NISS</label><input value={niss} onChange={e => setNiss(e.target.value)} /></div><div className="form-field"><label>Número de Utente</label><input value={healthNumber} onChange={e => setHealthNumber(e.target.value)} /></div></>}
+                    <div className="form-field form-field-full"><label>Morada</label><input value={address} onChange={e => setAddress(e.target.value)} /></div>
+                    <div className="form-field"><label>Código postal</label><input value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="0000-000" /></div>
+                    <div className="form-field"><label>Localidade</label><input value={locality} onChange={e => setLocality(e.target.value)} /></div>
                   </div>
                 </section>
 
@@ -719,7 +718,8 @@ function openForm() {
                     <section className="user-form-section">
                       <div className="user-form-section-heading">👨‍👩‍👦 &nbsp;Encarregado de Educação</div>
                       <div className="user-form-grid">
-                        <div className="form-field"><label>Nome completo *</label><input value={guardianName} onChange={e => setGuardianName(e.target.value)} required /></div>
+                        <div className="form-field form-field-full"><label><input type="checkbox" checked={guardianIsStudent} onChange={e => { const v=e.target.checked; setGuardianIsStudent(v); if(v){setGuardianName(name);setGuardianPhone(phone);setGuardianEmail(email);setGuardianRelationship("O próprio");} else {setGuardianName("");setGuardianPhone("");setGuardianEmail("");setGuardianRelationship("");} }} /> O próprio é o encarregado de educação</label></div>
+                        {!guardianIsStudent && <><div className="form-field"><label>Nome completo *</label><input value={guardianName} onChange={e => setGuardianName(e.target.value)} required /></div>
                         <div className="form-field"><label>Grau de parentesco *</label><select value={guardianRelationship} onChange={e => setGuardianRelationship(e.target.value)} required><option value="">Selecionar</option><option>Pai</option><option>Mãe</option><option>Avô/Avó</option><option>Tutor legal</option><option>Outro</option></select></div>
                         <div className="form-field"><label>Telefone *</label><input type="tel" value={guardianPhone} onChange={e => setGuardianPhone(e.target.value)} required /></div>
                         <div className="form-field"><label>Email</label><input type="email" value={guardianEmail} onChange={e => setGuardianEmail(e.target.value)} /></div>
@@ -727,7 +727,7 @@ function openForm() {
                         <div className="form-field"><label>Tipo de documento</label><select value={guardianDocumentType} onChange={e => setGuardianDocumentType(e.target.value as User["guardianDocumentType"])}><option>Cartão de Cidadão</option><option>Passaporte</option><option>Título de Residência</option></select></div>
                         <div className="form-field"><label>Número de identificação</label><input value={guardianDocumentNumber} onChange={e => setGuardianDocumentNumber(e.target.value)} /></div>
                         <div className="form-field"><label>Morada</label><input value={guardianAddress} onChange={e => setGuardianAddress(e.target.value)} /></div>
-                        <div className="form-field"><label>Contacto alternativo</label><input type="tel" value={guardianAlternativePhone} onChange={e => setGuardianAlternativePhone(e.target.value)} /></div>
+                        <div className="form-field"><label>Contacto alternativo</label><input type="tel" value={guardianAlternativePhone} onChange={e => setGuardianAlternativePhone(e.target.value)} /></div></>}
                       </div>
                     </section>
                   </>
