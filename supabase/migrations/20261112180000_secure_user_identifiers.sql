@@ -5,6 +5,13 @@ create sequence if not exists public.professional_number_seq;
 create sequence if not exists public.employee_number_seq;
 
 -- Retomar as sequências após os números existentes.
+-- Retomar também a sequência administrativa após os identificadores existentes.
+select setval(
+  'public.administrator_number_seq',
+  greatest(coalesce((select max(nullif(regexp_replace(administrator_number, '[^0-9]', '', 'g'), '')::bigint) from public.users), 0), 1),
+  coalesce((select max(nullif(regexp_replace(administrator_number, '[^0-9]', '', 'g'), '')::bigint) from public.users), 0) > 0
+);
+
 select setval(
   'public.professional_number_seq',
   greatest(coalesce((select max(nullif(regexp_replace(professional_number, '[^0-9]', '', 'g'), '')::bigint) from public.professores), 0), 1),
