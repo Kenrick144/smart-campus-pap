@@ -55,6 +55,16 @@ type CreateUserBody = {
   username?: string;
 };
 
+const isValidEmail = (value: string) => /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value);
+
+async function generateUserIdentifier(admin: ReturnType<typeof createAdminClient>, role: UserRole) {
+  const { data, error } = await (admin as any).rpc("generate_user_identifier", { p_role: role });
+  if (error || typeof data !== "string" || !data.trim()) {
+    throw new Error("Não foi possível gerar o número automático do utilizador.");
+  }
+  return data as string;
+}
+
 const roles: UserRole[] = [
   "Aluno",
   "Professor",
@@ -411,7 +421,7 @@ export async function PATCH(request: Request) {
       professional_status: body.professionalStatus ?? "Ativo",
       sex: body.sex || null, nationality: body.nationality || null,
       postal_code: body.postalCode || null, locality: body.locality || null,
-      administrator_number: body.administratorNumber || null, academic_degree: body.academicDegree || null,
+      administrator_number: automaticNumber && ["Administrador", "Administrador Adjunto"].includes(body.role) ? automaticNumber : null, academic_degree: body.academicDegree || null,
       disciplinary_area: body.disciplinaryArea || null, professional_category: body.professionalCategory || null,
     };
 
@@ -601,14 +611,34 @@ export async function POST(request: Request) {
       );
     }
 
-    if (cleanPassword.length < 6) {
-      return NextResponse.json(
-        { error: "A palavra-passe deve ter pelo menos 6 caracteres." },
-        { status: 400 },
-      );
+    if (!isValidEmail(cleanEmail)) {
+      return NextResponse.json({ error: "Indica um endereço de email válido." }, { status: 400 });
+    }
+
+    if (cleanPassword.length < 8) {
+      return NextResponse.json({ error: "A palavra-passe deve ter pelo menos 8 caracteres." }, { status: 400 });
+    }
+
+    if (body.status && !["Ativo", "Inativo"].includes(body.status)) {
+      return NextResponse.json({ error: "O estado selecionado é inválido." }, { status: 400 });
+    }
+
+    const requiredByRole: Partial<Record<UserRole, string[]>> = {
+      "Aluno": [
+        body.studentNumber || "", body.schoolYear || "", body.course || "",
+        ...(body.guardianIsStudent ? [] : [body.guardianName || "", body.guardianRelationship || "", body.guardianPhone || ""]),
+      ],
+      "Professor": [body.department || ""],
+      "Funcionário": [body.department || "", body.employeePosition || ""],
+    };
+    if (requiredByRole[body.role].some((value) => !value.trim())) {
+      return NextResponse.json({ error: "Faltam campos obrigatórios para o perfil selecionado." }, { status: 400 });
     }
 
     const admin = createAdminClient();
+    const automaticNumber = ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"].includes(body.role)
+      ? await generateUserIdentifier(admin, body.role)
+      : null;
 
     const { data: authData, error: authError } =
       await admin.auth.admin.createUser({
@@ -706,7 +736,7 @@ export async function POST(request: Request) {
     if (body.role === "Professor") {
       const { error } = await admin.from("professores").insert({
         id: userId,
-        professional_number: body.professionalNumber,
+        professional_number: automaticNumber,
         department: body.department,
         hiring_date: body.hiringDate || null,
         contract_type: body.contractType || null,
@@ -724,7 +754,7 @@ export async function POST(request: Request) {
     if (body.role === "Funcionário") {
       const { error } = await admin.from("funcionarios").insert({
         id: userId,
-        employee_number: body.employeeNumber,
+        employee_number: automaticNumber,
         department: body.department,
         employee_position: body.employeePosition,
         hiring_date: body.hiringDate || null,
