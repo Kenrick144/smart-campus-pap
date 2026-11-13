@@ -303,6 +303,22 @@ export async function PATCH(request: Request) {
     };
     const target = targetData as unknown as TargetUserRow | null;
 
+    // Guardar o estado anterior dos três perfis para permitir compensação
+    // se qualquer operação complementar falhar durante a alteração de perfil.
+    const [oldStudentResult, oldTeacherResult, oldEmployeeResult] = await Promise.all([
+      admin.from("alunos").select("*").eq("id", id).maybeSingle(),
+      admin.from("professores").select("*").eq("id", id).maybeSingle(),
+      admin.from("funcionarios").select("*").eq("id", id).maybeSingle(),
+    ]);
+    if (oldStudentResult.error || oldTeacherResult.error || oldEmployeeResult.error) {
+      return NextResponse.json({ error: "Não foi possível guardar os dados atuais do perfil para uma edição segura." }, { status: 500 });
+    }
+    const previousProfiles = {
+      alunos: oldStudentResult.data,
+      professores: oldTeacherResult.data,
+      funcionarios: oldEmployeeResult.data,
+    };
+
     if (targetError || !target) {
       return NextResponse.json({ error: "O utilizador selecionado não foi encontrado." }, { status: 404 });
     }
@@ -502,7 +518,33 @@ export async function PATCH(request: Request) {
       relatedError = error;
     }
 
+    // Remover os registos dos perfis que deixaram de corresponder ao papel.
+    // Os dados anteriores ficam guardados para recuperação em caso de falha.
+    if (!relatedError && cleanRole !== "Aluno") {
+      const { error } = await admin.from("alunos").delete().eq("id", id);
+      if (error) relatedError = error;
+    }
+    if (!relatedError && cleanRole !== "Professor") {
+      const { error } = await admin.from("professores").delete().eq("id", id);
+      if (error) relatedError = error;
+    }
+    if (!relatedError && cleanRole !== "Funcionário") {
+      const { error } = await admin.from("funcionarios").delete().eq("id", id);
+      if (error) relatedError = error;
+    }
+
     if (relatedError) {
+      // Restaurar o perfil complementar anterior, incluindo registos removidos
+      // durante uma mudança de papel ou parcialmente atualizados por upsert.
+      for (const [table, previous] of Object.entries(previousProfiles)) {
+        if (previous) {
+          const { error } = await admin.from(table as "alunos" | "professores" | "funcionarios").upsert(previous, { onConflict: "id" });
+          if (error) console.error(`Falha ao restaurar ${table} durante rollback:`, error);
+        } else {
+          const { error } = await admin.from(table as "alunos" | "professores" | "funcionarios").delete().eq("id", id);
+          if (error) console.error(`Falha ao limpar ${table} durante rollback:`, error);
+        }
+      }
       await admin.from("users").update({
         name: target.name,
         email: target.email,
