@@ -18,7 +18,7 @@ const readableRoles: Record<string, Role[]> = {
   "/turmas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/cursos": ["Administrador", "Administrador Adjunto", "Funcionário"],
   "/disciplinas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
-  "/presencas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno"],
+  "/presencas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/horarios": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/salas": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
   "/computadores": ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"],
@@ -135,7 +135,7 @@ async function readTable(admin: ReturnType<typeof createAdminClient>, table: str
     salas: "id, nome, edificio, piso, capacidade, tipo, estado, observacoes",
     computadores: "id, sala_id, nome, numero_inventario, marca, modelo, numero_serie, estado, observacoes, created_at",
     equipamentos: "id, sala_id, tipo, nome, numero_inventario, marca, modelo, numero_serie, estado, observacoes, created_at",
-    presencas: "id, aluno_id, horario_id, data, estado, observacoes",
+    presencas: role === "Funcionário" ? "id, aluno_id, horario_id, data, estado" : "id, aluno_id, horario_id, data, estado, observacoes",
     logs: "id, user_id, acao, entidade, descricao, created_at",
   };
   const columns = safeColumns[table];
@@ -238,7 +238,7 @@ async function enrich(
       }));
   }
 
-  const users = await readTable(admin, "users");
+  const users = await readTable(admin, "users", role);
   const userById = new Map(users.map((row) => [text(row, "id"), row]));
 
   if (resource === "/alunos") {
@@ -535,7 +535,7 @@ async function enrich(
 
   if (resource === "/presencas") {
     const [students, schedules, classes, rooms, disciplineRelations, disciplines] = await Promise.all([
-      readTable(admin, "alunos"),
+      readTable(admin, "alunos", role),
       readTable(admin, "horarios"),
       readTable(admin, "turmas"),
       readTable(admin, "salas"),
@@ -563,9 +563,11 @@ async function enrich(
         data: text(row, "data"),
         hora: text(schedule, "hora_inicio"),
         estado: state === "Falta" ? "Ausente" : state === "Atraso" ? "Atrasado" : state,
-        aluno_id: text(row, "aluno_id"),
-        horario_id: text(row, "horario_id"),
-        observações: text(row, "observacoes"),
+        ...(role === "Funcionário" ? {} : {
+          aluno_id: text(row, "aluno_id"),
+          horario_id: text(row, "horario_id"),
+          observações: text(row, "observacoes"),
+        }),
       };
     });
   }
