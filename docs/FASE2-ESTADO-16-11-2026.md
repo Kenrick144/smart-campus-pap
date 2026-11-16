@@ -52,3 +52,41 @@ O `package-lock.json` fixa `@zxing/browser` com requisito `node >= 24.0.0`. Para
 5. Aplicar migrações apenas depois da revisão do SQL e de backup/aceitação explícita.
 
 **Limite desta auditoria:** o repositório GitHub foi consultado e atualizado; não foi executado build remoto nem feita qualquer alteração à base de dados Supabase.
+
+## Resultado da revisão estática das policies e grants (16-11-2026)
+
+### Policies encontradas nas migrações versionadas
+
+- `users_select_own_or_admin`: própria conta ou Administrador, na tabela `users`.
+- `logs_select_admin_or_adjunct`: apenas Administrador e Administrador Adjunto, em `logs`.
+- `computadores_select_authenticated`: leitura de computadores não Inativos para utilizadores autenticados.
+- `*_select_funcionario_read_all`: a migração de Fase 2 cria policies de leitura para Funcionário nas tabelas de catálogo/estrutura escolar listadas no SQL.
+
+Na pesquisa às migrações versionadas não encontrei policies genéricas de SELECT/ALL para `alunos`, `presencas`, `turmas`, `disciplinas` ou `horarios`. Isto é uma conclusão sobre os ficheiros pesquisados no repositório, não uma prova do estado atual da base de dados remota: podem existir policies criadas manualmente ou migrações que não estejam neste repositório.
+
+### Alerta sobre `supabase/schema.sql`
+
+O ficheiro contém policies antigas e muito permissivas, por exemplo políticas de leitura e gestão para qualquer utilizador autenticado em tabelas chamadas `students`, `teachers`, `classes`, `disciplines`, `attendance`, `schedule`, `rooms`, `computers` e `activity_logs`. Também contém grants amplos.
+
+Este schema usa nomes antigos em inglês (`profiles`, `students`, `attendance`, etc.) que não correspondem ao modelo atual em português. Por isso, não deve ser tratado como prova de que essas policies estão aplicadas na base ativa. **Não executar o ficheiro completo** sem reconciliar o schema e remover/rever explicitamente as policies antigas.
+
+### Grants e tabelas sensíveis
+
+- A migração de cursos ativa RLS em `cursos`, revoga acesso de `anon` e `authenticated`, e concede acesso a `service_role`.
+- As tabelas `codigos_temporarios`, `sessoes_computador` e `pc_device_credentials` têm RLS ativo; a migração concede operações ao `service_role` e restringe EXECUTE das funções de PC a esse papel.
+- A migração de Fase 2 cria a função `private.current_user_is_active()` e concede EXECUTE a `authenticated`; a função exige perfil ativo. A função `private.current_user_role()` é usada pelas policies de utilizador e logs.
+- A view `users_directory` é removida numa migração posterior; não deve ser recriada como SECURITY DEFINER sem nova revisão de segurança.
+
+### Conclusão desta etapa
+
+**Não há base suficiente para aplicar ou reescrever policies em produção.** O risco de OR entre policies antigas continua a exigir uma consulta read-only às policies efetivamente instaladas na base Supabase ativa. A pesquisa no GitHub não consegue mostrar policies criadas diretamente no Dashboard nem confirmar que todas as migrações do repositório foram aplicadas.
+
+Consulta necessária no SQL Editor, apenas de leitura:
+```sql
+select schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check
+from pg_policies
+where schemaname = 'public'
+order by tablename, policyname;
+```
+
+Esta consulta não altera dados nem schema. O resultado permitirá fechar a matriz de policies reais e identificar qualquer policy permissiva adicional antes de propor alterações.
