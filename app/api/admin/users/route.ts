@@ -864,3 +864,66 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const supabase = await createClient();
+    const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+    if (authError || !currentUser) return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+
+    const { data: currentProfile, error: profileError } = await supabase
+      .from("users").select("role, status").eq("id", currentUser.id).maybeSingle();
+
+    if (profileError || !currentProfile || currentProfile.status !== "Ativo" ||
+        !["Administrador", "Administrador Adjunto"].includes(currentProfile.role)) {
+      return NextResponse.json({ error: "Não tens permissão para eliminar utilizadores." }, { status: 403 });
+    }
+
+    const body = await request.json() as { id?: string };
+    const id = body.id?.trim();
+    if (!id) return NextResponse.json({ error: "Conta não identificada." }, { status: 400 });
+    if (id === currentUser.id) return NextResponse.json({ error: "Não podes eliminar a tua própria conta." }, { status: 400 });
+
+    const admin = createAdminClient();
+    const { data: target, error: targetError } = await admin
+      .from("users").select("id, name, email, role, status").eq("id", id).maybeSingle();
+
+    if (targetError || !target) return NextResponse.json({ error: "O utilizador selecionado não foi encontrado." }, { status: 404 });
+
+    if (currentProfile.role === "Administrador Adjunto" &&
+        ["Administrador", "Administrador Adjunto"].includes(target.role)) {
+      return NextResponse.json({ error: "Não tens permissão para eliminar esta conta." }, { status: 403 });
+    }
+
+    if (target.role === "Administrador" && target.status === "Ativo") {
+      const { count, error: countError } = await admin.from("users")
+        .select("id", { count: "exact", head: true }).eq("role", "Administrador").eq("status", "Ativo");
+      if (countError) return NextResponse.json({ error: "Não foi possível validar os administradores ativos." }, { status: 500 });
+      if ((count ?? 0) <= 1) return NextResponse.json({ error: "Não podes eliminar o último Administrador ativo." }, { status: 400 });
+    }
+
+    const { error: authDeleteError } = await admin.auth.admin.deleteUser(id);
+    if (authDeleteError) {
+      return NextResponse.json({ error: "Não foi possível remover o acesso de autenticação: " + authDeleteError.message }, { status: 400 });
+    }
+
+    const { error: profileDeleteError } = await admin.from("users").delete().eq("id", id);
+    if (profileDeleteError) {
+      console.error("Conta de autenticação removida, mas o perfil não foi removido:", profileDeleteError);
+      return NextResponse.json({ error: "O acesso foi removido, mas houve um problema ao apagar o perfil. Contacta o Administrador." }, { status: 500 });
+    }
+
+    await admin.from("logs").insert({
+      user_id: currentUser.id,
+      acao: "Eliminar utilizador",
+      entidade: "users",
+      entidade_id: id,
+      descricao: "Eliminado utilizador " + target.email + " (" + target.role + ").",
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Erro ao eliminar utilizador:", error);
+    return NextResponse.json({ error: "Ocorreu um erro inesperado ao eliminar a conta." }, { status: 500 });
+  }
+}
