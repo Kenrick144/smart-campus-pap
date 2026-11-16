@@ -2,12 +2,11 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function AtualizarPasswordPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [ready, setReady] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -17,7 +16,7 @@ export default function AtualizarPasswordPage() {
   useEffect(() => {
     let active = true;
     async function prepareRecovery() {
-      const code = searchParams.get("code");
+      const code = new URLSearchParams(window.location.search).get("code");
       if (!code) {
         if (active) setError("O link de recuperação é inválido ou já foi utilizado. Peça um novo link.");
         return;
@@ -30,7 +29,7 @@ export default function AtualizarPasswordPage() {
     }
     void prepareRecovery();
     return () => { active = false; };
-  }, [searchParams]);
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
