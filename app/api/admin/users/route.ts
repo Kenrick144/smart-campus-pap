@@ -104,7 +104,7 @@ export async function GET() {
       .from("users")
       .select((currentProfile.role === "Administrador"
         ? "id, name, email, role, status, username, created_at, birth_date, phone, nif, document_type, document_number, niss, health_number, address, department, employee_position, hiring_date, contract_type, professional_status, sex, nationality, postal_code, locality, administrator_number, academic_degree, disciplinary_area, professional_category"
-        : "id, name, email, role, status, username, created_at, department, employee_position, hiring_date, contract_type, professional_status") as any);
+        : "id, name, email, role, status, username, created_at, sex, nationality, postal_code, locality, administrator_number, academic_degree, disciplinary_area, professional_category, department, employee_position, hiring_date, contract_type, professional_status") as any);
 
     // O Administrador Adjunto não pode sequer descobrir a existência ou os dados
     // das contas de administração. A restrição é aplicada na consulta do servidor.
