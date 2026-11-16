@@ -190,6 +190,8 @@ export default function LoginPage() {
             <span>→</span>
           </button>
 
+          <p className="login-recovery-link"><Link href="/recuperar-password">Esqueceu-se da palavra-passe?</Link></p>
+
           <div className="login-divider">ACESSO POR PERFIL</div>
           <div className="demo-note">
             O sistema identifica o seu cargo a partir da conta autenticada.
