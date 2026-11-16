@@ -959,7 +959,7 @@ function openForm() {
                         <div className="row-actions">
                           <button type="button" className="button button-secondary" title="Editar utilizador" onClick={() => editUser(user)}>Editar</button>
                           {(currentRole === "Administrador" || !["Administrador", "Administrador Adjunto"].includes(user.role)) && user.id !== undefined && (
-                            <button type="button" className="button button-danger" title="Eliminar utilizador" onClick={() => deleteUser(user)}>Eliminar</button>
+                            <button type="button" className="button button-secondary" title="Eliminar utilizador" onClick={() => deleteUser(user)}>Eliminar</button>
                           )}
                         </div>
                       </td>
