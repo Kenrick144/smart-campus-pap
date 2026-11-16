@@ -466,7 +466,6 @@ function openForm() {
       address: address || undefined,
       schoolYear: role === "Aluno" ? schoolYear || undefined : undefined,
       classId: role === "Aluno" ? selectedClassId || undefined : undefined,
-      studentNumber: role === "Aluno" ? studentNumber || undefined : undefined,
       course: role === "Aluno" ? course || undefined : undefined,
       enrollmentDate: role === "Aluno" ? enrollmentDate || undefined : undefined,
       guardianName: role === "Aluno" ? (guardianIsStudent ? cleanName : guardianName || undefined) : undefined,
@@ -779,7 +778,7 @@ function openForm() {
                       <div className="user-form-section-heading">🎓 &nbsp;Dados académicos</div>
                       <div className="user-form-grid">
                         <div className="form-field"><label>Ano letivo *</label><select value={schoolYear} onChange={e => { setSchoolYear(e.target.value); setSelectedClassId(""); }} required><option value="">Selecionar ano letivo</option>{academicYears.map(item => <option key={item.id} value={item.nome}>{item.nome}</option>)}</select></div>
-                        <div className="form-field"><label>Número de aluno *</label><input value={studentNumber} onChange={e => setStudentNumber(e.target.value)} required /></div>
+                        <div className="form-field"><label>Número de aluno</label><input value={editingUserId ? (studentNumber || "Será atribuído automaticamente") : "Gerado automaticamente"} readOnly aria-readonly="true" /><p className="muted">O número é atribuído pelo sistema ao guardar e não pode ser alterado manualmente.</p></div>
                         <div className="form-field"><label>Curso *</label><select value={course} onChange={e => { setCourse(e.target.value); setSelectedClassId(""); }} required><option value="">Selecionar curso</option>{availableCourses.map(item => <option key={item.id} value={item.nome}>{item.nome}</option>)}</select></div>
                         <div className="form-field form-field-full"><label>Turma *</label><select value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} required><option value="">Selecionar turma</option>{availableClasses.filter(item => (!schoolYear || item["ano letivo"] === schoolYear) && (!course || item.curso === course)).map(item => <option key={item.id} value={item.id}>{item.nome} · {item["ano letivo"]} · {item.curso}</option>)}</select><p className="muted">Só aparecem turmas ativas compatíveis com o ano letivo e o curso selecionados. A associação respeita as vagas disponíveis.</p>{academicOptionsError && <p className="form-error" role="alert">{academicOptionsError}</p>}</div>
                         <div className="form-field"><label>Data de matrícula *</label><input type="date" value={enrollmentDate} onChange={e => setEnrollmentDate(e.target.value)} required /></div>
