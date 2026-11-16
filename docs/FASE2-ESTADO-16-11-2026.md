@@ -114,3 +114,39 @@ Foi revista a implementação atual de `app/api/campus-data/route.ts` e a leitur
 ### Resultado desta revisão
 
 Não foi feita alteração funcional ao código nesta passagem: a leitura estática não revelou um defeito inequívoco que justifique alterar permissões sem testes e sem confirmar a matriz pretendida. A auditoria de RLS em produção continua bloqueada até ser fornecido o resultado da consulta `pg_policies` já indicada. Build, lint, TypeScript e testes com sessões reais continuam **não executados/não comprovados**.
+
+## Resultado da consulta à base Supabase ativa (16-11-2026)
+
+A consulta foi executada diretamente no projeto **Smart Campus** (ref `cttezawyrqxxxwuhcash`), cuja lista de migrações coincide com as migrações relevantes do repositório. Foi uma consulta exclusivamente de leitura; não foram alterados dados, policies, grants ou schema.
+
+### Estado de RLS
+
+RLS está ativo nas 24 tabelas públicas encontradas. Nenhuma dessas tabelas tem `FORCE ROW LEVEL SECURITY` ativo. O resultado confirma ativação de RLS, mas não significa por si só que cada policy seja restritiva ou correta.
+
+### Policies permissivas que merecem revisão
+
+A consulta real a `pg_policies` confirmou policies SELECT permissivas com condição ampla para `authenticated`:
+
+| Tabela | Policy | Condição atual | Observação |
+|---|---|---|---|
+| `anos_letivos` | `anos_letivos_select_authenticated` | `true` | Qualquer sessão authenticated pode ler todos os anos letivos, incluindo conta inativa |
+| `computadores` | `computadores_select_authenticated` | estado diferente de Inativo | Não valida perfil ativo nem papel |
+| `disciplinas` | `disciplinas_select_authenticated` | estado = Ativa | Não limita por turma nem confirma perfil ativo |
+| `equipamentos` | `equipamentos_select_authenticated` | estado diferente de Inativo | Não valida perfil ativo nem papel |
+| `salas` | `salas_select_authenticated` | estado = Ativa | Não valida perfil ativo nem papel |
+
+Estas policies são permissivas e combinam-se por OR com as restantes policies da mesma tabela. Assim, as policies específicas de Funcionário não restringem estas leituras para outros utilizadores. Isto pode ser intencional para catálogos públicos a utilizadores autenticados, mas não corresponde a um modelo que exija conta ativa e escopo por papel.
+
+### Ausências / diferenças relevantes
+
+- `presencas` tem policies SELECT/INSERT/UPDATE para Professor atribuído e SELECT próprio para Aluno; não apareceu policy RLS de leitura transversal para Funcionário.
+- `turmas`, `horarios`, `alunos`, `professores`, `disciplinas_turmas` e tabelas de associação têm policies de escopo próprio/atribuído e, onde previsto, Funcionário.
+- `users` tem `users_select_own_or_admin`: própria conta ou Administrador; não permite ao Adjunto consultar diretamente a tabela.
+- `logs` está limitado a Administrador e Administrador Adjunto.
+- Todas as tabelas públicas encontradas têm RLS ativo, incluindo tabelas sensíveis de códigos e sessões de PC.
+
+### Decisão de segurança
+
+**Não alterei estas policies.** Antes de corrigir, é necessário decidir se as leituras de anos letivos, salas, disciplinas ativas, computadores e equipamentos devem estar disponíveis a qualquer utilizador autenticado ou apenas a contas ativas e/ou a papéis específicos. A leitura transversal de presenças do Funcionário atualmente é assegurada pela API com `service_role` e validação de perfil no servidor; não está concedida diretamente pela RLS.
+
+A consulta também não prova os privilégios efetivos de cada role nem testa sessões reais. É necessária uma verificação de grants e testes com os cinco perfis antes de fechar a auditoria.
