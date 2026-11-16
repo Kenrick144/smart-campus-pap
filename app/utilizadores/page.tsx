@@ -465,6 +465,7 @@ function openForm() {
       healthNumber: healthNumber || undefined,
       address: address || undefined,
       schoolYear: role === "Aluno" ? schoolYear || undefined : undefined,
+      classId: role === "Aluno" ? selectedClassId || undefined : undefined,
       studentNumber: role === "Aluno" ? studentNumber || undefined : undefined,
       course: role === "Aluno" ? course || undefined : undefined,
       enrollmentDate: role === "Aluno" ? enrollmentDate || undefined : undefined,
