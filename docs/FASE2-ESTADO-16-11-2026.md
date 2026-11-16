@@ -150,3 +150,37 @@ Estas policies são permissivas e combinam-se por OR com as restantes policies d
 **Não alterei estas policies.** Antes de corrigir, é necessário decidir se as leituras de anos letivos, salas, disciplinas ativas, computadores e equipamentos devem estar disponíveis a qualquer utilizador autenticado ou apenas a contas ativas e/ou a papéis específicos. A leitura transversal de presenças do Funcionário atualmente é assegurada pela API com `service_role` e validação de perfil no servidor; não está concedida diretamente pela RLS.
 
 A consulta também não prova os privilégios efetivos de cada role nem testa sessões reais. É necessária uma verificação de grants e testes com os cinco perfis antes de fechar a auditoria.
+
+
+## Atualização da auditoria — alterações efetivas em 16-11-2026
+
+Esta secção atualiza e substitui as conclusões anteriores deste documento que indicavam que as políticas e os grants ainda não tinham sido corrigidos.
+
+### Migrações aplicadas no projeto Supabase Smart Campus
+
+- `20261116202910_phase2_restrict_catalog_read_to_active_profiles` — substituiu as cinco policies amplas de SELECT em `anos_letivos`, `computadores`, `disciplinas`, `equipamentos` e `salas`. As novas policies exigem conta ativa e um dos cinco perfis autorizados, preservando os filtros de estado anteriores.
+- `20261116203451_phase2_revoke_direct_catalog_writes` — revogou `INSERT`, `UPDATE`, `DELETE` e `TRUNCATE` de `anon` e `authenticated` nas mesmas cinco tabelas. Os privilégios de leitura foram mantidos; os privilégios de escrita de `service_role` foram preservados.
+
+### Verificação após as alterações
+
+Consulta de privilégios efetivos confirmou nas cinco tabelas:
+- `anon` e `authenticated`: sem INSERT, UPDATE, DELETE ou TRUNCATE.
+- `anon` e `authenticated`: SELECT continua concedido, sujeito às policies RLS; as policies destas tabelas são destinadas a `authenticated`, pelo que o papel `anon` não recebe linhas por estas policies.
+- `service_role`: mantém INSERT, UPDATE e DELETE, necessários às rotas server-side.
+
+A revisão do código confirmou que as páginas de catálogo utilizam `app/lib/supabase-data.ts`, que chama `/api/campus-data` para ler e escrever. Não foi encontrado acesso direto do browser às cinco tabelas para operações de escrita. A API valida sessão, conta ativa, perfil e autorização antes de usar o cliente administrativo.
+
+Ficheiro de migração versionado em `main`:
+`supabase/migrations/20261116203451_phase2_revoke_direct_catalog_writes.sql`
+
+Commit GitHub: `01a9da7a303bd0c413803d9e82b0d0e18af93a5b`.
+
+### Alertas remanescentes do Supabase Advisor
+
+- `codigos_temporarios`, `pc_device_credentials` e `sessoes_computador` têm RLS ativo sem policies. Isto pode ser intencional se o acesso for exclusivamente via APIs server-side com `service_role`; requer validação dos endpoints antes de qualquer mudança.
+- A proteção de palavras-passe comprometidas está desativada no Auth.
+- O Advisor também reporta 19 chaves estrangeiras sem índice de cobertura e avisos de desempenho RLS; ficam fora desta correção de privilégios.
+
+### Limites dos testes
+
+A consulta de grants e a verificação de policies foram executadas após as migrações. A revisão estática confirma o fluxo de API para as cinco tabelas, mas não substitui testes de sessão reais. Ainda não foram executados testes autenticados com cada uma das cinco contas, nem build, lint ou TypeScript. Não declarar a Fase 2 validada até esses testes serem feitos.
