@@ -184,3 +184,29 @@ Commit GitHub: `01a9da7a303bd0c413803d9e82b0d0e18af93a5b`.
 ### Limites dos testes
 
 A consulta de grants e a verificação de policies foram executadas após as migrações. A revisão estática confirma o fluxo de API para as cinco tabelas, mas não substitui testes de sessão reais. Ainda não foram executados testes autenticados com cada uma das cinco contas, nem build, lint ou TypeScript. Não declarar a Fase 2 validada até esses testes serem feitos.
+
+
+### Verificação das tabelas secretas do PC Agent
+
+O Advisor assinala três tabelas RLS sem policies: `codigos_temporarios`, `pc_device_credentials` e `sessoes_computador`. A consulta direta confirmou que isto é intencional na configuração atual:
+- RLS está ativo.
+- Os ACLs concedem acesso apenas a `postgres` e `service_role`.
+- `anon` e `authenticated` não têm SELECT/INSERT/UPDATE/DELETE nestas tabelas.
+- As funções `issue_pc_temporary_code`, `start_pc_session` e `start_pc_session_guarded` só permitem EXECUTE a `service_role`; não são SECURITY DEFINER.
+
+### Bloqueio funcional identificado no PC Agent
+
+A comparação entre o código em `app/api/pc/codes/route.ts` e o schema ativo encontrou incompatibilidades:
+- A tabela `codigos_temporarios` tem `aluno_id`, mas a rota consulta `user_id` e `computador_id`.
+- A função ativa `issue_pc_temporary_code` recebe `p_aluno_id`, `p_codigo_hash` e `p_expires_at`; a rota envia `p_user_id` e `p_computador_id`.
+- A função ativa `start_pc_session_guarded` existe, mas a rota do agente ainda devolve HTTP 503 e informa que o fluxo QR está indisponível.
+
+Conclusão: as tabelas secretas estão corretamente isoladas, mas o fluxo de emissão/arranque de sessão PC não está alinhado com o schema ativo. Não foi alterado nesta correção; deve ser tratado como tarefa funcional separada antes de considerar o PC Agent operacional.
+
+### Contas de teste registadas
+
+Consulta agregada a `public.users` confirmou uma conta ativa para cada perfil: Administrador, Administrador Adjunto, Aluno, Professor e Funcionário. Esta contagem não valida credenciais, login nem comportamento em sessão.
+
+### Estado de execução
+
+Os testes com sessões reais dos cinco perfis continuam pendentes porque esta auditoria não dispõe das sessões autenticadas desses utilizadores. Não foram solicitadas nem recolhidas palavras-passe. A revisão de código e das permissões de base de dados não substitui esses testes.
