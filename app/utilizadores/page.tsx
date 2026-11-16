@@ -18,6 +18,7 @@ type CampusNotification = {
   read: boolean;
 };
 type AcademicYearSummary = Record<string, string>;
+type SelectOption = { id: string; nome: string; estado?: string; ativo?: string; "ano letivo"?: string; curso?: string };
 
 const USERS_STORAGE_KEY = "smartcampus_users";
 
@@ -224,6 +225,11 @@ export default function Utilizadores() {
   const [studentNumber, setStudentNumber] = useState("");
   const [course, setCourse] = useState("");
   const [enrollmentDate, setEnrollmentDate] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState("");
+  const [academicYears, setAcademicYears] = useState<SelectOption[]>([]);
+  const [availableCourses, setAvailableCourses] = useState<SelectOption[]>([]);
+  const [availableClasses, setAvailableClasses] = useState<SelectOption[]>([]);
+  const [academicOptionsError, setAcademicOptionsError] = useState("");
 
   const [guardianName, setGuardianName] = useState("");
   const [guardianRelationship, setGuardianRelationship] = useState("");
@@ -259,6 +265,50 @@ export default function Utilizadores() {
   ];
 
   
+  useEffect(() => {
+    if (!showForm || role !== "Aluno") return;
+    let cancelled = false;
+    async function loadAcademicOptions() {
+      setAcademicOptionsError("");
+      try {
+        const [yearsResponse, coursesResponse, classesResponse] = await Promise.all([
+          fetch("/api/campus-data?resource=%2Fanos-letivos", { cache: "no-store" }),
+          fetch("/api/campus-data?resource=%2Fcursos", { cache: "no-store" }),
+          fetch("/api/campus-data?resource=%2Fturmas", { cache: "no-store" }),
+        ]);
+        const [yearsResult, coursesResult, classesResult] = await Promise.all([
+          yearsResponse.json(), coursesResponse.json(), classesResponse.json(),
+        ]);
+        if (!yearsResponse.ok || !coursesResponse.ok || !classesResponse.ok) {
+          throw new Error(yearsResult.error || coursesResult.error || classesResult.error || "Não foi possível carregar anos letivos, cursos e turmas.");
+        }
+        if (cancelled) return;
+        setAcademicYears((yearsResult.records ?? []).filter((item: SelectOption) => item.ativo === "true"));
+        setAvailableCourses((coursesResult.records ?? []).filter((item: SelectOption) => ["ativo", "ativa"].includes(String(item.estado ?? "").toLowerCase())));
+        setAvailableClasses((classesResult.records ?? []).filter((item: SelectOption) => ["ativa", "ativo"].includes(String(item.estado ?? "").toLowerCase())));
+      } catch (error) {
+        if (!cancelled) setAcademicOptionsError(error instanceof Error ? error.message : "Não foi possível carregar as opções académicas.");
+      }
+    }
+    void loadAcademicOptions();
+    return () => { cancelled = true; };
+  }, [showForm, role]);
+
+  useEffect(() => {
+    if (!showForm || role !== "Aluno" || !editingUserId) return;
+    let cancelled = false;
+    void fetch("/api/admin/student-class?studentId=" + encodeURIComponent(editingUserId), { cache: "no-store" })
+      .then(async response => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Não foi possível carregar a turma atual.");
+        if (!cancelled) setSelectedClassId(result.currentClassId ?? "");
+      })
+      .catch(error => {
+        if (!cancelled) setAcademicOptionsError(error instanceof Error ? error.message : "Não foi possível carregar a turma atual.");
+      });
+    return () => { cancelled = true; };
+  }, [showForm, role, editingUserId]);
+
 function openForm() {
   setEditingUserEmail(null);
   setEditingUserId(null);
@@ -296,6 +346,7 @@ function openForm() {
     setStudentNumber(user.studentNumber ?? "");
     setCourse(user.course ?? "");
     setEnrollmentDate(user.enrollmentDate ?? "");
+    setSelectedClassId("");
 
     setGuardianName(user.guardianName ?? "");
     setGuardianRelationship(user.guardianRelationship ?? "");
@@ -330,7 +381,7 @@ function openForm() {
     setAcademicDegree(""); setDisciplinaryArea(""); setProfessionalCategory("Docente"); setGuardianIsStudent(false);
     setPhone(""); setNif(""); setDocumentType("Cartão de Cidadão");
     setDocumentNumber(""); setNiss(""); setHealthNumber(""); setAddress("");
-    setSchoolYear(""); setStudentNumber(""); setCourse(""); setEnrollmentDate("");
+    setSchoolYear(""); setStudentNumber(""); setCourse(""); setEnrollmentDate(""); setSelectedClassId("");
     setGuardianName(""); setGuardianRelationship(""); setGuardianPhone(""); setGuardianEmail("");
     setGuardianNif(""); setGuardianDocumentType("Cartão de Cidadão"); setGuardianDocumentNumber("");
     setGuardianAddress(""); setGuardianAlternativePhone("");
@@ -447,6 +498,22 @@ function openForm() {
       if (!response.ok) {
         alert(result.error || (isEditing ? "Não foi possível atualizar o utilizador." : "Não foi possível criar o utilizador."));
         return;
+      }
+
+      if (role === "Aluno" && selectedClassId) {
+        const studentId = isEditing ? editingUserId : result.user?.id;
+        if (studentId) {
+          const classResponse = await fetch("/api/admin/student-class", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ studentId, classId: selectedClassId }),
+          });
+          const classResult = await classResponse.json();
+          if (!classResponse.ok) {
+            alert("Os dados do aluno foram guardados, mas a associação à turma falhou: " + (classResult.error || "Erro desconhecido.") + " Podes voltar a editar o aluno para concluir a associação.");
+            return;
+          }
+        }
       }
 
       const refreshedResponse = await fetch("/api/admin/users", { cache: "no-store" });
@@ -710,11 +777,11 @@ function openForm() {
                     <section className="user-form-section">
                       <div className="user-form-section-heading">🎓 &nbsp;Dados académicos</div>
                       <div className="user-form-grid">
-                        <div className="form-field"><label>Ano letivo *</label><input placeholder="2026/2027" value={schoolYear} onChange={e => setSchoolYear(e.target.value)} required /></div>
+                        <div className="form-field"><label>Ano letivo *</label><select value={schoolYear} onChange={e => { setSchoolYear(e.target.value); setSelectedClassId(""); }} required><option value="">Selecionar ano letivo</option>{academicYears.map(item => <option key={item.id} value={item.nome}>{item.nome}</option>)}</select></div>
                         <div className="form-field"><label>Número de aluno *</label><input value={studentNumber} onChange={e => setStudentNumber(e.target.value)} required /></div>
-                        <div className="form-field"><label>Curso *</label><input value={course} onChange={e => setCourse(e.target.value)} required /></div>
-                        <div className="form-field form-field-full"><label>Associação à turma</label><p className="muted">Depois de guardar a conta, abre a secção Alunos e seleciona <strong>Associar turma</strong>. A associação é validada com as vagas disponíveis e fica registada no histórico académico.</p></div>
-                        <div className="form-field"><label>Data de matrícula</label><input type="date" value={enrollmentDate} onChange={e => setEnrollmentDate(e.target.value)} /></div>
+                        <div className="form-field"><label>Curso *</label><select value={course} onChange={e => { setCourse(e.target.value); setSelectedClassId(""); }} required><option value="">Selecionar curso</option>{availableCourses.map(item => <option key={item.id} value={item.nome}>{item.nome}</option>)}</select></div>
+                        <div className="form-field form-field-full"><label>Turma *</label><select value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} required><option value="">Selecionar turma</option>{availableClasses.filter(item => (!schoolYear || item["ano letivo"] === schoolYear) && (!course || item.curso === course)).map(item => <option key={item.id} value={item.id}>{item.nome} · {item["ano letivo"]} · {item.curso}</option>)}</select><p className="muted">Só aparecem turmas ativas compatíveis com o ano letivo e o curso selecionados. A associação respeita as vagas disponíveis.</p>{academicOptionsError && <p className="form-error" role="alert">{academicOptionsError}</p>}</div>
+                        <div className="form-field"><label>Data de matrícula *</label><input type="date" value={enrollmentDate} onChange={e => setEnrollmentDate(e.target.value)} required /></div>
                       </div>
                     </section>
 
