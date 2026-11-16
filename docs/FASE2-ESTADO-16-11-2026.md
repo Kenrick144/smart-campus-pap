@@ -90,3 +90,27 @@ order by tablename, policyname;
 ```
 
 Esta consulta não altera dados nem schema. O resultado permitirá fechar a matriz de policies reais e identificar qualquer policy permissiva adicional antes de propor alterações.
+
+## Auditoria estática adicional da API de campus (16-11-2026)
+
+Foi revista a implementação atual de `app/api/campus-data/route.ts` e a leitura de utilizadores em `app/api/admin/users/route.ts`.
+
+### Controlos confirmados no código
+
+- As rotas de leitura e escrita obtêm o utilizador autenticado com `auth.getUser()` e confirmam no servidor que o perfil existe, está ativo e tem um dos cinco papéis reconhecidos.
+- Os recursos de leitura usam uma lista explícita de perfis autorizados. O acesso a cursos é limitado a Administrador, Administrador Adjunto e Funcionário.
+- Aluno: a API filtra alunos e presenças pelo próprio ID e turmas/horários pelas associações ativas do aluno.
+- Professor: a API filtra turmas, disciplinas, horários e presenças pelo âmbito das suas atribuições. Para criar ou alterar presenças, verifica no servidor que o horário pertence ao professor e que o aluno pertence à turma desse horário.
+- Funcionário: as respostas de alunos, professores e presenças usam projeções reduzidas; não incluem contactos/identificadores pessoais de alunos nem observações das presenças. As operações de escrita desta API não autorizam o perfil Funcionário.
+- Administrador Adjunto: a rota de gestão de contas exclui contas de Administrador e de Administrador Adjunto da consulta; a projeção de dados pessoais é mais limitada do que a do Administrador.
+
+### Pontos que continuam a exigir validação
+
+- A API usa `service_role` para consultas e escritas após fazer as verificações de autorização na aplicação. Por isso, RLS não substitui estas verificações: cada nova rota/ramo de escrita tem de manter controlos equivalentes no servidor.
+- A leitura estática não prova o comportamento com sessões reais nem substitui testes negativos por perfil.
+- O endpoint de gestão de utilizadores tem operações PATCH/POST adicionais; estas devem ser exercitadas com as contas de Administrador e Adjunto, em especial tentativas de alterar o próprio papel, estado e dados de contas privilegiadas.
+- A API de campus não oferece escrita a Professor em DELETE de presenças: mesmo quando a verificação de âmbito identifica um registo do próprio professor, o handler bloqueia explicitamente a eliminação.
+
+### Resultado desta revisão
+
+Não foi feita alteração funcional ao código nesta passagem: a leitura estática não revelou um defeito inequívoco que justifique alterar permissões sem testes e sem confirmar a matriz pretendida. A auditoria de RLS em produção continua bloqueada até ser fornecido o resultado da consulta `pg_policies` já indicada. Build, lint, TypeScript e testes com sessões reais continuam **não executados/não comprovados**.
