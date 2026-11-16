@@ -1167,10 +1167,12 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
     if (!table) return NextResponse.json({ error: "Área não suportada para escrita." }, { status: 400 });
 
     if (resource === "/presencas" && role === "Professor" && method !== "DELETE" && row) {
+      // Validar tanto a criação como a alteração: o PATCH não pode redirecionar
+      // uma presença para outro horário ou para um aluno de outra turma.
       const scheduleId = text(row, "horario_id");
       const { data: schedule, error } = await admin.from("horarios").select("professor_id, turma_id").eq("id", scheduleId).maybeSingle();
       if (error || !schedule || text(schedule as Row, "professor_id") !== user.id) {
-        return NextResponse.json({ error: "Só podes registar presenças nos teus próprios horários." }, { status: 403 });
+        return NextResponse.json({ error: "Só podes registar ou alterar presenças nos teus próprios horários." }, { status: 403 });
       }
       const { data: membership, error: membershipError } = await admin.from("alunos_turmas").select("id").eq("aluno_id", text(row, "aluno_id")).eq("turma_id", text(schedule as Row, "turma_id")).is("data_fim", null).maybeSingle();
       if (membershipError || !membership) {
