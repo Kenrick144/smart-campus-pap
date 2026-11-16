@@ -380,8 +380,8 @@ export async function PATCH(request: Request) {
       }
     }
 
-    if (cleanRole === "Aluno" && (!body.studentNumber?.trim() || !body.schoolYear?.trim() || !body.course?.trim() || !body.enrollmentDate?.trim() || !body.classId?.trim() || (!body.guardianIsStudent && (!body.guardianName?.trim() || !body.guardianRelationship?.trim() || !body.guardianPhone?.trim())))) {
-      return NextResponse.json({ error: "Para atribuir o perfil Aluno, seleciona o ano letivo, curso e turma e preenche o número, a data de matrícula e os dados obrigatórios do encarregado." }, { status: 400 });
+    if (cleanRole === "Aluno" && (!body.schoolYear?.trim() || !body.course?.trim() || !body.enrollmentDate?.trim() || !body.classId?.trim() || (!body.guardianIsStudent && (!body.guardianName?.trim() || !body.guardianRelationship?.trim() || !body.guardianPhone?.trim())))) {
+      return NextResponse.json({ error: "Para atribuir o perfil Aluno, seleciona o ano letivo, curso e turma, a data de matrícula e os dados obrigatórios do encarregado." }, { status: 400 });
     }
 
     if (cleanRole === "Professor" && !body.department?.trim()) {
@@ -393,7 +393,9 @@ export async function PATCH(request: Request) {
     }
 
     let automaticNumber: string | null = null;
-    if (["Administrador", "Administrador Adjunto"].includes(cleanRole)) {
+    if (cleanRole === "Aluno") {
+      automaticNumber = target.role === "Aluno" ? oldStudentResult.data?.student_number ?? null : null;
+    } else if (["Administrador", "Administrador Adjunto"].includes(cleanRole)) {
       automaticNumber = target.role === cleanRole ? target.administrator_number ?? null : null;
     } else if (cleanRole === "Professor") {
       if (target.role === "Professor") {
@@ -406,7 +408,7 @@ export async function PATCH(request: Request) {
         automaticNumber = data?.employee_number ?? null;
       }
     }
-    if (["Administrador", "Administrador Adjunto", "Professor", "Funcionário"].includes(cleanRole) && !automaticNumber) {
+    if (["Aluno", "Administrador", "Administrador Adjunto", "Professor", "Funcionário"].includes(cleanRole) && !automaticNumber) {
       automaticNumber = await generateUserIdentifier(admin, cleanRole);
     }
 
@@ -478,7 +480,7 @@ export async function PATCH(request: Request) {
     if (cleanRole === "Aluno") {
       const { error } = await admin.from("alunos").upsert({
         id,
-        student_number: body.studentNumber?.trim(),
+        student_number: automaticNumber,
         school_year: body.schoolYear?.trim(),
         course: body.course?.trim(),
         enrollment_date: body.enrollmentDate || null,
@@ -690,7 +692,7 @@ export async function POST(request: Request) {
 
     const requiredByRole: Partial<Record<UserRole, string[]>> = {
       "Aluno": [
-        body.studentNumber || "", body.schoolYear || "", body.course || "", body.enrollmentDate || "", body.classId || "",
+        body.schoolYear || "", body.course || "", body.enrollmentDate || "", body.classId || "",
         ...(body.guardianIsStudent ? [] : [body.guardianName || "", body.guardianRelationship || "", body.guardianPhone || ""]),
       ],
       "Professor": [body.department || ""],
@@ -701,7 +703,7 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient();
-    const automaticNumber = ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"].includes(body.role)
+    const automaticNumber = ["Aluno", "Administrador", "Administrador Adjunto", "Professor", "Funcionário"].includes(body.role)
       ? await generateUserIdentifier(admin, body.role)
       : null;
 
@@ -773,7 +775,7 @@ export async function POST(request: Request) {
     if (body.role === "Aluno") {
       const { error } = await admin.from("alunos").insert({
         id: userId,
-        student_number: body.studentNumber,
+        student_number: automaticNumber,
         school_year: body.schoolYear,
         course: body.course,
         enrollment_date: body.enrollmentDate || null,
