@@ -32,6 +32,7 @@ type CreateUserBody = {
   studentNumber?: string;
   course?: string;
   enrollmentDate?: string;
+  classId?: string;
 
   guardianName?: string;
   guardianRelationship?: string;
@@ -379,8 +380,8 @@ export async function PATCH(request: Request) {
       }
     }
 
-    if (cleanRole === "Aluno" && (!body.studentNumber?.trim() || !body.schoolYear?.trim() || !body.course?.trim() || (!body.guardianIsStudent && (!body.guardianName?.trim() || !body.guardianRelationship?.trim() || !body.guardianPhone?.trim())))) {
-      return NextResponse.json({ error: "Para atribuir o perfil Aluno, preenche o número, ano letivo, curso e os dados obrigatórios do encarregado." }, { status: 400 });
+    if (cleanRole === "Aluno" && (!body.studentNumber?.trim() || !body.schoolYear?.trim() || !body.course?.trim() || !body.enrollmentDate?.trim() || !body.classId?.trim() || (!body.guardianIsStudent && (!body.guardianName?.trim() || !body.guardianRelationship?.trim() || !body.guardianPhone?.trim())))) {
+      return NextResponse.json({ error: "Para atribuir o perfil Aluno, seleciona o ano letivo, curso e turma e preenche o número, a data de matrícula e os dados obrigatórios do encarregado." }, { status: 400 });
     }
 
     if (cleanRole === "Professor" && !body.department?.trim()) {
@@ -689,7 +690,7 @@ export async function POST(request: Request) {
 
     const requiredByRole: Partial<Record<UserRole, string[]>> = {
       "Aluno": [
-        body.studentNumber || "", body.schoolYear || "", body.course || "",
+        body.studentNumber || "", body.schoolYear || "", body.course || "", body.enrollmentDate || "", body.classId || "",
         ...(body.guardianIsStudent ? [] : [body.guardianName || "", body.guardianRelationship || "", body.guardianPhone || ""]),
       ],
       "Professor": [body.department || ""],
