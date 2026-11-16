@@ -537,6 +537,31 @@ function openForm() {
     }
   }
 
+
+  async function deleteUser(user: User) {
+    if (!user.id) return;
+    const confirmed = window.confirm("Tens a certeza de que pretendes eliminar a conta de " + user.name + " (" + user.email + ")? Esta ação não pode ser anulada.");
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: user.id }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        alert(result.error || "Não foi possível eliminar a conta.");
+        return;
+      }
+      setUsers(current => current.filter(item => item.id !== user.id));
+      alert("Conta eliminada com sucesso.");
+    } catch (error) {
+      console.error("Erro ao eliminar utilizador:", error);
+      alert("Ocorreu um erro ao comunicar com o servidor.");
+    }
+  }
+
   const filteredUsers = users.filter((user) => {
     const searchText = search.toLowerCase();
 
@@ -933,6 +958,9 @@ function openForm() {
                       <td>
                         <div className="row-actions">
                           <button type="button" className="button button-secondary" title="Editar utilizador" onClick={() => editUser(user)}>Editar</button>
+                          {(currentRole === "Administrador" || !["Administrador", "Administrador Adjunto"].includes(user.role)) && user.id !== undefined && (
+                            <button type="button" className="button button-danger" title="Eliminar utilizador" onClick={() => deleteUser(user)}>Eliminar</button>
+                          )}
                         </div>
                       </td>
                     </tr>
