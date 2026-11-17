@@ -1890,3 +1890,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background: #4e40c2;
   box-shadow: none;
 }
+
+
+/* Turmas: manter a coluna de ações visível mesmo quando a tabela tem scroll horizontal. */
+.classes-table th:last-child,
+.classes-table td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  min-width: 190px;
+  background: #fff;
+  box-shadow: -8px 0 12px -12px rgba(31, 41, 55, .55);
+}
+.classes-table th:last-child {
+  z-index: 3;
+  background: #fafbfc;
+}
+.classes-table .row-actions {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
