@@ -1100,7 +1100,7 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
           return NextResponse.json({ error: "Não foi possível identificar a turma original para reutilização." }, { status: 400 });
         }
         const { data: sourceClass, error: sourceError } = await admin
-          .from("turmas").select("id").eq("id", reuseSourceId).maybeSingle();
+          .from("turmas").select("id, ano_letivo_id").eq("id", reuseSourceId).maybeSingle();
         if (sourceError || !sourceClass) {
           return NextResponse.json({ error: "A turma original já não existe. Atualiza a página e tenta novamente." }, { status: 400 });
         }
@@ -1193,6 +1193,9 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
         p_professor_coordenador_id: text(row, "professor_coordenador_id") || null,
         p_disciplina_ids: disciplineIds,
         p_reutilizar: method === "POST" && text(row, "reutilizar") === "true",
+        p_turma_origem_id: method === "POST" && text(row, "reutilizar") === "true"
+          ? text(row, "reutilizar_origem_id")
+          : null,
       });
       if (error) {
         const message = error.code === "23505"
