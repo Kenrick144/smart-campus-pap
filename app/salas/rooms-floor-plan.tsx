@@ -56,7 +56,6 @@ export default function RoomsFloorPlan({
           <h2>Planta das salas</h2>
           <p>Explora os espaços por edifício e piso. Seleciona uma sala para consultar a sua ficha.</p>
         </div>
-        {canManage && <button type="button" className="button button-primary" onClick={onAdd}>＋ Nova sala</button>}
       </div>
 
       <div className="rooms-v1-metrics">
