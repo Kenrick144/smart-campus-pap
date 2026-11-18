@@ -25,8 +25,8 @@ export default function RoomsFloorPlan({
     }
     return [...map.entries()].map(([key, items]) => {
       const [building, floor] = key.split("||");
-      return { building, floor, rooms: items.sort((a, b) => (a.sala || "").localeCompare(b.sala || "", "pt-PT")) };
-    }).sort((a, b) => a.building.localeCompare(b.building, "pt-PT") || a.floor.localeCompare(b.floor, "pt-PT"));
+      return { building, floor, rooms: items.sort((a, b) => (a.sala || "").localeCompare(b.sala || "", "pt-PT", { numeric: true, sensitivity: "base" })) };
+    }).sort((a, b) => a.building.localeCompare(b.building, "pt-PT", { numeric: true, sensitivity: "base" }) || a.floor.localeCompare(b.floor, "pt-PT", { numeric: true, sensitivity: "base" }));
   }, [rooms]);
   const [selectedId, setSelectedId] = useState("");
   const selected = rooms.find((room) => room.id === selectedId) ?? null;
