@@ -1913,3 +1913,52 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .notice-error { border-color: #f2b8b5; background: #fff1f0; color: #a12b27; }
 .notice-success { border-color: #bce7d0; background: #effaf4; color: #257e53; }
+
+
+/* Planta esquemática de salas */
+.rooms-plan { margin-bottom: 22px; padding: 24px; }
+.rooms-plan-heading { align-items: center; gap: 18px; }
+.rooms-plan-heading h2 { margin: 5px 0 6px; }
+.rooms-plan-heading p { margin: 0; color: var(--muted, #667085); }
+.rooms-plan-stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 22px; }
+.rooms-plan-stats span { padding: 9px 13px; border: 1px solid var(--border, #e5e7eb); border-radius: 10px; color: var(--muted, #667085); font-size: 13px; }
+.rooms-plan-stats strong { color: var(--foreground, #202939); margin-right: 4px; }
+.rooms-floor-groups { display: grid; gap: 18px; }
+.rooms-floor-group { padding: 16px; border: 1px solid var(--border, #e5e7eb); border-radius: 14px; background: var(--surface-subtle, #fafbfc); }
+.rooms-floor-title { display: flex; align-items: center; gap: 11px; margin-bottom: 14px; }
+.rooms-floor-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: #eeedff; color: #5b4bd8; font-size: 20px; }
+.rooms-floor-title div { display: grid; gap: 2px; }
+.rooms-floor-title strong { color: var(--foreground, #202939); font-size: 14px; }
+.rooms-floor-title small { color: var(--muted, #667085); }
+.rooms-floor-count { margin-left: auto; color: var(--muted, #667085); font-size: 12px; }
+.rooms-floor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 10px; }
+.room-map-tile { display: flex; min-height: 132px; flex-direction: column; align-items: flex-start; gap: 5px; padding: 13px; border: 1px solid #dce2ec; border-radius: 12px; background: #fff; color: var(--foreground, #202939); text-align: left; cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.room-map-tile:hover { border-color: #8e83eb; transform: translateY(-1px); }
+.room-map-tile.is-selected { border: 2px solid #6557d9; padding: 12px; box-shadow: 0 0 0 3px rgba(101,87,217,.10); }
+.room-map-symbol { color: #6557d9; font-size: 18px; }
+.room-map-tile strong { font-size: 14px; }
+.room-map-tile small { color: var(--muted, #667085); font-size: 12px; }
+.room-map-state { margin-top: auto; padding-top: 5px; color: #287a50; font-size: 11px; font-weight: 600; }
+.room-map-tile.is-maintenance { background: #fffaf0; border-color: #f2d59b; }
+.room-map-tile.is-maintenance .room-map-state { color: #9a6413; }
+.room-map-tile.is-inactive { background: #fff6f5; border-color: #f0c5c1; }
+.room-map-tile.is-inactive .room-map-state { color: #a33d36; }
+.room-map-details { display: grid; grid-template-columns: minmax(180px, 1fr) 2fr; gap: 16px 22px; margin-top: 18px; padding: 18px; border: 1px solid #dcd9fb; border-radius: 14px; background: #fbfaff; }
+.room-map-details h3 { margin: 5px 0; font-size: 18px; }
+.room-map-details p { margin: 0; color: var(--muted, #667085); font-size: 13px; }
+.room-map-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.room-map-detail-grid span, .room-map-equipment { display: grid; gap: 4px; }
+.room-map-detail-grid small, .room-map-equipment small { color: var(--muted, #667085); font-size: 11px; }
+.room-map-detail-grid strong, .room-map-equipment strong { color: var(--foreground, #202939); font-size: 13px; }
+.room-map-equipment, .room-map-observations { grid-column: 1 / -1; }
+.room-map-details > .button { justify-self: start; grid-column: 1 / -1; }
+.rooms-plan-empty { display: grid; justify-items: center; gap: 8px; padding: 34px 16px; text-align: center; }
+.rooms-plan-empty > span { color: #6557d9; font-size: 32px; }
+.rooms-plan-empty p { max-width: 440px; margin: 0 0 8px; color: var(--muted, #667085); font-size: 13px; }
+.rooms-plan-footnote { margin: 16px 0 0; color: var(--muted, #667085); font-size: 11px; }
+@media (max-width: 680px) {
+  .rooms-plan { padding: 16px; }
+  .rooms-plan-heading { align-items: flex-start; flex-direction: column; }
+  .room-map-details { grid-template-columns: 1fr; }
+  .room-map-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
