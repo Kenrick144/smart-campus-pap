@@ -604,7 +604,7 @@ export default function Workspace() {
       onSignOut={signOut}
     >
       <div className="page-content">
-          {notice && <div className="notice" role="status"><span>ℹ</span>{notice}<button onClick={() => setNotice("")} aria-label="Fechar">×</button></div>}
+          {notice && <div className={"notice " + (/não é possível|não foi possível|já tem .* associados|não pode ser eliminado/i.test(notice) ? "notice-error" : "notice-success")} role="alert"><span>{/não é possível|não foi possível|já tem .* associados|não pode ser eliminado/i.test(notice) ? "!" : "✓"}</span>{notice}<button onClick={() => setNotice("")} aria-label="Fechar">×</button></div>}
           {pathname === "/dashboard" ? (
             <Dashboard role={role} profileName={profileName} period={period} setPeriod={setPeriod} campusData={campusData} status={dashboardStatus} onRefresh={() => refreshWorkspaceData(role, pathname)} />
           ) : pathname === "/perfil" ? (
