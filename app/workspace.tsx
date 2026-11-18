@@ -8,6 +8,7 @@ import { readSupabaseRecordsWithStatus, readLookupRecords, saveSupabaseRecord, d
 import { createClient } from "@/lib/supabase/client";
 import { QrImage, QrScanner } from "./qr-tools";
 import CampusShell from "./campus-shell";
+import RoomsFloorPlan from "./salas/rooms-floor-plan";
 
 type Role = "Aluno" | "Professor" | "Funcionário" | "Administrador Adjunto" | "Administrador";
 type RecordItem = Record<string, string>;
@@ -1332,6 +1333,17 @@ function DataPage({
             : undefined
       }
     />
+    {pathname === "/salas" && (
+      <RoomsFloorPlan
+        rooms={allRecords}
+        canManage={role === "Administrador" || role === "Administrador Adjunto"}
+        onAdd={onAdd}
+        onEdit={(roomId) => {
+          const index = allRecords.findIndex((room) => room.id === roomId);
+          if (index >= 0) onEdit(index);
+        }}
+      />
+    )}
     {pathname === "/alunos" && (
       <section className="stat-grid student-management-stats">
         <article className="stat-card">
