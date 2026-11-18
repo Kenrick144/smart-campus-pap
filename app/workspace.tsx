@@ -1335,7 +1335,7 @@ function DataPage({
     />
     {pathname === "/salas" && (
       <RoomsFloorPlan
-        rooms={allRecords}
+        rooms={records}
         canManage={role === "Administrador" || role === "Administrador Adjunto"}
         onAdd={onAdd}
         onEdit={(roomId) => {
