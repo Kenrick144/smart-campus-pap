@@ -11,7 +11,6 @@ grant all on public.turmas_base to service_role;
 
 alter table public.turmas add column turma_base_id uuid;
 
-insert into public.turmas_base default values;
 update public.turmas t
 set turma_base_id = b.id
 from (
