@@ -41,7 +41,6 @@ export default function RoomsFloorPlan({
           <h2>Planta esquemática das salas</h2>
           <p>Organização provisória por edifício e piso. Seleciona uma sala para consultar os detalhes.</p>
         </div>
-        {canManage && <button type="button" className="button button-primary" onClick={onAdd}>＋ Adicionar sala</button>}
       </div>
       <div className="rooms-plan-stats">
         <span><strong>{rooms.length}</strong> salas registadas</span>
