@@ -1910,3 +1910,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   flex-wrap: nowrap;
   white-space: nowrap;
 }
+
+.notice-error { border-color: #f2b8b5; background: #fff1f0; color: #a12b27; }
+.notice-success { border-color: #bce7d0; background: #effaf4; color: #257e53; }
