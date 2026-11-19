@@ -40,6 +40,16 @@ alter table public.sessoes_computador
 create index if not exists codigos_temporarios_user_created_idx
   on public.codigos_temporarios (user_id, created_at desc);
 
+-- Defense in depth: at most one live code per account and one active session
+-- per account, regardless of whether the account is a student, teacher or staff.
+create unique index if not exists codigos_temporarios_one_open_per_user
+  on public.codigos_temporarios (user_id)
+  where used_at is null and revoked_at is null;
+
+create unique index if not exists sessoes_computador_one_active_per_user
+  on public.sessoes_computador (user_id)
+  where ended_at is null;
+
 create index if not exists codigos_temporarios_computer_active_idx
   on public.codigos_temporarios (computador_id, expires_at)
   where used_at is null and revoked_at is null;
