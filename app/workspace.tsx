@@ -1698,12 +1698,12 @@ function FormInput({ resource, field, initialValue }: { resource: string; field:
 function ComputerSessionOverview({ role }: { role: Role }) {
   const [records, setRecords] = useState<Array<{
     id: string; name: string; room: string; inventoryNumber: string;
-    physicalState: string; availability: string; studentName: string | null; startedAt: string | null;
+    physicalState: string; availability: string; userName: string | null; startedAt: string | null;
   }>>([]);
   const [totals, setTotals] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const showStudentName = role === "Administrador" || role === "Administrador Adjunto";
+  const showUserName = role === "Administrador" || role === "Administrador Adjunto";
 
   async function loadOverview() {
     setError("");
@@ -1740,7 +1740,7 @@ function ComputerSessionOverview({ role }: { role: Role }) {
         {records.map((record) => (
           <div className="pc-live-row" key={record.id}>
             <span className="pc-live-name"><strong>{record.name}</strong><small>{record.room}{record.inventoryNumber ? " · " + record.inventoryNumber : ""}</small></span>
-            {record.availability === "Ocupado" && <span className="pc-live-student">{showStudentName ? record.studentName : "Em utilização"}</span>}
+            {record.availability === "Ocupado" && <span className="pc-live-student">{showUserName ? record.userName : "Em utilização"}</span>}
             <span className={"pill " + statusTone(record.availability)}>{record.availability}</span>
           </div>
         ))}
