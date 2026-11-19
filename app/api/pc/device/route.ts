@@ -40,7 +40,16 @@ export async function GET(request: Request) {
     .is("ended_at", null)
     .maybeSingle();
 
-  if (error) return NextResponse.json({ error: "Não foi possível consultar a sessão deste PC." }, { status: 500 });
+  if (error) {
+    console.error("Erro ao consultar sessão do PC:", error.message);
+    if (/user_id|schema cache|does not exist/i.test(error.message)) {
+      return NextResponse.json(
+        { error: "A atualização do módulo Computadores ainda não está instalada na base de dados." },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    return NextResponse.json({ error: "Não foi possível consultar a sessão deste PC." }, { status: 500 });
+  }
 
   if (session && new Date(session.heartbeat_at).getTime() < Date.now() - 2 * 60 * 1000) {
     return NextResponse.json({ active: false, reason: "timeout" });
@@ -94,6 +103,12 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error("Erro ao iniciar sessão de computador:", error.message);
+      if (/start_pc_session_guarded|schema cache|does not exist/i.test(error.message)) {
+        return NextResponse.json(
+          { error: "A atualização do módulo Computadores ainda não está instalada na base de dados." },
+          { status: 503, headers: { "Cache-Control": "no-store" } },
+        );
+      }
       return NextResponse.json({ error: "Não foi possível iniciar a sessão." }, { status: 500 });
     }
 
