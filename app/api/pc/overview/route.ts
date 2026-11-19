@@ -20,20 +20,27 @@ export async function GET() {
 
   const [{ data: computers, error: computerError }, { data: sessions, error: sessionError }, { data: rooms, error: roomError }] = await Promise.all([
     context.admin.from("computadores").select("id, nome, sala_id, numero_inventario, estado").order("nome"),
-    context.admin.from("sessoes_computador").select("id, computador_id, aluno_id, started_at, heartbeat_at").is("ended_at", null),
+    context.admin.from("sessoes_computador").select("id, computador_id, user_id, started_at, heartbeat_at").is("ended_at", null),
     context.admin.from("salas").select("id, nome"),
   ]);
 
   if (computerError || sessionError || roomError) {
-    console.error("Erro ao consultar o parque informático:", computerError?.message, sessionError?.message, roomError?.message);
+    const message = [computerError?.message, sessionError?.message, roomError?.message].filter(Boolean).join(" ");
+    console.error("Erro ao consultar o parque informático:", message);
+    if (/user_id|schema cache|does not exist/i.test(message)) {
+      return NextResponse.json(
+        { error: "A atualização do módulo Computadores ainda não está instalada na base de dados." },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     return NextResponse.json({ error: "Não foi possível consultar o parque informático." }, { status: 500 });
   }
 
   const activeSessions = (sessions ?? []).filter((session) => session.heartbeat_at >= staleBefore);
   const sessionByComputer = new Map(activeSessions.map((session) => [session.computador_id, session]));
-  const studentIds = [...new Set(activeSessions.map((session) => session.aluno_id))];
-  const { data: students, error: studentError } = studentIds.length
-    ? await context.admin.from("users").select("id, name").in("id", studentIds)
+  const userIds = [...new Set(activeSessions.map((session) => session.user_id).filter(Boolean))];
+  const { data: students, error: studentError } = userIds.length
+    ? await context.admin.from("users").select("id, name").in("id", userIds)
     : { data: [], error: null };
 
   if (studentError) {
@@ -41,7 +48,7 @@ export async function GET() {
   }
 
   const roomById = new Map((rooms ?? []).map((room) => [room.id, room.nome]));
-  const studentById = new Map((students ?? []).map((student) => [student.id, student.name]));
+  const userById = new Map((students ?? []).map((user) => [user.id, user.name]));
   const records = (computers ?? []).map((computer) => {
     const session = sessionByComputer.get(computer.id);
     const state = computer.estado === "Operacional"
@@ -54,7 +61,7 @@ export async function GET() {
       inventoryNumber: computer.numero_inventario ?? "",
       physicalState: computer.estado,
       availability: state,
-      studentName: session && isPcAdmin(context.role) ? studentById.get(session.aluno_id) ?? "Aluno" : null,
+      userName: session && isPcAdmin(context.role) ? userById.get(session.user_id) ?? "Utilizador" : null,
       startedAt: session?.started_at ?? null,
       heartbeatAt: session?.heartbeat_at ?? null,
     };
