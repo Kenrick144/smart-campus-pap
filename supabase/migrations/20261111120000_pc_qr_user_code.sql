@@ -343,7 +343,10 @@ revoke all on function public.issue_pc_temporary_code(uuid, uuid, text, timestam
 revoke all on function public.pc_agent_start_session(uuid, text, text) from public, anon, authenticated;
 revoke all on function public.pc_agent_end_session(uuid, uuid, text, text) from public, anon, authenticated;
 grant execute on function public.issue_pc_temporary_code(uuid, uuid, text, timestamptz) to service_role;
-grant execute on function public.pc_agent_start_session(uuid, text, text) to service_role;
+-- The unguarded start RPC is retained only as a disabled compatibility stub.
+-- All PC Agent starts must pass through pc_agent_start_session_guarded.
+revoke all on function public.pc_agent_start_session(uuid, text, text)
+  from public, anon, authenticated, service_role;
 grant execute on function public.pc_agent_end_session(uuid, uuid, text, text) to service_role;
 
 -- Disable the legacy student-only RPC signatures. All application calls must
