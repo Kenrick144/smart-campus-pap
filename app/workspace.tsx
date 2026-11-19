@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { QrImage, QrScanner } from "./qr-tools";
 import CampusShell from "./campus-shell";
 import RoomsFloorPlan from "./salas/rooms-floor-plan";
+import PcEnrollmentPanel from "./computadores/pc-enrollment-panel";
 
 type Role = "Aluno" | "Professor" | "Funcionário" | "Administrador Adjunto" | "Administrador";
 type RecordItem = Record<string, string>;
@@ -1463,7 +1464,10 @@ function DataPage({
         <div className="pc-state-grid">{["Operacional", "Em manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => (record.__estado_db || record.estado) === state).length}</strong></span>)}</div>
       </section>
       <ComputerSessionOverview role={role} />
-      {(role === "Administrador" || role === "Administrador Adjunto") && <PcDeviceManager computers={allRecords} />}
+      {(role === "Administrador" || role === "Administrador Adjunto") && <>
+        <PcEnrollmentPanel />
+        <PcDeviceManager computers={allRecords} />
+      </>}
     </>}
     {pathname === "/equipamentos" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Estado dos equipamentos</h2><p>Inventário separado dos computadores</p></div></div><div className="pc-state-grid">{["Operacional", "Em manutenção", "Avariado", "Inativo"].map((state) => <span className={`pc-state ${statusTone(state)}`} key={state}><i />{state}<strong>{allRecords.filter((record) => (record.__estado_db || record.estado) === state).length}</strong></span>)}</div></section>}
     {pathname === "/qr-code" && <section className="surface lower-panel"><div className="surface-heading"><div><h2>Leitura rápida</h2><p>Introduza ou leia um código de sala ativo para registar a presença do utilizador atual.</p></div></div><form className="scan-row" onSubmit={(event) => { event.preventDefault(); onScan(); }}><input className="field-control" value={qrCode} onChange={(event) => setQrCode(event.target.value)} placeholder="Código do QR da sala" aria-label="Código QR da sala" /><button className="button button-primary">▦ Ler código</button><QrScanner onDetected={onScan} /></form></section>}
