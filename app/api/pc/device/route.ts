@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 
   const { data: session, error } = await admin
     .from("sessoes_computador")
-    .select("id, aluno_id, started_at, heartbeat_at")
+    .select("id, user_id, started_at, heartbeat_at")
     .eq("computador_id", device.computador_id)
     .is("ended_at", null)
     .maybeSingle();
@@ -50,14 +50,15 @@ export async function GET(request: Request) {
 
   const [{ data: computer }, { data: student }] = await Promise.all([
     admin.from("computadores").select("id, nome, estado").eq("id", device.computador_id).maybeSingle(),
-    admin.from("users").select("name").eq("id", session.aluno_id).maybeSingle(),
+    admin.from("users").select("name, role").eq("id", session.user_id).maybeSingle(),
   ]);
 
   return NextResponse.json({
     active: true,
     sessionId: session.id,
-    studentId: session.aluno_id,
-    studentName: student?.name ?? "Aluno",
+    userId: session.user_id,
+    userName: student?.name ?? "Utilizador",
+    userRole: student?.role ?? null,
     computerId: computer?.id,
     computerName: computer?.nome ?? "Computador",
     startedAt: session.started_at,
