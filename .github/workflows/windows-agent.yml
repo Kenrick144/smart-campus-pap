@@ -2,10 +2,11 @@ name: Windows PC Agent
 
 on:
   push:
-    branches: [feature/pc-agent-foundation]
+    branches: [main, feature/pc-agent-foundation]
     paths:
       - "windows-agent/**"
       - ".github/workflows/windows-agent.yml"
+  workflow_dispatch:
   pull_request:
     paths:
       - "windows-agent/**"
