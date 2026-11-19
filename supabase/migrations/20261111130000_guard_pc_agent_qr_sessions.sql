@@ -36,6 +36,7 @@ declare
   v_codigo public.codigos_temporarios%rowtype;
   v_user public.users%rowtype;
   v_session_id uuid;
+  v_user_id uuid;
   v_attempts integer;
   v_retry_at timestamptz;
 begin
@@ -99,16 +100,17 @@ begin
     );
   end if;
 
-  -- The QR-bound code must belong to this exact computer.
-  select *
-    into v_codigo
+  -- Read the candidate owner without locking the code row. The issuer takes
+  -- the per-user advisory lock before revoking/replacing codes, so acquire that
+  -- same lock first to keep a consistent lock order and prevent deadlocks.
+  select c.user_id
+    into v_user_id
   from public.codigos_temporarios c
   where c.codigo_hash = p_code_hash
     and c.computador_id = p_computador_id
     and c.used_at is null
     and c.revoked_at is null
-    and c.expires_at > now()
-  for update;
+    and c.expires_at > now();
 
   if not found then
     v_attempts := least(coalesce(v_device.failed_code_attempts, 0) + 1, 5);
@@ -125,15 +127,16 @@ begin
     );
   end if;
 
-  perform pg_advisory_xact_lock(hashtextextended(v_codigo.user_id::text, 0));
+  perform pg_advisory_xact_lock(hashtextextended(v_user_id::text, 0));
 
-  -- Re-read under row lock after acquiring the per-user lock to prevent reuse.
+  -- Revalidate and consume the code under a row lock after acquiring the
+  -- per-user lock. This prevents reuse and races with code replacement.
   select *
     into v_codigo
   from public.codigos_temporarios c
-  where c.id = v_codigo.id
-    and c.codigo_hash = p_code_hash
+  where c.codigo_hash = p_code_hash
     and c.computador_id = p_computador_id
+    and c.user_id = v_user_id
     and c.used_at is null
     and c.revoked_at is null
     and c.expires_at > now()
