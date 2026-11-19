@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       .eq("id", body.session_id)
       .eq("computador_id", body.computer_id)
       .is("ended_at", null)
-      .select("id, aluno_id")
+      .select("id, user_id")
       .maybeSingle();
 
     if (sessionError) throw sessionError;
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     await writePcLog(
       admin,
-      session.aluno_id,
+      session.user_id,
       "Terminar sessão de computador",
       "sessoes_computador",
       session.id,
