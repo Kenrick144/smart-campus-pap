@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
-import { getPcAuthContext, hashDeviceToken, isPcAdmin, writePcLog } from "../_lib";
+import { getPcAuthContext, hashDeviceToken, writePcLog } from "../_lib";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const { context, response } = await getPcAuthContext();
   if (!context) return response ?? NextResponse.json({ error: "Não autenticado." }, { status: 401 });
-  if (!isPcAdmin(context.role)) {
-    return NextResponse.json({ error: "Apenas a administração pode gerir as ligações dos computadores." }, { status: 403 });
+  if (context.role !== "Administrador" && context.role !== "Administrador Adjunto") {
+    return NextResponse.json({ error: "Apenas Administrador ou Administrador Adjunto podem gerir as ligações dos computadores." }, { status: 403 });
   }
 
   const [{ data: devices, error: deviceError }, { data: computers, error: computerError }] = await Promise.all([
@@ -46,8 +46,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const { context, response } = await getPcAuthContext();
   if (!context) return response ?? NextResponse.json({ error: "Não autenticado." }, { status: 401 });
-  if (!isPcAdmin(context.role)) {
-    return NextResponse.json({ error: "Apenas a administração pode registar computadores." }, { status: 403 });
+  if (context.role !== "Administrador" && context.role !== "Administrador Adjunto") {
+    return NextResponse.json({ error: "Apenas Administrador ou Administrador Adjunto podem registar computadores." }, { status: 403 });
   }
 
   const body = await request.json().catch(() => ({})) as { computerId?: string };
@@ -107,8 +107,8 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const { context, response } = await getPcAuthContext();
   if (!context) return response ?? NextResponse.json({ error: "Não autenticado." }, { status: 401 });
-  if (!isPcAdmin(context.role)) {
-    return NextResponse.json({ error: "Apenas a administração pode revogar ligações." }, { status: 403 });
+  if (context.role !== "Administrador" && context.role !== "Administrador Adjunto") {
+    return NextResponse.json({ error: "Apenas Administrador ou Administrador Adjunto podem revogar ligações." }, { status: 403 });
   }
 
   const body = await request.json().catch(() => ({})) as { computerId?: string };
