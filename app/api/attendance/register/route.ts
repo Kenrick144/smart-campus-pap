@@ -22,7 +22,7 @@ export async function GET() {
   if ("response" in ctx) return ctx.response;
   const { user, admin } = ctx;
   const [{ data: schedules, error: scheduleError }, { data: classes, error: classError }] = await Promise.all([
-    admin.from("horarios").select("id,turma_id,professor_id,disciplina_turma_id,hora_inicio,hora_fim,dia_semana").or(`professor_id.eq.${user.id}`),
+    admin.from("horarios").select("id,turma_id,professor_id,disciplina_turma_id,hora_inicio,hora_fim,dia_semana"),
     admin.from("turmas").select("id,nome,professor_coordenador_id"),
   ]);
   if (scheduleError || classError) return fail("Não foi possível carregar os horários e turmas.", 500);
