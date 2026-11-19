@@ -440,17 +440,26 @@ async function enrich(
         .map(([type, count]) => type + ": " + count)
         .join(" · ");
 
+      const roomName = text(row, "nome");
+      const building = text(row, "edificio");
+      const observations = text(row, "observacoes");
+
       return {
         id: roomId,
-        sala: text(row, "nome"),
-        edifício: text(row, "edificio"),
+        // Campos canónicos usados pelo formulário de criação/edição.
+        nome: roomName,
+        edificio: building,
+        observacoes: observations,
+        // Rótulos de apresentação usados pela planta e pela tabela.
+        sala: roomName,
+        edifício: building,
         piso: text(row, "piso"),
         capacidade: text(row, "capacidade"),
         tipo: text(row, "tipo"),
         "N.º de computadores": String(computerCountByRoom.get(roomId) ?? 0),
         "Equipamentos por tipo": equipmentSummary || "Nenhum",
         estado: text(row, "estado", "Ativa"),
-        observações: text(row, "observacoes"),
+        observações: observations,
       };
     });
   }
