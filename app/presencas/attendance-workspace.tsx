@@ -176,7 +176,7 @@ export default function AttendanceWorkspace() {
     {error && <div className="notice" style={{background:"#fff3f3",borderColor:"#f1caca",color:"#a53c45"}}>{error}<button onClick={()=>setError("")}>×</button></div>}
     {role === "Professor" && <section className="surface" style={{ marginBottom: 16 }}>
       <div className="surface-heading"><div><h2>Registar presença por aula</h2><p>Seleciona uma das tuas aulas e regista o estado de cada aluno.</p></div></div>
-      {teachingSchedules.length === 0 ? <div className="empty-state"><strong>Não tens aulas atribuídas</strong><p>Confirma se existem horários associados à tua conta de professor.</p></div> : <form onSubmit={submitAttendance}>
+      {teachingSchedules.length === 0 ? <div className="empty-state"><strong>Não tens aulas atribuídas</strong><p>A base de dados ainda não tem horários configurados. Pede ao Administrador ou Administrador Adjunto para atribuir um horário à tua turma/disciplina. Depois poderás registar Presente, Falta ou Atraso por aluno.</p></div> : <form onSubmit={submitAttendance}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 14 }}>
           <label className="attendance-field">Aula
             <select required value={scheduleId} onChange={e => { setScheduleId(e.target.value); setAttendanceStudentId(""); }}>
@@ -234,7 +234,7 @@ export default function AttendanceWorkspace() {
           </div></td>
         </tr>)}</tbody>
       </table>
-      {!loading && filtered.length===0 && <div className="empty-state"><span>⌕</span><strong>Sem registos para apresentar</strong><p>Não existem presenças que correspondam aos filtros selecionados.</p></div>}
+      {!loading && filtered.length===0 && <div className="empty-state"><span>⌕</span><strong>{role === "Aluno" ? "Ainda não tens faltas ou presenças registadas" : "Sem registos para apresentar"}</strong><p>{role === "Aluno" ? "Quando o professor registar uma falta, aparecerá aqui a opção para submeter a justificação." : "Não existem presenças que correspondam aos filtros selecionados."}</p></div>}
       {loading && <div className="empty-state">A carregar presenças e faltas…</div>}
       </div>
     </section>
