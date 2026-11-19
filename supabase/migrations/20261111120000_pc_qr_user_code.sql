@@ -40,6 +40,16 @@ alter table public.sessoes_computador
 create index if not exists codigos_temporarios_user_created_idx
   on public.codigos_temporarios (user_id, created_at desc);
 
+-- Defense in depth: at most one live code and one active session per eligible
+-- account (Aluno or Professor). Funcionário has read-only access to the inventory.
+create unique index if not exists codigos_temporarios_one_open_per_user
+  on public.codigos_temporarios (user_id)
+  where used_at is null and revoked_at is null;
+
+create unique index if not exists sessoes_computador_one_active_per_user
+  on public.sessoes_computador (user_id)
+  where ended_at is null;
+
 create index if not exists codigos_temporarios_computer_active_idx
   on public.codigos_temporarios (computador_id, expires_at)
   where used_at is null and revoked_at is null;
@@ -96,7 +106,7 @@ begin
   from public.users u
   where u.id = p_user_id and u.status = 'Ativo';
 
-  if v_role is null or v_role not in ('Aluno', 'Professor', 'Funcionário') then
+  if v_role is null or v_role not in ('Aluno', 'Professor') then
     raise exception 'USER_NOT_ALLOWED' using errcode = 'P0001';
   end if;
 
@@ -113,11 +123,6 @@ begin
     where p.id = p_user_id and p.professional_status = 'Ativo'
   ) then
     raise exception 'TEACHER_NOT_ACTIVE' using errcode = 'P0001';
-  elsif v_role = 'Funcionário' and not exists (
-    select 1 from public.funcionarios f
-    where f.id = p_user_id and f.professional_status = 'Ativo'
-  ) then
-    raise exception 'STAFF_NOT_ACTIVE' using errcode = 'P0001';
   end if;
 
   update public.sessoes_computador
@@ -230,7 +235,7 @@ begin
   select * into v_user
   from public.users u
   where u.id = v_codigo.user_id and u.status = 'Ativo'
-    and u.role in ('Aluno', 'Professor', 'Funcionário');
+    and u.role in ('Aluno', 'Professor');
 
   if not found then
     raise exception 'USER_NOT_ALLOWED' using errcode = 'P0001';
@@ -249,11 +254,6 @@ begin
     where p.id = v_user.id and p.professional_status = 'Ativo'
   ) then
     raise exception 'TEACHER_NOT_ACTIVE' using errcode = 'P0001';
-  elsif v_user.role = 'Funcionário' and not exists (
-    select 1 from public.funcionarios f
-    where f.id = v_user.id and f.professional_status = 'Ativo'
-  ) then
-    raise exception 'STAFF_NOT_ACTIVE' using errcode = 'P0001';
   end if;
 
   update public.sessoes_computador
