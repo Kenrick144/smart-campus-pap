@@ -1329,7 +1329,7 @@ function DataPage({
       action={
         pathname === "/alunos" && canManageStudents
           ? <Link className="button button-primary" href="/utilizadores?novo=aluno"><span>＋</span>Criar aluno</Link>
-          : hasAction
+          : hasAction && pathname !== "/computadores"
             ? <button className="button button-primary" onClick={onAdd}><span>＋</span>{primaryActions[pathname]}</button>
             : undefined
       }
