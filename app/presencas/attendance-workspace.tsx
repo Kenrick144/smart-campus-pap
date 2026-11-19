@@ -154,7 +154,7 @@ export default function AttendanceWorkspace() {
           <td>{item.justificacao?.anexo_url ? <a className="text-link" href={item.justificacao.anexo_url} target="_blank" rel="noreferrer">Abrir ficheiro ↗</a> : "—"}</td>
           <td><div className="row-actions">
             {role==="Aluno" && item.estado==="Falta" && !item.justificacao && <button className="button button-secondary" onClick={()=>{setSelected(item);setReason("");setFile(null);}}>Justificar</button>}
-            {canDecide && item.justificacao?.estado==="Pendente" && <button className="button button-secondary" onClick={()=>{setSelected(item);setDecisionReason("");}}>Analisar</button>}
+            {(role==="Administrador" || role==="Administrador Adjunto" || (role==="Professor" && item.coordenador_id===userId)) && item.justificacao?.estado==="Pendente" && <button className="button button-secondary" onClick={()=>{setSelected(item);setDecisionReason("");}}>Analisar</button>}
           </div></td>
         </tr>)}</tbody>
       </table>
