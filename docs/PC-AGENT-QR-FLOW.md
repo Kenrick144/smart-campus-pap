@@ -22,21 +22,21 @@ O utilizador autentica-se primeiro no Smart Campus com Supabase Auth. O cliente 
 
 O servidor:
 1. valida o token com `auth.getUser`;
-2. consulta `public.users` e confirma estado Ativo e perfil Aluno, Professor ou Funcionário;
+2. consulta `public.users` e confirma estado Ativo e perfil Aluno ou Professor. O perfil Funcionário mantém leitura do inventário, mas não emite códigos nem inicia sessões;
 3. resolve o QR para o registo `computadores` e exige estado Operacional;
 4. gera código aleatório de seis dígitos e guarda apenas SHA-256;
 5. chama `issue_pc_temporary_code`, que faz rate limit (5 por 15 minutos), valida a elegibilidade e grava o código associado ao `computador_id`, com validade de 600 segundos.
 
-O código é apresentado uma única vez. Nunca é escrito em logs.
+O código é apresentado uma única vez. Nunca é escrito em logs. Funcionário não tem acesso a esta operação porque a sua permissão no módulo é de leitura.
 
 ## Validação pelo agente
 
-`POST /api/pc/agent/start` recebe `computer_id` e código, mais a credencial do agente em `x-pc-agent-key`. O servidor envia apenas hashes para `pc_agent_start_session`. A função:
+`POST /api/pc/agent/start` recebe `computer_id` e código, mais a credencial do agente em `x-pc-agent-key`. O servidor envia apenas hashes para `pc_agent_start_session_guarded`. A função protegida:
 - valida a credencial ativa de `pc_device_credentials` para aquele computador;
 - valida código não usado, não revogado, não expirado e associado ao mesmo computador;
-- revalida o perfil e o estado escolar;
+- revalida o perfil e o estado escolar (Aluno com matrícula ativa; Professor com registo profissional ativo);
 - impede sessão ativa duplicada por utilizador e por computador;
-- cria a sessão e consome o código na mesma transação.
+- aplica bloqueio do dispositivo após cinco tentativas inválidas durante dez minutos;\n- cria a sessão e consome o código na mesma transação.
 
 ## Fim da sessão
 
@@ -44,7 +44,7 @@ O código é apresentado uma única vez. Nunca é escrito em logs.
 
 ## Migração e rollout
 
-A migração `202611050001_pc_qr_user_code.sql` é aditiva e dirigida ao schema real auditado. Está no GitHub, mas **não foi aplicada** ao Supabase. Antes de aplicar:
+As migrações `20261111120000_pc_qr_user_code.sql` e `20261111130000_guard_pc_agent_qr_sessions.sql` são aditivas e dirigidas ao schema real auditado. Estão na `main`, mas **não foram aplicadas** ao Supabase. Antes de aplicar:
 1. backup;
 2. confirmar zero registos órfãos ao preencher `user_id`;
 3. rever SQL e RLS/grants;
