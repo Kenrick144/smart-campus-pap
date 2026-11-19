@@ -25,7 +25,14 @@ export async function GET() {
   ]);
 
   if (computerError || sessionError || roomError) {
-    console.error("Erro ao consultar o parque informático:", computerError?.message, sessionError?.message, roomError?.message);
+    const message = [computerError?.message, sessionError?.message, roomError?.message].filter(Boolean).join(" ");
+    console.error("Erro ao consultar o parque informático:", message);
+    if (/user_id|schema cache|does not exist/i.test(message)) {
+      return NextResponse.json(
+        { error: "A atualização do módulo Computadores ainda não está instalada na base de dados." },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     return NextResponse.json({ error: "Não foi possível consultar o parque informático." }, { status: 500 });
   }
 
