@@ -1,11 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { hashDeviceToken } from "../../_lib";
+import { hashDeviceToken, hashTemporaryCode } from "../../_lib";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type StartResult = {
+  ok?: boolean;
+  error?: string;
+  retry_at?: string | null;
+  attempts_remaining?: number;
+  session?: {
+    session_id: string;
+    user_id: string;
+    user_name: string;
+    user_role: string;
+    computador_id: string;
+    computador_nome: string;
+    started_at: string;
+  };
+};
+
+const ERROR_MESSAGES: Record<string, string> = {
+  DEVICE_TEMPORARILY_LOCKED: "Este computador foi bloqueado temporariamente após cinco tentativas inválidas. Tenta novamente daqui a 10 minutos.",
+  INVALID_DEVICE_CREDENTIAL: "Este computador não está registado ou a credencial foi revogada.",
+  COMPUTER_NOT_FOUND: "O computador indicado não existe.",
+  COMPUTER_NOT_AVAILABLE: "Este computador não está operacional.",
+  INVALID_OR_EXPIRED_CODE_FOR_COMPUTER: "O código está incorreto, expirou ou pertence a outro computador.",
+  USER_NOT_ALLOWED: "Esta conta não está autorizada a utilizar computadores.",
+  STUDENT_NOT_ENROLLED: "A matrícula do aluno não está ativa.",
+  TEACHER_NOT_ACTIVE: "O registo do professor não está ativo.",
+  STAFF_NOT_ACTIVE: "O registo do funcionário não está ativo.",
+  USER_HAS_ACTIVE_SESSION: "Esta conta já tem uma sessão ativa noutro computador.",
+  COMPUTER_IN_USE: "Este computador já está a ser utilizado.",
+};
 
 export async function POST(request: NextRequest) {
   const agentKey = request.headers.get("x-pc-agent-key");
@@ -15,30 +45,51 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json() as { computer_id?: string; code?: string };
-    if (!body.computer_id || !UUID_PATTERN.test(body.computer_id) || typeof body.code !== "string" || !/^\d{6}$/.test(body.code.replace(/\s+/g, ""))) {
+    const code = typeof body.code === "string" ? body.code.replace(/\s+/g, "") : "";
+    if (!body.computer_id || !UUID_PATTERN.test(body.computer_id) || !/^\d{6}$/.test(code)) {
       return NextResponse.json({ error: "Indica o computador e um código de 6 dígitos válido." }, { status: 400 });
     }
 
     const admin = createAdminClient();
-    const { data: credential, error: credentialError } = await admin
-      .from("pc_device_credentials")
-      .select("id")
-      .eq("computador_id", body.computer_id)
-      .eq("token_hash", hashDeviceToken(agentKey))
-      .is("revoked_at", null)
-      .maybeSingle();
+    const { data, error } = await admin.rpc("pc_agent_start_session_guarded", {
+      p_computador_id: body.computer_id,
+      p_code_hash: hashTemporaryCode(code),
+      p_agent_key_hash: hashDeviceToken(agentKey),
+    });
 
-    if (credentialError) throw credentialError;
-    if (!credential) {
-      return NextResponse.json({ error: "Este computador não está registado ou a credencial foi revogada." }, { status: 401 });
+    if (error) {
+      const message = error.message || "";
+      console.error("PC agent guarded start RPC failed:", message);
+      if (/pc_agent_start_session_guarded|schema cache|does not exist/i.test(message)) {
+        return NextResponse.json({
+          error: "A integração QR ainda não está instalada na base de dados. Nenhuma sessão foi iniciada.",
+        }, { status: 503, headers: { "Cache-Control": "no-store" } });
+      }
+      return NextResponse.json({ error: "Não foi possível validar o início da sessão." }, { status: 500 });
     }
 
-    // The active database only has the legacy RPC, which does not bind a
-    // temporary code to the target computer. Never use it for the QR flow:
-    // doing so would allow a valid code to be replayed at another PC.
+    const result = (Array.isArray(data) ? data[0] : data) as StartResult | null;
+    if (!result?.ok || !result.session) {
+      const reason = result?.error || "INVALID_OR_EXPIRED_CODE_FOR_COMPUTER";
+      return NextResponse.json({
+        error: ERROR_MESSAGES[reason] || "O acesso a este computador não foi autorizado.",
+        code: reason,
+        attempts_remaining: result?.attempts_remaining,
+        retry_at: result?.retry_at,
+      }, {
+        status: reason === "DEVICE_TEMPORARILY_LOCKED" ? 423
+          : ["INVALID_DEVICE_CREDENTIAL"].includes(reason) ? 401
+          : ["USER_NOT_ALLOWED", "STUDENT_NOT_ENROLLED", "TEACHER_NOT_ACTIVE", "STAFF_NOT_ACTIVE"].includes(reason) ? 403
+          : ["COMPUTER_NOT_FOUND"].includes(reason) ? 404
+          : 409,
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+
     return NextResponse.json({
-      error: "O início de sessão por QR está temporariamente indisponível. A base de dados ainda não tem a validação que associa o código a este computador. Não foi iniciada nenhuma sessão.",
-    }, { status: 503, headers: { "Cache-Control": "no-store" } });
+      success: true,
+      session: result.session,
+    }, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("PC agent session start failed:", error);
     return NextResponse.json({ error: "Não foi possível validar o pedido de início de sessão." }, { status: 500 });
