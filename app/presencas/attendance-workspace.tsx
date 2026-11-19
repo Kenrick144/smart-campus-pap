@@ -35,6 +35,13 @@ export default function AttendanceWorkspace() {
   const [file, setFile] = useState<File | null>(null);
   const [decisionReason, setDecisionReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
+  const [lessons, setLessons] = useState<Array<{id:string;turma_id:string;turma_nome:string;disciplina_nome:string;hora_inicio:string;hora_fim:string;alunos:Array<{id:string;nome:string}>}>>([]);
+  const [lessonId, setLessonId] = useState("");
+  const [registerStudentId, setRegisterStudentId] = useState("");
+  const [registerDate, setRegisterDate] = useState(new Date().toISOString().slice(0,10));
+  const [registerState, setRegisterState] = useState("Presente");
+  const [registerObservations, setRegisterObservations] = useState("");
   const [teachingSchedules, setTeachingSchedules] = useState<TeachingSchedule[]>([]);
   const [scheduleId, setScheduleId] = useState("");
   const [attendanceStudentId, setAttendanceStudentId] = useState("");
@@ -61,6 +68,38 @@ export default function AttendanceWorkspace() {
   }, [supabase]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const selectedLesson = lessons.find(item => item.id === lessonId);
+  async function openRegister() {
+    setError(""); setNotice(""); setBusy(true);
+    try {
+      const response = await fetch("/api/attendance/register", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível carregar as aulas.");
+      setLessons(Array.isArray(result.lessons) ? result.lessons : []);
+      setLessonId(result.lessons?.[0]?.id ?? "");
+      setRegisterStudentId(result.lessons?.[0]?.alunos?.[0]?.id ?? "");
+      setShowRegister(true);
+    } catch (err) { setError(err instanceof Error ? err.message : "Erro ao carregar aulas."); }
+    finally { setBusy(false); }
+  }
+  async function saveAttendance(event: FormEvent) {
+    event.preventDefault();
+    if (!lessonId || !registerStudentId) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const response = await fetch("/api/attendance/register", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ horario_id: lessonId, aluno_id: registerStudentId, data: registerDate, estado: registerState, observacoes: registerObservations }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível guardar o registo.");
+      setNotice("Presença registada com sucesso.");
+      setShowRegister(false); setRegisterObservations("");
+      await load();
+    } catch (err) { setError(err instanceof Error ? err.message : "Erro ao registar presença."); }
+    finally { setBusy(false); }
+  }
 
   const students = useMemo(() => [...new Set(records.map(item => item.aluno_nome))].sort((a,b)=>a.localeCompare(b,"pt-PT")), [records]);
   const subjects = useMemo(() => [...new Set(records.map(item => item.disciplina_nome))].sort((a,b)=>a.localeCompare(b,"pt-PT")), [records]);
@@ -224,6 +263,20 @@ export default function AttendanceWorkspace() {
       </div>
     </section>
 
+    {showRegister && <div className="attendance-modal-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setShowRegister(false);}}>
+      <section className="attendance-modal" role="dialog" aria-modal="true" aria-labelledby="attendance-register-title">
+        <div className="surface-heading"><div><h2 id="attendance-register-title">Registar presença</h2><p>Seleciona a aula, o aluno e o estado de assiduidade.</p></div><button className="icon-button" onClick={()=>setShowRegister(false)}>×</button></div>
+        {lessons.length === 0 ? <div className="empty-state"><strong>Não existem aulas atribuídas.</strong><p>É necessário configurar primeiro um horário para uma das tuas turmas em Horários. Depois poderás registar presenças nesta página.</p><a className="button button-primary" href="/horarios">Abrir Horários</a></div> : <form onSubmit={saveAttendance}>
+          <label className="attendance-field">Aula<select required value={lessonId} onChange={e=>{setLessonId(e.target.value);setRegisterStudentId(lessons.find(x=>x.id===e.target.value)?.alunos?.[0]?.id??"");}}>{lessons.map(item=><option key={item.id} value={item.id}>{item.turma_nome} · {item.disciplina_nome} · {item.hora_inicio.slice(0,5)}–{item.hora_fim.slice(0,5)}</option>)}</select></label>
+          <label className="attendance-field">Aluno<select required value={registerStudentId} onChange={e=>setRegisterStudentId(e.target.value)}>{(selectedLesson?.alunos??[]).map(student=><option key={student.id} value={student.id}>{student.nome}</option>)}</select></label>
+          {selectedLesson && selectedLesson.alunos.length===0 && <p className="notice">Esta turma ainda não tem alunos associados.</p>}
+          <label className="attendance-field">Data<input type="date" required value={registerDate} onChange={e=>setRegisterDate(e.target.value)}/></label>
+          <label className="attendance-field">Estado<select value={registerState} onChange={e=>setRegisterState(e.target.value)}><option value="Presente">Presente</option><option value="Falta">Falta</option><option value="Atraso">Atraso</option></select></label>
+          <label className="attendance-field">Observações (opcional)<textarea rows={2} value={registerObservations} onChange={e=>setRegisterObservations(e.target.value)}/></label>
+          <div className="attendance-modal-actions"><button type="button" className="button button-secondary" onClick={()=>setShowRegister(false)}>Cancelar</button><button type="submit" className="button button-primary" disabled={busy||!registerStudentId}>{busy?"A guardar…":"Guardar presença"}</button></div>
+        </form>}
+      </section>
+    </div>}
     {selected && role==="Aluno" && <div className="attendance-modal-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setSelected(null);}}>
       <section className="attendance-modal" role="dialog" aria-modal="true" aria-labelledby="attendance-dialog-title">
         <div className="surface-heading"><div><h2 id="attendance-dialog-title">Justificar falta</h2><p>{selected.disciplina_nome} · {dateLabel(selected.data)} · {selected.turma_nome}</p></div><button className="icon-button" onClick={()=>setSelected(null)}>×</button></div>
