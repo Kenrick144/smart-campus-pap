@@ -14,6 +14,7 @@ type Attendance = {
   justificacao: Justification | null;
 };
 type Role = "Aluno" | "Professor" | "Funcionário" | "Administrador Adjunto" | "Administrador";
+type TeachingSchedule = { id: string; turma_id: string; turma_nome: string; disciplina_nome: string; hora_inicio: string; hora_fim: string; dia_semana: number; alunos: Array<{ id: string; name: string }> };
 
 const dateLabel = (value: string) => value ? new Date(value + "T12:00:00").toLocaleDateString("pt-PT") : "—";
 const stateLabel = (value: string) => value === "Falta" ? "Falta" : value === "Falta justificada" ? "Falta justificada" : value === "Atraso" ? "Atraso" : value;
@@ -34,6 +35,12 @@ export default function AttendanceWorkspace() {
   const [file, setFile] = useState<File | null>(null);
   const [decisionReason, setDecisionReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [teachingSchedules, setTeachingSchedules] = useState<TeachingSchedule[]>([]);
+  const [scheduleId, setScheduleId] = useState("");
+  const [attendanceStudentId, setAttendanceStudentId] = useState("");
+  const [attendanceDate, setAttendanceDate] = useState(() => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Lisbon" }));
+  const [attendanceState, setAttendanceState] = useState<"Presente" | "Falta" | "Atraso">("Presente");
+  const [attendanceNotes, setAttendanceNotes] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -73,6 +80,29 @@ export default function AttendanceWorkspace() {
 
   const canDecide = role === "Administrador" || role === "Administrador Adjunto" ||
     (role === "Professor" && selected?.coordenador_id === userId);
+
+  const selectedSchedule = teachingSchedules.find(item => item.id === scheduleId) ?? null;
+
+  async function submitAttendance(event: FormEvent) {
+    event.preventDefault();
+    if (!scheduleId || !attendanceStudentId || !attendanceDate) {
+      setError("Seleciona a aula, o aluno e a data."); return;
+    }
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const response = await fetch("/api/attendance/records", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ horario_id: scheduleId, aluno_id: attendanceStudentId, data: attendanceDate, estado: attendanceState, observacoes: attendanceNotes }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível registar a presença.");
+      setNotice("Registo de " + attendanceState.toLowerCase() + " guardado com sucesso.");
+      setAttendanceNotes("");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível guardar o registo.");
+    } finally { setBusy(false); }
+  }
 
   async function submitJustification(event: FormEvent) {
     event.preventDefault();
@@ -129,6 +159,37 @@ export default function AttendanceWorkspace() {
     </div>
     {notice && <div className="notice"><span>✓</span>{notice}<button onClick={()=>setNotice("")}>×</button></div>}
     {error && <div className="notice" style={{background:"#fff3f3",borderColor:"#f1caca",color:"#a53c45"}}>{error}<button onClick={()=>setError("")}>×</button></div>}
+    {role === "Professor" && <section className="surface" style={{ marginBottom: 16 }}>
+      <div className="surface-heading"><div><h2>Registar presença por aula</h2><p>Seleciona uma das tuas aulas e regista o estado de cada aluno.</p></div></div>
+      {teachingSchedules.length === 0 ? <div className="empty-state"><strong>Não tens aulas atribuídas</strong><p>Confirma se existem horários associados à tua conta de professor.</p></div> : <form onSubmit={submitAttendance}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 14 }}>
+          <label className="attendance-field">Aula
+            <select required value={scheduleId} onChange={e => { setScheduleId(e.target.value); setAttendanceStudentId(""); }}>
+              <option value="">Selecionar aula</option>
+              {teachingSchedules.map(item => <option key={item.id} value={item.id}>{item.turma_nome} · {item.disciplina_nome} · {item.hora_inicio.slice(0,5)}–{item.hora_fim.slice(0,5)}</option>)}
+            </select>
+          </label>
+          <label className="attendance-field">Aluno
+            <select required value={attendanceStudentId} onChange={e => setAttendanceStudentId(e.target.value)} disabled={!selectedSchedule}>
+              <option value="">Selecionar aluno</option>
+              {selectedSchedule?.alunos.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}
+            </select>
+          </label>
+          <label className="attendance-field">Data
+            <input type="date" required value={attendanceDate} onChange={e => setAttendanceDate(e.target.value)} />
+          </label>
+          <label className="attendance-field">Estado
+            <select value={attendanceState} onChange={e => setAttendanceState(e.target.value as "Presente" | "Falta" | "Atraso")}>
+              <option value="Presente">Presente</option><option value="Falta">Falta</option><option value="Atraso">Atraso</option>
+            </select>
+          </label>
+        </div>
+        <label className="attendance-field" style={{ marginTop: 10 }}>Observações (opcional)
+          <textarea rows={2} maxLength={1000} value={attendanceNotes} onChange={e => setAttendanceNotes(e.target.value)} placeholder="Observações sobre este registo…" />
+        </label>
+        <div className="attendance-modal-actions"><button type="submit" className="button button-primary" disabled={busy || !selectedSchedule?.alunos.length}>{busy ? "A guardar…" : "Guardar registo"}</button></div>
+      </form>}
+    </section>}
     <section className="stat-grid">
       <article className="stat-card"><div className="stat-icon green">✓</div><div className="stat-meta">Presenças</div><strong>{totals.present}</strong><small>Registos presentes</small></article>
       <article className="stat-card"><div className="stat-icon amber">!</div><div className="stat-meta">Faltas</div><strong>{totals.absent}</strong><small>Inclui faltas justificadas</small></article>
