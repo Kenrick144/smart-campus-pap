@@ -95,7 +95,7 @@ export async function POST(request: Request) {
   if (existing) return fail("Já existe um registo para este aluno nesta aula e data.", 409);
 
   const { data: inserted, error } = await admin.from("presencas").insert({
-    aluno_id: alunoId, horario_id: horarioId, data, estado: state, observacoes: notes || null,
+    aluno_id: alunoId, horario_id: horarioId, data: date, estado: state, observacoes: notes || null,
   }).select("id").single();
   if (error) return fail("Não foi possível guardar a presença: " + error.message, 400);
   await admin.from("logs").insert({
