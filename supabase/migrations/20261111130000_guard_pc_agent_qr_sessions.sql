@@ -159,7 +159,7 @@ begin
   from public.users u
   where u.id = v_codigo.user_id
     and u.status = 'Ativo'
-    and u.role in ('Aluno', 'Professor', 'Funcionário');
+    and u.role in ('Aluno', 'Professor');
 
   if not found then
     return jsonb_build_object('ok', false, 'error', 'USER_NOT_ALLOWED');
@@ -180,12 +180,6 @@ begin
     where p.id = v_user.id and p.professional_status = 'Ativo'
   ) then
     return jsonb_build_object('ok', false, 'error', 'TEACHER_NOT_ACTIVE');
-  elsif v_user.role = 'Funcionário' and not exists (
-    select 1
-    from public.funcionarios f
-    where f.id = v_user.id and f.professional_status = 'Ativo'
-  ) then
-    return jsonb_build_object('ok', false, 'error', 'STAFF_NOT_ACTIVE');
   end if;
 
   -- Close stale sessions before enforcing one active session per user/device.
