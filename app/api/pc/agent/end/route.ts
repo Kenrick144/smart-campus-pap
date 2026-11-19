@@ -50,7 +50,15 @@ export async function POST(request: NextRequest) {
       .select("id, user_id")
       .maybeSingle();
 
-    if (sessionError) throw sessionError;
+    if (sessionError) {
+      if (/user_id|schema cache|does not exist/i.test(sessionError.message)) {
+        return NextResponse.json(
+          { error: "A atualização do módulo Computadores ainda não está instalada na base de dados." },
+          { status: 503, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+      throw sessionError;
+    }
     if (!session) {
       return NextResponse.json({ ended: false }, { status: 200, headers: { "Cache-Control": "no-store" } });
     }
