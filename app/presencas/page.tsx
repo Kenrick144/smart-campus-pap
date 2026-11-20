@@ -1,3 +1,5 @@
-import Workspace from "../workspace";
+import AttendanceWorkspace from "./attendance-workspace";
 
-export default function AttendancePage() { return <Workspace />; }
+export default function AttendancePage() {
+  return <AttendanceWorkspace />;
+}

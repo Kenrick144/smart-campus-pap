@@ -59,7 +59,7 @@ const navigation = [
   { label: "Cursos", icon: "▦", href: "/cursos", roles: ["Administrador", "Administrador Adjunto"] },
   { label: "Anos letivos", icon: "▣", href: "/anos-letivos", roles: ["Administrador", "Administrador Adjunto"] },
   { label: "Disciplinas", icon: "▧", href: "/disciplinas", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
-  { label: "Presenças", icon: "✓", href: "/presencas", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno"] },
+  { label: "Presenças", icon: "✓", href: "/presencas", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"] },
   { label: "Horários", icon: "◷", href: "/horarios", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"] },
   { label: "Salas", icon: "⌂", href: "/salas", roles: ["Administrador", "Administrador Adjunto", "Funcionário"] },
   { label: "Computadores", icon: "▣", href: "/computadores", roles: ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"] },
@@ -99,7 +99,7 @@ const roleRoutes: Record<Role, string[]> = {
   "Administrador Adjunto": Object.keys(pageNames).filter((route) => route !== "/configuracoes"),
   Professor: ["/dashboard", "/alunos", "/professor", "/turmas", "/disciplinas", "/presencas", "/horarios", "/salas", "/computadores", "/equipamentos", "/qr-code", "/relatorios", "/avaliacoes", "/notas", "/avisos", "/pc", "/perfil"],
   Aluno: ["/aluno", "/horarios", "/presencas", "/qr-code", "/notas", "/avaliacoes", "/avisos", "/pc", "/perfil"],
-  "Funcionário": ["/dashboard", "/funcionario", "/horarios", "/salas", "/computadores", "/equipamentos", "/avisos", "/pc", "/perfil"],
+  "Funcionário": ["/dashboard", "/funcionario", "/presencas", "/horarios", "/salas", "/computadores", "/equipamentos", "/avisos", "/pc", "/perfil"],
 };
 
 const roles: Role[] = ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"];
