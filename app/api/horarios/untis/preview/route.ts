@@ -184,6 +184,56 @@ export async function POST(request: Request) {
         aulas: items.map(item => item.sourceId),
       }));
 
+    const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const [dbClassesResult, dbTeachersResult, dbUsersResult, dbSubjectsResult, dbRoomsResult, dbLinksResult, dbQualificationsResult, dbSchedulesResult] = await Promise.all([
+      admin.from("turmas").select("id,nome,estado"),
+      admin.from("professores").select("id,professional_number,professional_status"),
+      admin.from("users").select("id,name"),
+      admin.from("disciplinas").select("id,nome,codigo,estado"),
+      admin.from("salas").select("id,nome,estado"),
+      admin.from("disciplinas_turmas").select("id,turma_id,disciplina_id"),
+      admin.from("professores_disciplinas_turmas").select("professor_id,disciplina_turma_id"),
+      admin.from("horarios").select("id,turma_id,professor_id,disciplina_turma_id,sala_id,dia_semana,hora_inicio,hora_fim"),
+    ]);
+    const lookupError = [dbClassesResult, dbTeachersResult, dbUsersResult, dbSubjectsResult, dbRoomsResult, dbLinksResult, dbQualificationsResult, dbSchedulesResult].find(item => item.error);
+    if (lookupError?.error) return fail("Não foi possível validar os ficheiros contra os dados atuais do Smart Campus.", 500);
+    const dbClassRows = dbClassesResult.data ?? [];
+    const dbTeacherRows = dbTeachersResult.data ?? [];
+    const dbUserNames = new Map((dbUsersResult.data ?? []).map(item => [item.id, item.name ?? ""]));
+    const dbSubjectRows = dbSubjectsResult.data ?? [];
+    const dbRoomRows = dbRoomsResult.data ?? [];
+    const dbLinkRows = dbLinksResult.data ?? [];
+    const qualifiedPairs = new Set((dbQualificationsResult.data ?? []).map(item => String(item.professor_id) + "|" + String(item.disciplina_turma_id)));
+    const dbClassByCode = new Map(dbClassRows.map(item => [normalize(item.nome), item]));
+    const dbTeacherByCode = new Map(dbTeacherRows.map(item => [normalize(item.professional_number), item]));
+    const dbTeacherByName = new Map(dbTeacherRows.map(item => [normalize(dbUserNames.get(item.id) ?? ""), item]));
+    const dbSubjectByCode = new Map(dbSubjectRows.filter(item => item.codigo).map(item => [normalize(item.codigo), item]));
+    const dbSubjectByName = new Map(dbSubjectRows.map(item => [normalize(item.nome), item]));
+    const dbRoomByCode = new Map(dbRoomRows.map(item => [normalize(item.nome), item]));
+    let matchedClass = 0, matchedTeacher = 0, matchedSubject = 0, matchedRoom = 0, matchedRelations = 0, qualified = 0, existingSchedules = 0, rowsReady = 0;
+    const unmatchedSamples = new Set<string>();
+    const existingKeys = new Set((dbSchedulesResult.data ?? []).map(item => [item.turma_id, item.professor_id, item.disciplina_turma_id, item.sala_id, item.dia_semana, item.hora_inicio, item.hora_fim].join("|")));
+    for (const item of preview) {
+      const dbClass = dbClassByCode.get(normalize(item.turmaCodigo));
+      const dbTeacher = dbTeacherByCode.get(normalize(item.professorCodigo)) ?? dbTeacherByName.get(normalize(item.professorNome));
+      const dbSubject = dbSubjectByCode.get(normalize(item.disciplinaCodigo)) ?? dbSubjectByName.get(normalize(item.disciplinaNome));
+      const dbRoom = item.salaCodigo ? dbRoomByCode.get(normalize(item.salaCodigo)) ?? dbRoomByCode.get(normalize(item.salaNome)) : undefined;
+      if (dbClass) matchedClass += 1; else unmatchedSamples.add("Turma " + item.turmaCodigo);
+      if (dbTeacher) matchedTeacher += 1; else unmatchedSamples.add("Professor " + item.professorCodigo + " (" + item.professorNome + ")");
+      if (dbSubject) matchedSubject += 1; else unmatchedSamples.add("Disciplina " + item.disciplinaCodigo + " (" + item.disciplinaNome + ")");
+      if (dbRoom) matchedRoom += 1; else unmatchedSamples.add("Sala " + (item.salaCodigo || "(não indicada)"));
+      const link = dbClass && dbSubject ? dbLinkRows.find(row => row.turma_id === dbClass.id && row.disciplina_id === dbSubject.id) : undefined;
+      if (link) matchedRelations += 1;
+      else if (dbClass && dbSubject) unmatchedSamples.add("Relação turma/disciplina " + item.turmaCodigo + "/" + item.disciplinaCodigo);
+      if (link && dbTeacher && qualifiedPairs.has(String(dbTeacher.id) + "|" + String(link.id))) qualified += 1;
+      else if (link && dbTeacher) unmatchedSamples.add("Professor sem atribuição " + item.professorNome + "/" + item.turmaCodigo + "/" + item.disciplinaCodigo);
+      if (dbClass && dbTeacher && dbSubject && dbRoom && link) {
+        const key = [dbClass.id, dbTeacher.id, link.id, dbRoom.id, item.diaSemana, item.horaInicio, item.horaFim].join("|");
+        if (existingKeys.has(key)) existingSchedules += 1;
+        else if (qualifiedPairs.has(String(dbTeacher.id) + "|" + String(link.id))) rowsReady += 1;
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       source: "Untis 2026/2027",
@@ -200,6 +250,23 @@ export async function POST(request: Request) {
         avisosDeCorrespondencia: consistencyWarnings,
         duplicadosNoFicheiro: duplicates,
         conflitosDeRecursos: conflicts.length,
+        linhasComSalaEmFalta: preview.filter(item => !item.salaCodigo).length,
+      },
+      databaseMatch: {
+        turmasCorrespondentes: matchedClass,
+        professoresCorrespondentes: matchedTeacher,
+        disciplinasCorrespondentes: matchedSubject,
+        salasCorrespondentes: matchedRoom,
+        relacoesTurmaDisciplinaExistentes: matchedRelations,
+        professoresComAtribuicao: qualified,
+        horariosJaExistentes: existingSchedules,
+        linhasProntasParaImportar: rowsReady,
+        registosAtuais: {
+          turmas: dbClassRows.length, professores: dbTeacherRows.length,
+          disciplinas: dbSubjectRows.length, salas: dbRoomRows.length,
+          horarios: (dbSchedulesResult.data ?? []).length,
+        },
+        correspondenciasEmFalta: [...unmatchedSamples].slice(0, 80),
       },
       periods: PERIODS.map(([inicio, fim], index) => ({ periodo: index + 1, inicio, fim })),
       unresolvedGroups: [...unresolvedGroups],
