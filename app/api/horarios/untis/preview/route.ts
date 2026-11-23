@@ -94,7 +94,8 @@ export async function POST(request: Request) {
       workbookRows(requiredFile(form, "Salas.xlsx")),
       workbookRows(requiredFile(form, "Horarios.xlsx")),
     ]);
-    const lessonsText = await requiredFile(form, "Aulas.TXT").text();
+    const lessonsBuffer = Buffer.from(await requiredFile(form, "Aulas.TXT").arrayBuffer());
+    const lessonsText = new TextDecoder("windows-1252").decode(lessonsBuffer);
     const lessonRows = lessonsText.split(/\r?\n/).filter(line => line.trim()).map(parseSemicolonLine);
 
     const classByCode = new Map(classes.filter(row => row[0]).map(row => [row[0].toUpperCase(), row[1] || row[0]]));
@@ -158,16 +159,17 @@ export async function POST(request: Request) {
       }
     }
 
-    const unique = new Map<string, PreviewRow>();
+    const seenRows = new Set<string>();
     let duplicates = 0;
     for (const item of preview) {
       const key = [item.turmaCodigo, item.professorCodigo, item.disciplinaCodigo, item.salaCodigo, item.diaSemana, item.periodo].join("|");
-      if (unique.has(key)) duplicates += 1;
-      else unique.set(key, item);
+      if (seenRows.has(key)) duplicates += 1;
+      else seenRows.add(key);
     }
-    const rows = [...unique.values()];
+    // Preserve every source row in the preview. Duplicate candidates are reported,
+    // never silently discarded or overwritten.
     const resourceSlots = new Map<string, PreviewRow[]>();
-    for (const item of rows) {
+    for (const item of preview) {
       for (const resource of ["professor:" + item.professorCodigo, "sala:" + item.salaCodigo, "turma:" + item.turmaCodigo]) {
         if (resource.endsWith(":")) continue;
         const key = resource + "|" + item.diaSemana + "|" + item.periodo;
@@ -192,7 +194,7 @@ export async function POST(request: Request) {
         linhasHorario: timetable.filter(row => row[0]).length,
         aulasUntis: lessonRows.length,
         linhasLigadas: joined,
-        aulasIdentificadas: rows.length,
+        aulasIdentificadas: preview.length,
         gruposPorIdentificar: unresolvedGroups.size,
         avisosDeCorrespondencia: consistencyWarnings,
         duplicadosNoFicheiro: duplicates,
@@ -202,7 +204,7 @@ export async function POST(request: Request) {
       unresolvedGroups: [...unresolvedGroups],
       conflicts: conflicts.slice(0, 100),
       issues: issues.slice(0, 150),
-      preview: rows.slice(0, 40),
+      preview: preview.slice(0, 40),
       canImport: false,
       message: "Pré-visualização apenas. A gravação será ativada depois de validar as correspondências com os registos existentes no Smart Campus.",
     });
