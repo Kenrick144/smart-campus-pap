@@ -35,13 +35,6 @@ export default function AttendanceWorkspace() {
   const [file, setFile] = useState<File | null>(null);
   const [decisionReason, setDecisionReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const [showRegister, setShowRegister] = useState(false);
-  const [lessons, setLessons] = useState<Array<{id:string;turma_id:string;turma_nome:string;disciplina_nome:string;hora_inicio:string;hora_fim:string;alunos:Array<{id:string;nome:string}>}>>([]);
-  const [lessonId, setLessonId] = useState("");
-  const [registerStudentId, setRegisterStudentId] = useState("");
-  const [registerDate, setRegisterDate] = useState(new Date().toISOString().slice(0,10));
-  const [registerState, setRegisterState] = useState("Presente");
-  const [registerObservations, setRegisterObservations] = useState("");
   const [teachingSchedules, setTeachingSchedules] = useState<TeachingSchedule[]>([]);
   const [scheduleId, setScheduleId] = useState("");
   const [attendanceStudentId, setAttendanceStudentId] = useState("");
@@ -50,6 +43,7 @@ export default function AttendanceWorkspace() {
   const [attendanceNotes, setAttendanceNotes] = useState("");
 
   const load = useCallback(async () => {
+    await Promise.resolve();
     setLoading(true); setError("");
     try {
       const { data: { user } } = await supabase.auth.getUser();
