@@ -111,7 +111,9 @@ export default function AttendanceWorkspace() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Não foi possível registar a presença.");
-      setNotice("Registo de " + attendanceState.toLowerCase() + " guardado com sucesso.");
+      setNotice(result.audit_recorded === false
+        ? "Registo de " + attendanceState.toLowerCase() + " guardado, mas a auditoria não foi registada. Contacta a administração."
+        : "Registo de " + attendanceState.toLowerCase() + " guardado com sucesso.");
       setAttendanceNotes("");
       await load();
     } catch (err) {
