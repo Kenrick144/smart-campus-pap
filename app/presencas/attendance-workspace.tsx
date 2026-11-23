@@ -1,6 +1,8 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import CampusShell, { type CampusNavigationItem } from "../campus-shell";
 import { createClient } from "@/lib/supabase/client";
 
 type Justification = {
@@ -16,11 +18,35 @@ type Attendance = {
 type Role = "Aluno" | "Professor" | "Funcionário" | "Administrador Adjunto" | "Administrador";
 type TeachingSchedule = { id: string; turma_id: string; turma_nome: string; disciplina_nome: string; hora_inicio: string; hora_fim: string; dia_semana: number; alunos: Array<{ id: string; name: string }> };
 
+const attendanceNavigation: CampusNavigationItem[] = [
+  { label: "Painel principal", icon: "◫", href: "/dashboard", roles: ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"] },
+  { label: "Alunos", icon: "◎", href: "/alunos", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
+  { label: "Professores", icon: "♧", href: "/professor", roles: ["Administrador", "Administrador Adjunto"] },
+  { label: "Turmas", icon: "▤", href: "/turmas", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
+  { label: "Disciplinas", icon: "▧", href: "/disciplinas", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
+  { label: "Presenças", icon: "✓", href: "/presencas", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"] },
+  { label: "Horários", icon: "◷", href: "/horarios", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno", "Funcionário"] },
+  { label: "Salas", icon: "⌂", href: "/salas", roles: ["Administrador", "Administrador Adjunto", "Funcionário"] },
+  { label: "Computadores", icon: "▣", href: "/computadores", roles: ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"] },
+  { label: "Equipamentos", icon: "▧", href: "/equipamentos", roles: ["Administrador", "Administrador Adjunto", "Professor", "Funcionário"] },
+  { label: "Códigos QR", icon: "▦", href: "/qr-code", roles: ["Administrador", "Administrador Adjunto", "Professor", "Aluno"] },
+  { label: "Relatórios", icon: "▥", href: "/relatorios", roles: ["Administrador", "Administrador Adjunto", "Professor"] },
+  { label: "Utilizadores", icon: "♙", href: "/utilizadores", roles: ["Administrador", "Administrador Adjunto"] },
+  { label: "Registos de atividade", icon: "≡", href: "/logs", roles: ["Administrador", "Administrador Adjunto"] },
+  { label: "Configurações", icon: "⚙", href: "/configuracoes", roles: ["Administrador"] },
+];
 const dateLabel = (value: string) => value ? new Date(value + "T12:00:00").toLocaleDateString("pt-PT") : "—";
 const stateLabel = (value: string) => value === "Falta" ? "Falta" : value === "Falta justificada" ? "Falta justificada" : value === "Atraso" ? "Atraso" : value;
 
 export default function AttendanceWorkspace() {
   const supabase = useMemo(() => createClient(), []);
+  const pathname = usePathname();
+  const router = useRouter();
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [searchValue, setSearchValue] = useState("");
+  const [showCampusInfo, setShowCampusInfo] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [role, setRole] = useState<Role | "">("");
   const [userId, setUserId] = useState("");
   const [records, setRecords] = useState<Attendance[]>([]);
@@ -50,6 +76,8 @@ export default function AttendanceWorkspace() {
       const { data: profile, error: profileError } = await supabase.from("users").select("role,status").eq("id", user.id).maybeSingle();
       if (profileError || !profile || profile.status !== "Ativo") throw new Error("Não foi possível validar o teu perfil.");
       setRole(profile.role as Role);
+      setProfileName(typeof profile.name === "string" ? profile.name : "");
+      setProfileEmail(typeof profile.email === "string" ? profile.email : "");
       if (profile.role === "Professor") {
         const scheduleResponse = await fetch("/api/attendance/records", { cache: "no-store" });
         const scheduleResult = await scheduleResponse.json();
@@ -164,7 +192,16 @@ export default function AttendanceWorkspace() {
     finally { setBusy(false); }
   }
 
-  return <main className="page-content">
+  const navigationItems = attendanceNavigation.filter(item => item.roles.includes(role));
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    router.replace("/login");
+    router.refresh();
+  }
+
+  return <CampusShell title="Presenças" pathname={pathname} role={role || "Aluno"} userName={profileName} userEmail={profileEmail} navigationItems={navigationItems} searchValue={searchValue} onSearchChange={setSearchValue} showCampusInfo={showCampusInfo} onToggleCampusInfo={() => setShowCampusInfo(value => !value)} activeAcademicYear={null} showNotifications={showNotifications} notifications={[]} notificationsLoading={false} notificationsError="" onToggleNotifications={() => setShowNotifications(value => !value)} onCloseNotifications={() => setShowNotifications(false)} onLoadNotifications={() => undefined} onMarkNotificationRead={() => undefined} onSignOut={signOut}>
+  <main className="page-content">
     <div className="page-heading">
       <div><div className="eyebrow">GESTÃO ESCOLAR</div><h1>Presenças e faltas</h1><p>Registos por aula, justificações e histórico de decisões.</p></div>
       <button className="button button-secondary" onClick={() => void load()} disabled={loading}>↻ Atualizar</button>
@@ -256,5 +293,6 @@ export default function AttendanceWorkspace() {
         <div className="attendance-modal-actions"><button className="button button-secondary" onClick={()=>setSelected(null)}>Fechar</button><button className="button button-secondary" disabled={busy||!canDecide} onClick={()=>void decide(selected,"Rejeitada")}>Rejeitar</button><button className="button button-primary" disabled={busy||!canDecide} onClick={()=>void decide(selected,"Aceite")}>Aceitar justificação</button></div>
       </section>
     </div>}
-  </main>;
+  </main>
+  </CampusShell>;
 }
