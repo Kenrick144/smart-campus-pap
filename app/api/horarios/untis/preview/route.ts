@@ -54,7 +54,7 @@ async function workbookRows(file: File): Promise<string[][]> {
   if (!sheet) throw new Error("O ficheiro " + file.name + " não contém uma folha.");
   const rows: string[][] = [];
   sheet.eachRow({ includeEmpty: false }, row => {
-    const values = row.values as Cell[];
+    const values = row.values as unknown as Cell[];
     rows.push(values.slice(1).map(value => valueText(value)));
   });
   return rows;
@@ -139,8 +139,9 @@ export async function POST(request: Request) {
         const group = lesson[17] || "";
         classCodes = groupClassCodes(group, new Set(classByCode.keys()));
         if (!classCodes.length) {
-          unresolvedGroups.add(group || "(sem turma/grupo)");
-          issues.push({ sourceId, message: "Turma por identificar manualmente: " + (group || "sem turma/grupo") + "." });
+          const groupDescription = [group, lesson[20]].filter(Boolean).join(" — ") || "(sem turma/grupo)";
+          unresolvedGroups.add(groupDescription);
+          issues.push({ sourceId, message: "Turma por identificar manualmente: " + groupDescription + "." });
         }
       }
       if (warnings.length) consistencyWarnings += 1;
