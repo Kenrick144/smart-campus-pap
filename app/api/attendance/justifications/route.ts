@@ -181,9 +181,10 @@ export async function PATCH(request: Request) {
     (profile.role === "Professor" && str(turma?.professor_coordenador_id) === user.id);
   if (!allowed) return fail("Apenas a direção ou o professor coordenador desta turma pode decidir.", 403);
 
-  const { error: updateError } = await admin.from("justificacoes_faltas").update({
+  const { data: updated, error: updateError } = await admin.from("justificacoes_faltas").update({
     estado, decisao_motivo: decisionReason || null, decidido_por: user.id, decidido_em: new Date().toISOString(),
-  }).eq("id", id).eq("estado", "Pendente");
+  }).eq("id", id).eq("estado", "Pendente").select("id").maybeSingle();
   if (updateError) return fail("Não foi possível registar a decisão.", 400);
+  if (!updated) return fail("Esta justificação já foi decidida por outra pessoa. Atualiza a lista para veres o estado mais recente.", 409);
   return NextResponse.json({ ok: true });
 }
