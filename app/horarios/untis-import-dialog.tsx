@@ -12,6 +12,14 @@ type PreviewResult = {
   error?: string;
   message?: string;
   counts?: Record<string, number>;
+  databaseMatch?: {
+    turmasCorrespondentes: number; professoresCorrespondentes: number;
+    disciplinasCorrespondentes: number; salasCorrespondentes: number;
+    relacoesTurmaDisciplinaExistentes: number; professoresComAtribuicao: number;
+    horariosJaExistentes: number; linhasProntasParaImportar: number;
+    registosAtuais: Record<string, number>;
+    correspondenciasEmFalta: string[];
+  };
   unresolvedGroups?: string[];
   conflicts?: Array<{ recurso: string; dia: number; periodo: number; aulas: string[] }>;
   issues?: Array<{ sourceId: string; message: string }>;
@@ -87,6 +95,15 @@ export default function UntisImportDialog({ onClose }: { onClose: () => void }) 
                 </div>
               ))}
             </div>
+            {result.databaseMatch && (
+              <div style={{ marginTop: 16 }}>
+                <strong>Correspondência com os dados atuais do Smart Campus</strong>
+                <p>Prontas para importar: <strong>{result.databaseMatch.linhasProntasParaImportar}</strong> · Já existentes: {result.databaseMatch.horariosJaExistentes}</p>
+                <p>Turmas: {result.databaseMatch.turmasCorrespondentes} · Professores: {result.databaseMatch.professoresCorrespondentes} · Disciplinas: {result.databaseMatch.disciplinasCorrespondentes} · Salas: {result.databaseMatch.salasCorrespondentes}</p>
+                <p>Relações turma/disciplina: {result.databaseMatch.relacoesTurmaDisciplinaExistentes} · Atribuições professor/disciplina: {result.databaseMatch.professoresComAtribuicao}</p>
+                {!!result.databaseMatch.correspondenciasEmFalta.length && <details><summary>Correspondências em falta ({result.databaseMatch.correspondenciasEmFalta.length})</summary><ul>{result.databaseMatch.correspondenciasEmFalta.map(item => <li key={item}>{item}</li>)}</ul></details>}
+              </div>
+            )}
             {!!result.unresolvedGroups?.length && <p><strong>Grupos por identificar:</strong> {result.unresolvedGroups.join(", ")}</p>}
             {!!result.conflicts?.length && <p><strong>Conflitos encontrados:</strong> {result.conflicts.length}. Estes conflitos precisam de revisão antes da importação.</p>}
             {!!result.issues?.length && <p><strong>Ocorrências a rever:</strong> {result.issues.length}. A lista completa está disponível na resposta da pré-visualização.</p>}
