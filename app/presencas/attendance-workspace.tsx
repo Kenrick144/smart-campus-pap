@@ -43,8 +43,6 @@ export default function AttendanceWorkspace() {
   const [attendanceNotes, setAttendanceNotes] = useState("");
 
   const load = useCallback(async () => {
-    await Promise.resolve();
-    setLoading(true); setError("");
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Inicia sessão para consultar as presenças.");
