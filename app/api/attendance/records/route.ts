@@ -79,7 +79,7 @@ export async function POST(request: Request) {
   const date = String(body?.data ?? "");
   const state = String(body?.estado ?? "");
   const notes = String(body?.observacoes ?? "").trim().slice(0, 1000);
-  if (!horarioId || !alunoId || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || !["Presente", "Falta", "Atraso"].includes(state)) {
+  if (!horarioId || !alunoId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !["Presente", "Falta", "Atraso"].includes(state)) {
     return fail("Seleciona a aula, o aluno, a data e um estado válido.");
   }
 
