@@ -184,7 +184,7 @@ export async function POST(request: Request) {
         aulas: items.map(item => item.sourceId),
       }));
 
-    const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/0+([0-9]+)/g, "$1");
     const [dbClassesResult, dbTeachersResult, dbUsersResult, dbSubjectsResult, dbRoomsResult, dbLinksResult, dbQualificationsResult, dbSchedulesResult] = await Promise.all([
       admin.from("turmas").select("id,nome,estado"),
       admin.from("professores").select("id,professional_number,professional_status"),
@@ -197,11 +197,11 @@ export async function POST(request: Request) {
     ]);
     const lookupError = [dbClassesResult, dbTeachersResult, dbUsersResult, dbSubjectsResult, dbRoomsResult, dbLinksResult, dbQualificationsResult, dbSchedulesResult].find(item => item.error);
     if (lookupError?.error) return fail("Não foi possível validar os ficheiros contra os dados atuais do Smart Campus.", 500);
-    const dbClassRows = dbClassesResult.data ?? [];
-    const dbTeacherRows = dbTeachersResult.data ?? [];
+    const dbClassRows = (dbClassesResult.data ?? []).filter(item => item.estado === "Ativa");
+    const dbTeacherRows = (dbTeachersResult.data ?? []).filter(item => item.professional_status === "Ativo");
     const dbUserNames = new Map((dbUsersResult.data ?? []).map(item => [item.id, item.name ?? ""]));
-    const dbSubjectRows = dbSubjectsResult.data ?? [];
-    const dbRoomRows = dbRoomsResult.data ?? [];
+    const dbSubjectRows = (dbSubjectsResult.data ?? []).filter(item => item.estado === "Ativa");
+    const dbRoomRows = (dbRoomsResult.data ?? []).filter(item => item.estado === "Ativa");
     const dbLinkRows = dbLinksResult.data ?? [];
     const qualifiedPairs = new Set((dbQualificationsResult.data ?? []).map(item => String(item.professor_id) + "|" + String(item.disciplina_turma_id)));
     const dbClassByCode = new Map(dbClassRows.map(item => [normalize(item.nome), item]));
