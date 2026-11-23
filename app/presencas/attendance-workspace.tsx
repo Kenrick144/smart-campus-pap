@@ -73,7 +73,7 @@ export default function AttendanceWorkspace() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Inicia sessão para consultar as presenças.");
       setUserId(user.id);
-      const { data: profile, error: profileError } = await supabase.from("users").select("role,status").eq("id", user.id).maybeSingle();
+      const { data: profile, error: profileError } = await supabase.from("users").select("id,name,email,role,status").eq("id", user.id).maybeSingle();
       if (profileError || !profile || profile.status !== "Ativo") throw new Error("Não foi possível validar o teu perfil.");
       setRole(profile.role as Role);
       setProfileName(typeof profile.name === "string" ? profile.name : "");
