@@ -67,7 +67,10 @@ export default function AttendanceWorkspace() {
     } finally { setLoading(false); }
   }, [supabase]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const students = useMemo(() => [...new Set(records.map(item => item.aluno_nome))].sort((a,b)=>a.localeCompare(b,"pt-PT")), [records]);
   const subjects = useMemo(() => [...new Set(records.map(item => item.disciplina_nome))].sort((a,b)=>a.localeCompare(b,"pt-PT")), [records]);
