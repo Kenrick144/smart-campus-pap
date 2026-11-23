@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-type Row = Record<string, any>;
+type Row = Record<string, unknown>;
 const fail = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const str = (value: unknown) => value == null ? "" : String(value);
 
