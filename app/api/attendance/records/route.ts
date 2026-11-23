@@ -98,9 +98,14 @@ export async function POST(request: Request) {
     aluno_id: alunoId, horario_id: horarioId, data: date, estado: state, observacoes: notes || null,
   }).select("id").single();
   if (error) return fail("Não foi possível guardar a presença: " + error.message, 400);
-  await admin.from("logs").insert({
+  const { error: logError } = await admin.from("logs").insert({
     user_id: user.id, acao: "Registo de presença manual", entidade: "presencas",
     descricao: state + " registado para o aluno " + alunoId + " no horário " + horarioId + ".",
   });
-  return NextResponse.json({ ok: true, id: inserted.id });
+  return NextResponse.json({
+    ok: true,
+    id: inserted.id,
+    audit_recorded: !logError,
+    audit_warning: logError ? "A presença foi guardada, mas não foi possível registar a auditoria. Contacta a administração." : null,
+  });
 }
