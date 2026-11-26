@@ -1033,7 +1033,7 @@ async function validateScheduleWrite(
   const day = Number(row.dia_semana);
   const start = text(row, "hora_inicio").slice(0, 5);
   const end = text(row, "hora_fim").slice(0, 5);
-  const validTime = (value: string) => /^([01]\\d|2[0-3]):[0-5]\\d$/.test(value);
+  const validTime = (value: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 
   if (!classId || !linkId || !teacherId) return "Seleciona a turma, a disciplina e o professor.";
   if (!Number.isInteger(day) || day < 1 || day > 5) return "O dia da semana tem de ser entre segunda-feira e sexta-feira.";
