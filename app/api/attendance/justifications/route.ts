@@ -111,7 +111,6 @@ export async function GET() {
     return {
       ...row,
       aluno_nome: str(studentById.get(str(row.aluno_id))?.name) || "Aluno",
-      aluno_email: str(studentById.get(str(row.aluno_id))?.email),
       turma_nome: str(turma?.nome),
       disciplina_nome: linkName.get(str(schedule?.disciplina_turma_id)) ?? "Disciplina",
       hora_inicio: str(schedule?.hora_inicio),
