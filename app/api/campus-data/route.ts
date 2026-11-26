@@ -1021,6 +1021,71 @@ export async function DELETE(request: Request) {
   return mutateRecord(request, "DELETE");
 }
 
+async function validateScheduleWrite(
+  admin: ReturnType<typeof createAdminClient>,
+  row: Row,
+  recordId?: string
+): Promise<string | null> {
+  const classId = text(row, "turma_id").trim();
+  const linkId = text(row, "disciplina_turma_id").trim();
+  const teacherId = text(row, "professor_id").trim();
+  const roomId = text(row, "sala_id").trim();
+  const day = Number(row.dia_semana);
+  const start = text(row, "hora_inicio").slice(0, 5);
+  const end = text(row, "hora_fim").slice(0, 5);
+  const validTime = (value: string) => /^([01]\\d|2[0-3]):[0-5]\\d$/.test(value);
+
+  if (!classId || !linkId || !teacherId) return "Seleciona a turma, a disciplina e o professor.";
+  if (!Number.isInteger(day) || day < 1 || day > 5) return "O dia da semana tem de ser entre segunda-feira e sexta-feira.";
+  if (!validTime(start) || !validTime(end) || end <= start) return "Indica um intervalo de horas válido, com a hora de fim posterior à hora de início.";
+
+  const [classResult, linkResult, teacherResult, accountResult, teacherClassResult, qualificationResult, roomResult] = await Promise.all([
+    admin.from("turmas").select("id,estado").eq("id", classId).maybeSingle(),
+    admin.from("disciplinas_turmas").select("id,turma_id,disciplina_id,ativa").eq("id", linkId).eq("turma_id", classId).maybeSingle(),
+    admin.from("professores").select("id,professional_status").eq("id", teacherId).maybeSingle(),
+    admin.from("users").select("id,status").eq("id", teacherId).maybeSingle(),
+    admin.from("professores_turmas").select("id").eq("professor_id", teacherId).eq("turma_id", classId).is("data_fim", null).limit(1),
+    admin.from("professores_disciplinas_turmas").select("id").eq("professor_id", teacherId).eq("disciplina_turma_id", linkId).limit(1),
+    roomId ? admin.from("salas").select("id,estado").eq("id", roomId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+  ]);
+  const lookupError = [classResult, linkResult, teacherResult, accountResult, teacherClassResult, qualificationResult, roomResult].find(result => result.error);
+  if (lookupError?.error) return "Não foi possível validar os dados associados ao horário.";
+  if (!classResult.data || classResult.data.estado !== "Ativa") return "A turma selecionada não existe ou está inativa.";
+  if (!linkResult.data || linkResult.data.ativa !== true) return "A disciplina não está ativa nesta turma.";
+  if (!teacherResult.data || teacherResult.data.professional_status !== "Ativo" || !accountResult.data || accountResult.data.status !== "Ativo") {
+    return "O professor selecionado não tem perfil e conta ativos.";
+  }
+  if (!teacherClassResult.data?.length) return "O professor não está atribuído a esta turma.";
+  if (!qualificationResult.data?.length) return "O professor não está atribuído a esta disciplina da turma.";
+  if (roomId && (!roomResult.data || roomResult.data.estado !== "Ativa")) return "A sala selecionada não existe ou está inativa.";
+
+  const { data: sameDaySchedules, error: schedulesError } = await admin
+    .from("horarios")
+    .select("id,turma_id,professor_id,sala_id,hora_inicio,hora_fim")
+    .eq("dia_semana", day);
+  if (schedulesError) return "Não foi possível verificar conflitos com os horários existentes.";
+
+  const overlaps = (other: Row) => {
+    if (recordId && text(other, "id") === recordId) return false;
+    const otherStart = text(other, "hora_inicio").slice(0, 5);
+    const otherEnd = text(other, "hora_fim").slice(0, 5);
+    return start < otherEnd && end > otherStart;
+  };
+  const conflict = (sameDaySchedules ?? []).find(other =>
+    overlaps(other) && (
+      text(other, "turma_id") === classId ||
+      text(other, "professor_id") === teacherId ||
+      Boolean(roomId && text(other, "sala_id") === roomId)
+    )
+  );
+  if (conflict) {
+    const resource = text(conflict, "turma_id") === classId ? "turma"
+      : text(conflict, "professor_id") === teacherId ? "professor" : "sala";
+    return "Existe uma sobreposição de horário para o mesmo " + resource + ".";
+  }
+  return null;
+}
+
 async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE") {
   try {
     const supabase = await createClient();
@@ -1175,7 +1240,7 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
     const table = tableMap[resource];
     if (!table) return NextResponse.json({ error: "Área não suportada para escrita." }, { status: 400 });
 
-    if (resource === "/presencas" && role === "Professor" && method !== "DELETE" && row) {
+    if (resource === "/horarios" && method !== "DELETE" && row) {\n      const validationError = await validateScheduleWrite(admin, row, method === "PATCH" ? recordId : undefined);\n      if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });\n    }\n\n    if (resource === "/presencas" && role === "Professor" && method !== "DELETE" && row) {
       // Validar tanto a criação como a alteração: o PATCH não pode redirecionar
       // uma presença para outro horário ou para um aluno de outra turma.
       const scheduleId = text(row, "horario_id");
