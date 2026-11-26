@@ -68,12 +68,16 @@ export async function GET() {
   const scheduleById = new Map(allSchedules.map(row => [str(row.id), row]));
   const { data: studentUsers } = await admin.from("users").select("id,name,email").in("id", studentIds);
   const studentById = new Map(((studentUsers ?? []) as Row[]).map(row => [str(row.id), row]));
-  const { data: justifications, error: justificationError } = await admin
-    .from("justificacoes_faltas").select("*").in("presenca_id", attendanceIds);
+  // Funcionário mantém acesso aos registos gerais de presenças, mas não consulta
+  // motivos, histórico nem comprovativos pessoais das justificações.
+  const canReadJustificationDetails = role !== "Funcionário";
+  const { data: justifications, error: justificationError } = canReadJustificationDetails
+    ? await admin.from("justificacoes_faltas").select("*").in("presenca_id", attendanceIds)
+    : { data: [] as Row[], error: null };
   if (justificationError) return fail("Não foi possível carregar as justificações.", 500);
   const justificationRows = (justifications ?? []) as Row[];
   const justificationIds = justificationRows.map(row => str(row.id));
-  const { data: history } = justificationIds.length
+  const { data: history } = canReadJustificationDetails && justificationIds.length
     ? await admin.from("justificacoes_faltas_historico").select("*").in("justificacao_id", justificationIds).order("created_at", { ascending: true })
     : { data: [] as Row[] };
   const historyById = new Map<string, Row[]>();
