@@ -22,7 +22,8 @@ Branch de implementação: `feature/untis-import-readonly-api`
 - `rooms`: salas ativas.
 - `classDisciplineLinks`: associações ativas entre turma e disciplina.
 - `teacherClassLinks`: associações atuais de professor à turma.
-- `teacherDisciplineClassLinks`: associações entre professor e disciplina/turma.
+- `teacherDisciplineClassLinks`: associações entre professor e disciplina/turma, limitadas a professores com conta ativa e a associações disciplina/turma atualmente ativas.
+- `teacherClassLinks`: devolve apenas associações atuais de professores com conta ativa.
 
 Os UUIDs são devolvidos para correspondência, não como autorização para importar. A validação final deve confirmar que cada horário aponta para uma associação válida de disciplina/turma e para um professor autorizado.
 
