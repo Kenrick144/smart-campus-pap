@@ -1240,7 +1240,12 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
     const table = tableMap[resource];
     if (!table) return NextResponse.json({ error: "Área não suportada para escrita." }, { status: 400 });
 
-    if (resource === "/horarios" && method !== "DELETE" && row) {\n      const validationError = await validateScheduleWrite(admin, row, method === "PATCH" ? recordId : undefined);\n      if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });\n    }\n\n    if (resource === "/presencas" && role === "Professor" && method !== "DELETE" && row) {
+    if (resource === "/horarios" && method !== "DELETE" && row) {
+      const validationError = await validateScheduleWrite(admin, row, method === "PATCH" ? recordId : undefined);
+      if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+
+    if (resource === "/presencas" && role === "Professor" && method !== "DELETE" && row) {
       // Validar tanto a criação como a alteração: o PATCH não pode redirecionar
       // uma presença para outro horário ou para um aluno de outra turma.
       const scheduleId = text(row, "horario_id");
