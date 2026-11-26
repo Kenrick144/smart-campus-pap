@@ -89,6 +89,19 @@ export async function GET() {
         departamento: String(item.department ?? ""),
       }));
 
+    // Não expor associações antigas nem ligações de professores sem conta ativa.
+    const activeTeacherIds = new Set(teachers.map((item) => item.id));
+    const activeClassDisciplineIds = new Set(
+      ((classLinksResult.data ?? []) as Row[]).map((item) => String(item.id))
+    );
+    const activeTeacherClassLinks = ((teacherClassLinksResult.data ?? []) as Row[])
+      .filter((item) => activeTeacherIds.has(String(item.professor_id)));
+    const activeTeacherDisciplineClassLinks = ((teacherDisciplineLinksResult.data ?? []) as Row[])
+      .filter((item) =>
+        activeTeacherIds.has(String(item.professor_id)) &&
+        activeClassDisciplineIds.has(String(item.disciplina_turma_id))
+      );
+
     return NextResponse.json(
       {
         source: "smart-campus",
@@ -99,8 +112,8 @@ export async function GET() {
         disciplines: disciplinesResult.data ?? [],
         rooms: roomsResult.data ?? [],
         classDisciplineLinks: classLinksResult.data ?? [],
-        teacherClassLinks: teacherClassLinksResult.data ?? [],
-        teacherDisciplineClassLinks: teacherDisciplineLinksResult.data ?? [],
+        teacherClassLinks: activeTeacherClassLinks,
+        teacherDisciplineClassLinks: activeTeacherDisciplineClassLinks,
       },
       {
         headers: {
