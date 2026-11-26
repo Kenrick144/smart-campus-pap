@@ -83,9 +83,18 @@ export async function POST(request: Request) {
     return fail("Seleciona a aula, o aluno, a data e um estado válido.");
   }
 
+  const parsedDate = new Date(date + "T00:00:00.000Z");
+  if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) {
+    return fail("A data indicada não é válida.");
+  }
+
   const { data: schedule } = await admin.from("horarios")
-    .select("id,turma_id,professor_id").eq("id", horarioId).eq("professor_id", user.id).maybeSingle();
+    .select("id,turma_id,professor_id,dia_semana").eq("id", horarioId).eq("professor_id", user.id).maybeSingle();
   if (!schedule) return fail("Não podes registar presenças nesta aula.", 403);
+  const weekday = parsedDate.getUTCDay() === 0 ? 7 : parsedDate.getUTCDay();
+  if (Number(schedule.dia_semana) !== weekday) {
+    return fail("A data escolhida não corresponde ao dia da semana desta aula.");
+  }
   const { data: membership } = await admin.from("alunos_turmas")
     .select("aluno_id").eq("aluno_id", alunoId).eq("turma_id", schedule.turma_id).is("data_fim", null).maybeSingle();
   if (!membership) return fail("O aluno não pertence a esta turma ativa.", 403);
