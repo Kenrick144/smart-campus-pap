@@ -49,7 +49,7 @@ function parseSemicolonLine(line: string): string[] {
 
 async function workbookRows(file: File): Promise<string[][]> {
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(Buffer.from(await file.arrayBuffer()) as Parameters<typeof workbook.xlsx.load>[0]);
+  await workbook.xlsx.load(Buffer.from(await file.arrayBuffer()) as unknown as Parameters<typeof workbook.xlsx.load>[0]);
   const sheet = workbook.worksheets[0];
   if (!sheet) throw new Error("O ficheiro " + file.name + " não contém uma folha.");
   const rows: string[][] = [];
