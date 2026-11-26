@@ -49,7 +49,7 @@ function parseSemicolonLine(line: string): string[] {
 
 async function workbookRows(file: File): Promise<string[][]> {
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(Buffer.from(await file.arrayBuffer()));
+  await workbook.xlsx.load(Buffer.from(await file.arrayBuffer()) as Parameters<typeof workbook.xlsx.load>[0]);
   const sheet = workbook.worksheets[0];
   if (!sheet) throw new Error("O ficheiro " + file.name + " não contém uma folha.");
   const rows: string[][] = [];
@@ -154,7 +154,7 @@ export async function POST(request: Request) {
           professorCodigo: teacherCode, professorNome: String(teacherByCode.get(teacherCode) ?? teacherCode),
           disciplinaCodigo: subjectCode, disciplinaNome: String(subjectByCode.get(subjectCode.toUpperCase()) ?? subjectCode),
           salaCodigo: roomCode, salaNome: String(roomByCode.get(roomCode.toUpperCase()) ?? roomCode),
-          diaSemana: day, periodo, horaInicio, horaFim,
+          diaSemana: day, periodo: period, horaInicio, horaFim,
           dataInicio: lesson[14] || "", dataFim: lesson[15] || "", warnings,
         });
       }
