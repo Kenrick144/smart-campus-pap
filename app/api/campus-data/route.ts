@@ -1245,17 +1245,53 @@ async function mutateRecord(request: Request, method: "POST" | "PATCH" | "DELETE
       if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
-    if (resource === "/presencas" && role === "Professor" && method !== "DELETE" && row) {
-      // Validar tanto a criação como a alteração: o PATCH não pode redirecionar
-      // uma presença para outro horário ou para um aluno de outra turma.
+    if (resource === "/presencas" && method !== "DELETE" && row) {
+      // Todas as vias de escrita (não apenas o formulário do professor) validam
+      // data, dia da aula, inscrição e duplicados antes de gravar.
+      const attendanceDate = text(row, "data");
+      const attendanceState = text(row, "estado");
+      const studentId = text(row, "aluno_id");
       const scheduleId = text(row, "horario_id");
-      const { data: schedule, error } = await admin.from("horarios").select("professor_id, turma_id").eq("id", scheduleId).maybeSingle();
-      if (error || !schedule || text(schedule as Row, "professor_id") !== user.id) {
+      if (!isValidIsoDate(attendanceDate)) {
+        return NextResponse.json({ error: "A data da presença não é válida." }, { status: 400 });
+      }
+      if (!["Presente", "Falta", "Atraso"].includes(attendanceState)) {
+        return NextResponse.json({ error: "O estado da presença deve ser Presente, Falta ou Atraso." }, { status: 400 });
+      }
+      if (!studentId || !scheduleId) {
+        return NextResponse.json({ error: "Seleciona o aluno e o horário." }, { status: 400 });
+      }
+
+      const { data: schedule, error: scheduleError } = await admin
+        .from("horarios").select("professor_id,turma_id,dia_semana").eq("id", scheduleId).maybeSingle();
+      if (scheduleError || !schedule) {
+        return NextResponse.json({ error: "O horário selecionado não existe." }, { status: 400 });
+      }
+      if (role === "Professor" && text(schedule as Row, "professor_id") !== user.id) {
         return NextResponse.json({ error: "Só podes registar ou alterar presenças nos teus próprios horários." }, { status: 403 });
       }
-      const { data: membership, error: membershipError } = await admin.from("alunos_turmas").select("id").eq("aluno_id", text(row, "aluno_id")).eq("turma_id", text(schedule as Row, "turma_id")).is("data_fim", null).maybeSingle();
+      const parsedDate = new Date(attendanceDate + "T00:00:00.000Z");
+      const weekday = parsedDate.getUTCDay() === 0 ? 7 : parsedDate.getUTCDay();
+      if (Number((schedule as Row).dia_semana) !== weekday) {
+        return NextResponse.json({ error: "A data escolhida não corresponde ao dia da semana desta aula." }, { status: 400 });
+      }
+
+      const { data: membership, error: membershipError } = await admin
+        .from("alunos_turmas").select("id").eq("aluno_id", studentId)
+        .eq("turma_id", text(schedule as Row, "turma_id")).is("data_fim", null).maybeSingle();
       if (membershipError || !membership) {
-        return NextResponse.json({ error: "O aluno não pertence a esta turma." }, { status: 403 });
+        return NextResponse.json({ error: "O aluno não pertence a esta turma ativa." }, { status: 403 });
+      }
+
+      let duplicateQuery = admin.from("presencas").select("id")
+        .eq("aluno_id", studentId).eq("horario_id", scheduleId).eq("data", attendanceDate);
+      if (method === "PATCH" && recordId) duplicateQuery = duplicateQuery.neq("id", recordId);
+      const { data: duplicate, error: duplicateError } = await duplicateQuery.maybeSingle();
+      if (duplicateError) {
+        return NextResponse.json({ error: "Não foi possível verificar registos duplicados." }, { status: 500 });
+      }
+      if (duplicate) {
+        return NextResponse.json({ error: "Já existe um registo para este aluno nesta aula e data." }, { status: 409 });
       }
     }
 
